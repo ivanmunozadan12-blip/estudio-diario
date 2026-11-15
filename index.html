@@ -883,17 +883,23 @@ REQUISITOS DE GUION
 - Frases cortas, ritmo rápido, español neutro de España, tono de narrador cercano. Cada escena tiene 1 o 2 frases (6 a 20 palabras). Escribe los números con cifras. Sin violencia gráfica.
 - En "texto" marca con asteriscos UNA palabra clave por escena (*así*), que saldrá en amarillo en el subtítulo.
 
-DIRECCIÓN VISUAL (cada escena)
-- fondo: ${BG_LIST}.
+DIRECCIÓN ARTÍSTICA Y VISUAL (prioridad alta: cada vídeo debe tener identidad propia)
+Antes de escribir las escenas, decide internamente una propuesta visual específica para ESTE tema: cuál es el escenario principal, qué objetos o fenómenos son los protagonistas, qué transformación visual contará la explicación y cómo evolucionará la composición desde el gancho hasta el desenlace. No devuelvas esa propuesta como texto: aplícala en todas las escenas.
+- CONSERVA SIEMPRE la identidad gráfica del canal: animación 2D ilustrada, estética, paleta, tratamiento de fondos, formas, iluminación y lenguaje de cámara actuales. No inventes un estilo artístico nuevo ni pidas realismo, 3D, fotografías o cambios de tipografía. La variedad debe venir de la dirección de escena, no de cambiar el estilo del canal.
+- Cada escena debe representar literalmente una acción, objeto, lugar, mecanismo o consecuencia mencionada en su narración. Si el texto habla de ondas sonoras, muestra ondas; si habla del interior de un aparato, sitúa la acción dentro del aparato; si habla de una reacción, representa esa reacción. No añadas decoración genérica sin relación.
+- Construye una secuencia visual propia del tema, no una plantilla. Varía el tipo de plano y composición: primer plano, vista general, corte transversal, vista desde dentro, comparación lado a lado, recorrido, transformación, escala monumental o detalle. Usa solo las que tengan sentido en cada momento.
+- No uses por defecto laboratorio/probetas, contadores, gráficas de barras, diagramas, cielo, espacio o fondos abstractos. Úsalos únicamente si el contenido realmente trata de ellos y aportan información. Prohibido insertar probetas, barras o contadores como relleno visual.
+- Evita repetir entre vídeos la misma secuencia de recursos. No sigas una estructura visual fija de “objeto → laboratorio → contador → barras → cielo”. La progresión debe nacer de la historia concreta.
+- fondo: ${BG_LIST}. Elige el escenario más específico disponible para lo que se cuenta; no elijas un fondo por costumbre. Puedes mantener un escenario coherente durante varias escenas si la acción evoluciona dentro de él; cambiar de fondo sin motivo no es variedad.
 - tono: dia, atardecer, noche, tormenta, calido, niebla o tension.
-- items (0 a 3 por escena), cada uno {"t": nombre, "x": 0-1, "y": 0-1, "s": escala, ...}. Nombres: ${ITEM_LIST}. La base de la figura se coloca en y (objetos de suelo y personas: y entre 0.78 y 0.9; objetos flotantes como sol, luna, nube, reloj, moneda, corazón, bombilla, lupa, cohete, avión: y entre 0.35 y 0.6). Escala s: 0.8 a 1.6 para primer plano; 0.4 a 0.7 para lejos.
+- items (0 a 3 por escena), cada uno {"t": nombre, "x": 0-1, "y": 0-1, "s": escala, ...}. Nombres: ${ITEM_LIST}. Escoge los elementos más cercanos al tema y a la frase narrada. No rellenes el plano por obligación. La base de la figura se coloca en y (objetos de suelo y personas: y entre 0.78 y 0.9; objetos flotantes: y entre 0.35 y 0.6). Escala s: 0.8 a 1.6 para primer plano; 0.4 a 0.7 para lejos.
 - persona admite: genero ("f"/"m"), pelo (rubio, castano, negro, pelirrojo, canoso, calvo), piel (claro, medio, oscuro), ropa (color o "vestido", "bata", "uniforme"), emocion (neutral, alegre, triste, miedo, sorpresa, enfado), accesorio (gafas, sombrero, casco), herida (true), brazos ("arriba"). Mantén el mismo aspecto del protagonista en todas las escenas.
-- camara: zoomin, zoomout, izq, der, arriba, abajo o fija. Alterna, no repitas dos seguidas.
-- efectos (opcional): lluvia, nieve, niebla, polvo, chispas, rayos, luz, noche, calido, sangre, temblor.
-- rotulo (opcional, 1 a 3 palabras): rótulo rojo arriba para un lugar, fecha o concepto (por ejemplo "NOCHEBUENA, 1971").
+- camara: zoomin, zoomout, izq, der, arriba, abajo o fija. Alterna solo cuando ayude a contar la acción; no hagas movimientos aleatorios.
+- efectos (opcional): lluvia, nieve, niebla, polvo, chispas, rayos, luz, noche, calido, temblor. Solo si tienen sentido en la escena.
+- rotulo (opcional, 1 a 3 palabras): rótulo rojo arriba para un lugar, fecha o concepto.
 - etiqueta (opcional): {"nombre": "...", "sub": "..."} para presentar a una persona real.
-- tipo (opcional, úsalo 2 o 3 veces en todo el vídeo para variar): "mapa" con dato {"pins":[{"n":"LIMA","x":0.25,"y":0.6},{"n":"PUCALLPA","x":0.7,"y":0.35}]} (fondo mapa); "grid" con dato {"total":92,"dest":1} y rotulo "1 DE 92"; "numero" con dato {"valor":11,"sufijo":" días","etiqueta":"sola en la selva"}; "barras" con dato {"barras":[{"n":"A","v":10},{"n":"B","v":25}]}; "titulo" con dato {"texto":"..."} para el gancho.
-- No repitas el mismo fondo más de dos escenas seguidas.
+- tipo (opcional): "mapa" con dato {"pins":[{"n":"LIMA","x":0.25,"y":0.6},{"n":"PUCALLPA","x":0.7,"y":0.35}]}; "grid" con dato {"total":92,"dest":1}; "numero" con dato {"valor":11,"sufijo":" días","etiqueta":"..." }; "barras" con dato {"barras":[{"n":"A","v":10},{"n":"B","v":25}]}; "titulo" con dato {"texto":"..."}. Son recursos especiales, NO obligatorios: usa solo el que aporte una explicación real y evita repetirlos por rutina.
+- No repitas el mismo fondo más de dos escenas seguidas, salvo que mantener el mismo escenario sea narrativamente necesario.
 
 También devuelve: titulo (≤ 70 caracteres, que despierte curiosidad sin mentir), descripcion (1 o 2 frases), hashtags (5 o 6, sin #), musica (tension, epico, calma, misterio o alegre).
 
