@@ -862,14 +862,19 @@ const ITEM_LIST = Object.keys(ITEM).join(', ');
 const BG_LIST = Object.keys(BG).join(', ');
 function scriptPrompt(topic, S, dossier, plan){
   const nScenes = Math.round(S.target / 4.1), nWords = Math.round(S.target * 2.5);
-  return `Eres el guionista y director de un canal de vídeos verticales en español (YouTube Shorts, TikTok, Reels) de historias contadas en animación 2D plana, narradas como un thriller breve. Escribe el guion completo y la dirección visual de UN vídeo.
+  const hypothetical = /¿QUÉ PASARÍA SI/i.test(topic);
+   const format = /¿CÓMO FUNCIONA/i.test(topic) ? 'EXPLICACIÓN DE UN OBJETO O FENÓMENO COTIDIANO' : hypothetical ? 'ESCENARIO HIPOTÉTICO ¿QUÉ PASARÍA SI…?' : '¿SABÍAS QUE? / CIENCIA Y CURIOSIDADES';
+   return `Eres el guionista y director de un canal de vídeos verticales en español (YouTube Shorts, TikTok, Reels). Crea vídeos divulgativos muy visuales, dinámicos y entretenidos, con animación 2D plana de calidad y ritmo cinematográfico. Escribe el guion completo y la dirección visual de UN vídeo.
 
+FORMATO DE ESTE VÍDEO: ${format}
 ENCARGO DEL USUARIO: ${topic}
-NICHO DEL CANAL: ${S.niche || 'historias reales y curiosidades'}${dossierBlock(dossier)}${sensitiveBlock(topic, plan)}
+NICHO DEL CANAL: ${S.niche || 'ciencia, curiosidades y explicaciones de cómo funciona el mundo'}${hypothetical ? '\\nESCENARIO HIPOTÉTICO: no presentes la premisa como un hecho ocurrido. Explora consecuencias paso a paso, separando las leyes científicas conocidas de las partes especulativas. Si la premisa es físicamente imposible, dilo claramente y explica qué ocurriría si imagináramos que esa regla pudiera romperse.' : dossierBlock(dossier)}${hypothetical ? '' : sensitiveBlock(topic, plan)}
 
 REQUISITOS DE GUION
 - Duración objetivo ${S.target} s: unas ${nWords} palabras de narración repartidas en ${nScenes} escenas (entre ${nScenes - 2} y ${nScenes + 3}).
-- Solo hechos reales y comprobables. Si no estás seguro de un dato (nombre, cifra, fecha), no lo incluyas ni lo inventes. No incluyas ningún dato que no puedas respaldar.
+- En vídeos de ciencia y curiosidades, utiliza hechos reales comprobables. En explicaciones, describe el mecanismo real de forma sencilla y visual. En escenarios hipotéticos, diferencia explícitamente hechos científicos, suposiciones y consecuencias imaginadas. Nunca hagas pasar una hipótesis por noticia o hecho real.
+- No generes vídeos de supervivencia extrema, tragedias, crímenes, sucesos morbosos ni misterios sin resolver. No centres el canal en historias de víctimas o catástrofes reales.
+- Si no estás seguro de un dato real (nombre, cifra, fecha o explicación), no lo inventes ni lo presentes como cierto.
 - Escena 1 = gancho de 2 o 3 segundos que abre una pregunta o una contradicción que el espectador necesita cerrar (algo concreto, con cifra o con consecuencias). Nada de saludos ni de "hoy os voy a contar".
 - Estructura: gancho, contexto mínimo, nudo con giros cada 2 o 3 escenas, clímax, desenlace con dato final sorprendente. La última escena cierra con una frase que invite a seguir el canal sin sonar a anuncio.
 - Frases cortas, ritmo rápido, español neutro de España, tono de narrador cercano. Cada escena tiene 1 o 2 frases (6 a 20 palabras). Escribe los números con cifras. Sin violencia gráfica.
@@ -1013,15 +1018,31 @@ const stopAll = () => { try { aborter?.abort(); } catch (e) {} try { current?.ca
 
 /* --- IA: temas y guion --- */
 const errCopy = e => ({ bad_key:'La clave no es válida o falta. Revísala en Ajustes de IA.', rate_limited:'Has llegado al límite gratuito de la IA (por minuto o por día). Espera un poco o cambia de IA en Ajustes.', invalid_json:'La IA devolvió un formato que no pude leer. Pulsa Guion otra vez.', cancelled:'Cancelado.', network:(e && e.message), model_not_found:(e && e.message) || 'Modelo no encontrado. Pulsa «Probar y listar modelos» en Ajustes.', empty:(e && e.message) }[e && e.code] || (e && e.message) || 'No se pudo completar.');
-async function pickTopics(n, S){
+async function pickTopics(n, S, slotIndices = []){
   const hist = store.get('hist', []).slice(-25), taken = slots.map(s => s.topic).filter(Boolean);
-  const arr = await aiJson(`Propón ${n} encargos distintos para vídeos cortos verticales de este canal.\nNICHO: ${S.niche}\nCada uno: historia real, comprobable y con gancho (un caso concreto con protagonista, lugar y giro), en una frase de máximo 16 palabras, con tono respetuoso si trata de tragedias.\nNo repitas ni te parezcas a estos ya usados: ${JSON.stringify(hist.concat(taken))}\nFecha de hoy: ${dayKey()}.\nResponde solo con JSON: {"temas":["..."]} con ${n} strings.`, { signal: aborter?.signal, temperature: 1 });
-  return (Array.isArray(arr) ? arr : arr.temas || []).map(String).slice(0, n);
+  const formats = ['¿SABÍAS QUE?', '¿CÓMO FUNCIONA?', '¿QUÉ PASARÍA SI?'];
+  const requested = slotIndices.map(i => ({ slot: i + 1, formato: formats[i] || formats[i % 3] }));
+  const arr = await aiJson(`Propón ${n} temas distintos para vídeos verticales de divulgación, ciencia y curiosidades.
+NICHO: ${S.niche}
+ASIGNA LOS FORMATOS INDICADOS A CADA VÍDEO, respetando el orden:
+${JSON.stringify(requested)}
+1) ¿SABÍAS QUE?: curiosidades científicas sorprendentes, fenómenos naturales, espacio, animales, cuerpo humano, tecnología, inventos, datos poco conocidos y mitos que la ciencia aclara.
+2) ¿CÓMO FUNCIONA?: explica objetos y tecnologías cotidianas que usamos (móvil, microondas, wifi, nevera, coche, GPS, ascensor, pantallas, baterías, etc.) o procesos del mundo que normalmente no entendemos.
+3) ¿QUÉ PASARÍA SI?: experimentos mentales y escenarios hipotéticos, desde situaciones plausibles hasta premisas imposibles o que contradicen la física. Ejemplos: qué pasaría si un tsunami llegase a distintas zonas de España, si la Tierra dejase de girar, si pudiéramos respirar bajo el agua o si desapareciese la gravedad. Deben ser claramente hipotéticos, no noticias.
+Los temas deben ser concretos, visuales, sorprendentes y explicables en 60 segundos. Máximo 16 palabras por tema. No repitas ni te parezcas a estos temas ya usados o elegidos hoy: ${JSON.stringify(hist.concat(taken))}
+PROHIBIDO: supervivencia extrema, tragedias reales, crímenes, sucesos morbosos, misterio/true crime, teorías conspirativas y titulares engañosos.
+Fecha de hoy: ${dayKey()}.
+Responde solo con JSON: {"temas":["..."]} con ${n} strings, en el mismo orden de formatos solicitado.`, { signal: aborter?.signal, temperature: 1 });
+  return (Array.isArray(arr) ? arr : arr.temas || []).map((v, i) => {
+    const raw = String(v);
+    const format = formats[slotIndices[i] ?? i % 3];
+    return /^(¿SABÍAS QUE\?|¿CÓMO FUNCIONA\?|¿QUÉ PASARÍA SI\?)/i.test(raw) ? raw : format + ' — ' + raw;
+  }).slice(0, n);
 }
 async function genScript(i, S){
   const sl = slots[i];
   if (sl.own.trim().split(/\s+/).length >= 15) { sl.script = autoScenes(sl.own, sl.topic || ''); persist(); return; }
-  if (!sl.topic.trim()) { const t = await pickTopics(1, S); sl.topic = t[0]; }
+  if (!sl.topic.trim()) { const t = await pickTopics(1, S, [i]); sl.topic = t[0]; }
   sl.busy = 'Pensando…'; renderSlot(i);
   sl.script = await buildScript(sl.topic, S, m => { sl.busy = m; msg(m); paintStatus(i); }, aborter?.signal); persist(); msg('');
 }
@@ -1112,7 +1133,7 @@ $('#allBtn').addEventListener('click', async () => {
   if (running) return; running = true; refreshUI(); const S = settings(); aborter = new AbortController(); msg('Eligiendo temas…');
   try {
     const need = slots.map((s, i) => ({ s, i })).filter(x => !x.s.topic.trim() && x.s.own.trim().split(/\s+/).length < 15);
-    if (need.length) { const ts = await pickTopics(need.length, S); need.forEach((x, k) => { x.s.topic = ts[k] || ''; }); persist(); [0,1,2].forEach(renderSlot); }
+    if (need.length) { const ts = await pickTopics(need.length, S, need.map(x => x.i)); need.forEach((x, k) => { x.s.topic = ts[k] || ''; }); persist(); [0,1,2].forEach(renderSlot); }
     for (let i = 0; i < 3 && running; i++) {
       aborter = new AbortController(); slots[i].err = '';
       if (!slots[i].script) { msg(`Vídeo ${i+1}/3: escribiendo guion…`); slots[i].busy = 'Pensando…'; renderSlot(i); await genScript(i, S); slots[i].busy = ''; renderSlot(i); }
@@ -1271,7 +1292,8 @@ const verifyPrompt = (raw, d) => `Eres verificador de datos. Te paso un guion en
 
 async function buildScript(request, S, progress, sig){
   let dossier = '', sources = [], plan = null;
-  if (S.research) {
+  const hypothetical = /¿QUÉ PASARÍA SI/i.test(request);
+  if (S.research && !hypothetical) {
     progress('Planificando la investigación…');
     try { plan = await aiJson(planPrompt(request), { signal: sig, temperature: .2 }); } catch (e) { if (['cancelled', 'bad_key', 'rate_limited', 'network'].includes(e.code)) throw e; plan = null; }
     const r = await research(request, plan, sig, progress); dossier = r.text; sources = r.sources;
