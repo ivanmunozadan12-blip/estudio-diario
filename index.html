@@ -1399,17 +1399,28 @@ async function buildScript(request, S, progress, sig){
   const hypothetical = /¿QUÉ PASARÍA SI/i.test(request);
   if (S.research && !hypothetical) {
     progress('Planificando la investigación…');
-    try { plan = await aiJson(planPrompt(request), { signal: sig, temperature: .2 }); } catch (e) { if (['cancelled', 'bad_key', 'rate_limited', 'network'].includes(e.code)) throw e; plan = null; }
+    try { plan = await aiJson(planPrompt(request), { signal: sig, temperature: .2 }); } catch (e) { if (e.code === 'cancelled') throw e; plan = null; }
     const r = await research(request, plan, sig, progress); dossier = r.text; sources = r.sources;
+    if (!dossier || !sources.length) throw { code: 'research_failed', message: 'No se han podido obtener fuentes para este tema. No se generará un vídeo factual sin documentación.' };
   }
   progress('Escribiendo el guion…');
   let raw = await aiJson(scriptPrompt(request, S, dossier, plan), { signal: sig, temperature: .85 });
   let changes = [];
   if (S.verify && dossier) {
     progress('Verificando datos contra las fuentes…');
-    try { const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 }); if (v && Array.isArray(v.escenas) && v.escenas.length >= Math.ceil(raw.escenas.length * .7)) { changes = Array.isArray(v.cambios) ? v.cambios : []; raw = Object.assign({}, raw, v); } } catch (e) { if (e.code === 'cancelled') throw e; }
+    try {
+      const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 });
+      if (!v || !Array.isArray(v.escenas) || v.escenas.length < Math.ceil(raw.escenas.length * .7)) {
+        throw { code: 'verification_failed', message: 'La verificación no devolvió un guion completo y válido.' };
+      }
+      changes = Array.isArray(v.cambios) ? v.cambios : [];
+      raw = Object.assign({}, raw, v);
+    } catch (e) {
+      if (e.code === 'cancelled') throw e;
+      throw { code: 'verification_failed', message: 'No se pudo completar la verificación de datos. No se generará el vídeo: ' + (e.message || e.code || 'error') };
+    }
   }
-  const sc = sanitizeScript(raw, request); sc.fuentes = sources; sc.cambios = changes; sc.sinFuentes = !!S.research && !dossier; sc.modelo = AIstate.used; return sc;
+  const sc = sanitizeScript(raw, request); sc.fuentes = sources; sc.cambios = changes; sc.sinFuentes = !!S.research && !hypothetical && !dossier; sc.modelo = AIstate.used; return sc;
 }
 /* ===== Voz: natural (Piper, neuronal, en el navegador) o sintética de respaldo ===== */
 const Voice = {
@@ -1463,9 +1474,9 @@ const Voice = {
       catch (e) {
         this.failed = true;
         const detail = e && (e.message || e.toString()) || 'Error desconocido';
-        msg('Error de voz neuronal: ' + detail);
-        console.error('[Piper neuronal]', detail, e && e.stack || '');
-        throw new Error('No se pudo generar la voz neuronal: ' + detail);
+        msg('La voz neuronal no está disponible; se utilizará la voz sintética de respaldo.');
+        console.warn('[Piper neuronal] Se activa la voz sintética de respaldo:', detail);
+        return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
       }
     }
     return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
