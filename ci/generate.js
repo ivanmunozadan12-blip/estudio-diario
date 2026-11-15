@@ -48,18 +48,15 @@ const toB64 = async blob => {
     set('provider', 'gemini');
     set('apiKey', keys[0]);
     set('extraApiKeys', keys.slice(1).join('\n'));
-    if (cfg.forceTopics && cfg.forceTopics.length === 3) {
-      set('slots', cfg.forceTopics.map(topic => ({ topic, own: '', script: null })));
-    }
     set('niche', cfg.nicho);
     set('target', String(cfg.duracion));
     set('voiceEngine', 'natural');
     set('voiceId', cfg.voiceId || 'es_ES-davefx-medium');
     set('research', !!cfg.investigar);
     set('verify', !!cfg.verificar);
-    set('slots', (cfg.forceTopics && cfg.forceTopics.length === 3)
-      ? cfg.forceTopics.map(topic => ({ topic, own: '', script: null }))
-      : []);
+    if (cfg.forceTopics && cfg.forceTopics.length === 3) {
+      set('slots', cfg.forceTopics.map(topic => ({ topic, own: '', script: null })));
+    }
 
     localStorage.setItem('hist', JSON.stringify(topics));
   }, { keys, cfg: Object.assign({}, cfg, batch && day === '2026-11-15' ? {
