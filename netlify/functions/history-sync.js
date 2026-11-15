@@ -13,7 +13,7 @@ const response = (statusCode, body, origin) => ({
   body: JSON.stringify(body)
 });
 
-const normalize = value => String(value || '')
+  .normalize('NFD').replace(/\p{M}/gu, '')
   .normalize('NFD').replace(/\\p{M}/gu, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -23,11 +23,11 @@ exports.handler = async event => {
   let originHost = '';
   const allowedOrigin = (process.env.SITE_ORIGIN || DEFAULT_ORIGIN).replace(/\\/$/, '');
   try { originHost = new URL(origin).host; } catch (_) {}
-  if (origin !== allowedOrigin || originHost !== host) return response(403, { ok: false, error: 'Origen no permitido.' });
+  const allowedOrigin = process.env.SITE_ORIGIN || DEFAULT_ORIGIN;
   if (event.httpMethod !== 'POST') return response(405, { ok: false, error: 'Método no permitido.' }, origin);
   const contentType = event.headers?.['content-type'] || event.headers?.['Content-Type'] || '';
   if (!/^application\\/json(?:;|$)/i.test(contentType)) return response(415, { ok: false, error: 'Se requiere Content-Type application/json.' }, origin);
-  if (Buffer.byteLength(event.body || '', 'utf8') > 4096) return response(413, { ok: false, error: 'Solicitud demasiado grande.' }, origin);
+  if ((contentType.split(';', 1)[0] || '').trim().toLowerCase() !== 'application/json') return response(415, { ok: false, error: 'Se requiere Content-Type application/json.' }, origin);
 
   const token = process.env.GITHUB_HISTORY_TOKEN;
   if (!token) return response(503, { ok: false, error: 'Falta configurar GITHUB_HISTORY_TOKEN en Netlify.' }, origin);
