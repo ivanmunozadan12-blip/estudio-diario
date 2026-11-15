@@ -1,3 +1,6 @@
 [build]
-  command = ""
-  publish = "."
+  command = "mkdir -p site && cp index.html manifest.webmanifest icon-192.png icon-512.png sw.js config.json history.json site/"
+  publish = "site"
+
+[functions]
+  directory = "netlify/functions"
