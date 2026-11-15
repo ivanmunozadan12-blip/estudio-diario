@@ -60,7 +60,7 @@ for (const value of ['0', '1', '2']) {
 }
 
 const videoWorkflow = fs.readFileSync('.github/workflows/videos.yml', 'utf8');
-if (!videoWorkflow.includes('GITHUB_RUN_ATTEMPT') || videoWorkflow.includes('git push || true') || videoWorkflow.includes('git commit -m "Temas usados" || true')) {
+if (!videoWorkflow.includes('GITHUB_RUN_ATTEMPT') || !videoWorkflow.includes('[skip netlify]') || videoWorkflow.includes('git push || true') || videoWorkflow.includes('git commit -m "Temas usados" || true')) {
   throw new Error('Los reruns deben detenerse y los errores de persistencia no deben ocultarse.');
 }
 const uploader = fs.readFileSync('ci/youtube-upload.js', 'utf8');
