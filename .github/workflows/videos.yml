@@ -1,12 +1,5 @@
 name: Vídeos diarios
 on:
-  push:
-    paths:
-      - 'ci/generate.js'
-      - 'ci/send.sh'
-      - 'index.html'
-      - 'config.json'
-      - '.github/workflows/videos.yml'
   schedule:
     # Madrid 09:30 / 14:30 / 20:30 (se lanzan en horario de invierno y de verano; ci/slot.js evita duplicados)
     - cron: '30 7 * * *'
@@ -24,7 +17,7 @@ permissions:
   contents: write
 concurrency:
   group: videos
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   generar:
     runs-on: ubuntu-latest
