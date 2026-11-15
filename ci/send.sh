@@ -3,7 +3,7 @@
 set -e
 shopt -s nullglob
 # Descubre los archivos realmente guardados, sin asumir que la extensión coincide con el MIME.
-mapfile -t raws < <(find out -maxdepth 1 -type f \\( -name 'raw*.webm' -o -name 'raw*.mp4' \\) -size +0c | sort)
+mapfile -t raws < <(find out -maxdepth 1 -type f \( -name 'raw*.webm' -o -name 'raw*.mp4' \) -size +0c | sort)
 if [ ${#raws[@]} -eq 0 ]; then
   echo "No se encontraron vídeos fuente válidos en out/. Contenido disponible:"
   ls -lah out/ || true
