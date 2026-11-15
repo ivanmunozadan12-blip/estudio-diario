@@ -1293,9 +1293,11 @@ const Voice = {
     // El espejo antiguo de Piper en Hugging Face responde 405; usar el repositorio oficial fijado v1.0.0.
     if (!this.fetchPatched) {
       const nativeFetch = window.fetch.bind(window);
+      const ciLocal = location.hostname === 'localhost' && location.port === '8099';
+      const hfPrefix = ciLocal ? (location.origin + '/voices/') : 'https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/';
       window.fetch = (resource, options) => {
         const raw = typeof resource === 'string' ? resource : (resource && resource.url) || '';
-        const fixed = raw.replace('https://huggingface.co/diffusionstudio/piper-voices/resolve/main/', 'https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/');
+        const fixed = raw.replace('https://huggingface.co/diffusionstudio/piper-voices/resolve/main/', hfPrefix);
         return nativeFetch(fixed || resource, options);
       };
       this.fetchPatched = true;
