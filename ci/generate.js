@@ -55,7 +55,7 @@ const toB64 = async blob => {
     localStorage.setItem('hist', JSON.stringify(topics));
   }, { key, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
   await page.goto('http://localhost:8099/index.html');
-  await page.waitForFunction(() => window.__studio && window.__studio.Voice, { timeout: 30000 });
+  await page.waitForFunction(() => window.__studio && window.__studio.Voice, null, { timeout: 30000 });
 
   // Prueba real de Piper antes de producir nada: si falla, NO se permite usar la voz robótica.
   const voiceCheck = await page.evaluate(async () => {
@@ -84,8 +84,8 @@ const toB64 = async blob => {
   if (batch) {
     console.log('Modo lote: la propia web elegirá tres temas distintos y generará los tres vídeos.');
     await page.click('#allBtn');
-    await page.waitForFunction(() => document.querySelector('#allBtn')?.disabled === true, { timeout: 15000 });
-    await page.waitForFunction(() => document.querySelector('#allBtn')?.disabled === false, { timeout: 1800000 });
+    await page.waitForFunction(() => document.querySelector('#allBtn')?.disabled === true, null, { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector('#allBtn')?.disabled === false, null, { timeout: 1800000 });
     const result = await page.evaluate(async () => {
       const slots = window.__studio.slots;
       return Promise.all(slots.map(async (s, i) => ({
