@@ -1291,7 +1291,7 @@ const Voice = {
   async load(progress){
     if (this.mod) return this.mod;
     progress && progress('Cargando la voz natural (la primera vez descarga unos 60 MB)…');
-    const urls = ['https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.4/+esm', 'https://esm.sh/@mintplex-labs/piper-tts-web@1.0.4'];
+    const urls = ['https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/+esm', 'https://esm.sh/@mintplex-labs/piper-tts-web@1.0.5'];
     let err; for (const u of urls) { try { this.mod = await import(u); break; } catch (e) { err = e; } }
     if (!this.mod) throw new Error('No se pudo cargar el motor de voz natural: ' + (err && err.message || err));
     try { const all = await this.mod.voices(); this.voices = Object.keys(all || {}).filter(k => /^es_/.test(k)).sort((a, b) => (/es_ES/.test(b) - /es_ES/.test(a)) || (/high|medium/.test(b) - /high|medium/.test(a))); } catch (e) { this.voices = ['es_ES-davefx-medium']; }
@@ -1315,9 +1315,16 @@ const Voice = {
     return { samples, fs: buf.sampleRate, dur, words };
   },
   async speak(text, S, progress){
-    if (S.engine === 'natural' && !this.failed) {
+    if (S.engine === 'natural') {
+      if (this.failed) throw new Error('El motor de voz neuronal ya ha fallado en esta sesión.');
       try { return await this.natural(text, progress); }
-      catch (e) { this.failed = true; msg('La voz natural no está disponible aquí (' + (e && e.message || e) + '). Uso la voz sintética.'); }
+      catch (e) {
+        this.failed = true;
+        const detail = e && (e.message || e.toString()) || 'Error desconocido';
+        msg('Error de voz neuronal: ' + detail);
+        console.error('[Piper neuronal]', detail, e && e.stack || '');
+        throw new Error('No se pudo generar la voz neuronal: ' + detail);
+      }
     }
     return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
   }
