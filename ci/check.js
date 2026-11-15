@@ -77,7 +77,7 @@ if (!mock.includes('api.genScript = async') || mock.includes('generativelanguage
   throw new Error('El mock de CI debe sustituir generación y voz sin llamar a Gemini ni Piper.');
 }
 const sender = fs.readFileSync('ci/send.sh', 'utf8');
-if (!sender.includes('ffprobe') || !sender.includes('codec_type') || !sender.includes('9 / 16') || !sender.includes('sendVideo') || !sender.includes('sendMessage')) {
+if (!sender.includes('ffprobe') || !sender.includes('codec_type') || !sender.includes('9 / 16') || !sender.includes('sendVideo') || !sender.includes('sendMessage') || !sender.includes('52428800')) {
   throw new Error('Faltan las validaciones del MP4 o la confirmación de los envíos Telegram.');
 }
 const preflight = fs.readFileSync('ci/preflight.js', 'utf8');
