@@ -1202,7 +1202,7 @@ async function httpJson(url, opt){
 }
 
 /* --- Gemini: descubre modelos de texto y prepara una cadena de respaldo --- */
-const verOf = id => { const m = id.match(/(\\d+(?:\\.\\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+const verOf = id => { const m = id.match(/(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
 function geminiChain(ids){
   const bad = /image|tts|live|audio|embed|robotics|computer|vision|imagen|veo|lyria|aqa|native/i;
   const ok = ids.filter(i => !bad.test(i));
@@ -1215,7 +1215,7 @@ function geminiChain(ids){
 }
 async function geminiModels(key, sig){
   const j = await httpJson('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, signal: sig });
-  return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\\//, ''));
+  return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, ''));
 }
 async function ensureChain(key, model, sig){
   const cacheKey = key + '|' + model;
