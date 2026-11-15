@@ -1,0 +1,29 @@
+ESTUDIO DIARIO — 3 vídeos al día solos (9:30, 14:30, 20:30 hora de Madrid)
+
+A) DESCARGA EN CHROME (Netlify)
+ Bajo cada vídeo hay ahora botones reales: «Descargar», «Abrir» y «Compartir».
+ Si «Descargar» no hace nada: pulsa «Abrir» y, en el vídeo, menú ⋮ → Descargar (o mantén pulsado).
+ «Compartir» en el móvil te deja mandarlo directo a YouTube/Instagram/TikTok.
+ Con la automatización (B) no necesitas descargar nada: el MP4 te llega a Telegram.
+
+B) AUTOMÁTICO REAL (sin abrir la web; el móvil puede estar apagado)
+ Un navegador en los servidores de GitHub abre la web, elige el tema, investiga, escribe el guion, pone voz,
+ graba el vídeo y te lo manda a Telegram. Tú solo lo revisas y lo subes. Gratis.
+ 1. Crea cuenta en github.com y un repositorio nuevo PRIVADO (ej. estudio-diario).
+ 2. Sube TODO el contenido de esta carpeta (Add file → Upload files). Importante: debe subirse la carpeta oculta
+    «.github». Si no se sube, crea a mano el archivo «.github/workflows/videos.yml» y pega dentro el texto de
+    «videos.yml.COPIA-VISIBLE.txt».
+ 3. Clave de Gemini gratis: aistudio.google.com/apikey
+ 4. Telegram: abre @BotFather → /newbot → copia el token. Escribe cualquier cosa a tu bot nuevo.
+    Abre en el navegador https://api.telegram.org/bot<TOKEN>/getUpdates y copia el número de «chat":{"id":...».
+ 5. En el repo: Settings → Secrets and variables → Actions → New repository secret. Crea tres:
+    GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+ 6. Pestaña Actions → «Vídeos diarios» → Run workflow (deja el hueco vacío o pon 0) para probar. En 10-20 min
+    te llega el vídeo. Desde entonces se ejecuta solo a las 9:30, 14:30 y 20:30.
+ Ajustes (nicho, duración, voz, horas): edita config.json.
+ Notas: GitHub puede retrasar el reloj hasta ~30 min en horas punta. Cuota gratuita de Gemini: unas 20 peticiones al día por modelo;
+ cada vídeo gasta unas 3-4, así que 3 vídeos entran. Si falla, el error sale en la pestaña Actions.
+
+C) WEB (Netlify) — también sirve a mano
+ index.html es la web. Su «Piloto automático» (ajustes) solo funciona con la página abierta y la pantalla encendida;
+ un navegador no puede trabajar en segundo plano. Para eso está B.

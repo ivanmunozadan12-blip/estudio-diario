@@ -1,0 +1,9 @@
+{
+  "zona": "Europe/Madrid",
+  "horas": ["09:30", "14:30", "20:30"],
+  "nicho": "Historias reales y sorprendentes (supervivencia, historia, ciencia, casos misteriosos), contadas con respeto y rigor.",
+  "duracion": 60,
+  "voz": "natural",
+  "investigar": true,
+  "verificar": true
+}
