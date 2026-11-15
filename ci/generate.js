@@ -38,7 +38,9 @@ const toB64 = async blob => {
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (url, options = {}) => {
-      const timeout = AbortSignal.timeout(240000);
+      // Evita que un único endpoint de Gemini bloquee toda la rotación.
+      const isGemini = typeof url === 'string' && url.includes('generativelanguage.googleapis.com');
+      const timeout = AbortSignal.timeout(isGemini ? 30000 : 60000);
       const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
       return originalFetch(url, { ...options, signal });
     };
@@ -112,7 +114,7 @@ const toB64 = async blob => {
       try {
         await Promise.race([
           window.__studio.genScript(i, window.__studio.settings()),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('La generación superó el límite de 6 minutos.')), 360000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('La generación superó el límite de 12 minutos.')), 720000))
         ]);
         return { ok: true, title: window.__studio.slots[i].script?.titulo || '' };
       } catch (e) { return { ok: false, error: e?.message || String(e), code: e?.code || '' }; }
