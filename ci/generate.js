@@ -10,9 +10,18 @@ const srv = http.createServer((q, r) => { let f = path.join('site', q.url.split(
   const ctx = await b.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); const p = await ctx.newPage();
   if (process.env.CI_MOCK) await require(path.resolve(process.env.CI_MOCK))(p);
   p.on('pageerror', e => console.log('[pageerror]', e.message));
+  p.on('console', m => console.log('[browser ' + m.type() + ']', m.text()));
   p.on('console', m => { if (m.type() === 'error') console.log('[browser console]', m.text()); });
   p.on('requestfailed', r => { if (/googleapis|wikipedia/i.test(r.url())) console.log('[request failed]', r.url(), r.failure()?.errorText || ''); });
   p.on('response', r => { if (/generativelanguage.googleapis.com/.test(r.url()) && r.status() >= 400) console.log('[Gemini HTTP]', r.status(), r.url()); });
+  await p.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (url, options = {}) => {
+      const timeout = AbortSignal.timeout(90000);
+      const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+      return originalFetch(url, { ...options, signal });
+    };
+  });
   await p.addInitScript(({ key, cfg, topics }) => {
     const set = (k, v) => localStorage.setItem('set:' + k, JSON.stringify(v));
     set('provider', 'gemini'); set('apiKey', key); set('niche', cfg.nicho); set('target', String(cfg.duracion)); set('voiceEngine', cfg.voz); set('research', !!cfg.investigar); set('verify', !!cfg.verificar);
@@ -21,7 +30,10 @@ const srv = http.createServer((q, r) => { let f = path.join('site', q.url.split(
   await p.goto('http://localhost:8099/index.html'); await p.waitForTimeout(800);
   const generation = await p.evaluate(async i => {
     try {
-      await window.__studio.genScript(i, window.__studio.settings());
+      const result = await Promise.race([
+        window.__studio.genScript(i, window.__studio.settings()),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('La generación superó el límite de 6 minutos.')), 360000))
+      ]);
       return { ok: true, title: window.__studio.slots[i].script?.titulo || '', topic: window.__studio.slots[i].topic || '' };
     } catch (e) {
       return { ok: false, error: e?.message || String(e), code: e?.code || '' };
