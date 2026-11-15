@@ -27,15 +27,18 @@ for RAW in "${raws[@]}"; do
   node - "$VIDEO" <<'NODE'
 const { execFileSync } = require('node:child_process');
 const file = process.argv[2];
-const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-show_entries', 'stream=codec_type,width,height', '-of', 'json', file], { encoding: 'utf8' }));
+const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-show_entries', 'stream=codec_type,width,height,duration', '-of', 'json', file], { encoding: 'utf8' }));
 const video = (probe.streams || []).find(s => s.codec_type === 'video');
 const audio = (probe.streams || []).find(s => s.codec_type === 'audio');
 const duration = Number(probe.format && probe.format.duration);
+const videoDuration = Number(video && video.duration || duration);
+const audioDuration = Number(audio && audio.duration || duration);
 if (!video || !audio) throw new Error('El MP4 debe contener imagen y audio.');
 if (!(video.width > 0 && video.height > video.width)) throw new Error('El vídeo no está en formato vertical.');
 if (Math.abs(video.width / video.height - 9 / 16) > 0.02) throw new Error('La relación de aspecto no es 9:16.');
 if (!Number.isFinite(duration) || duration < 5 || duration > 180) throw new Error('Duración fuera del rango permitido: ' + duration);
-console.log('MP4 verificado:', video.width + 'x' + video.height, Math.round(duration) + ' s, vídeo y audio presentes.');
+if (!Number.isFinite(videoDuration) || !Number.isFinite(audioDuration) || Math.abs(videoDuration - audioDuration) > 2) throw new Error('El audio y el vídeo no están sincronizados en duración.');
+console.log('MP4 verificado:', video.width + 'x' + video.height, Math.round(duration) + ' s, vídeo y audio presentes y sincronizados.');
 NODE
   if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
     caption=$(head -c 1000 "$CAPTION")
