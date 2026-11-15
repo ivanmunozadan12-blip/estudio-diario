@@ -8,7 +8,7 @@ const batch = requested === 'all' || process.env.BATCH_ALL === 'true';
 const slot = batch ? 0 : +requested;
 const cfg = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const hist = JSON.parse(fs.readFileSync('history.json', 'utf8'));
-const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2, process.env.GEMINI_API_KEY_3, process.env.GEMINI_API_KEY_4].map(v => (v || '').trim()).filter(Boolean);
+const keys = [...new Set([process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2, process.env.GEMINI_API_KEY_3, process.env.GEMINI_API_KEY_4].map(v => (v || '').trim()).filter(Boolean))];
 if (!keys.length) { console.error('Falta el secreto GEMINI_API_KEY'); process.exit(2); }
 console.log('Claves Gemini configuradas:', keys.length, '(los valores nunca se muestran).');
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
