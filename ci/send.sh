@@ -49,6 +49,6 @@ NODE
     response=$(curl -fsS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" -F chat_id="$TELEGRAM_CHAT_ID" -F text="$(head -c 3900 "$CAPTION")")
     node -e 'const x=JSON.parse(process.argv[1]); if (!x.ok) { console.error("Telegram no confirmó sendMessage:", x.description || "error"); process.exit(1); }' "$response"
   else
-    echo "Sin Telegram configurado: $VIDEO está en Artifacts."
+    echo "Sin Telegram configurado: el MP4 queda guardado en $VIDEO."
   fi
 done
