@@ -74,10 +74,15 @@ const toB64 = async blob => {
   // La voz neuronal se utiliza directamente durante la generación; no se ejecuta una prueba previa.
 
   const saveMeta = async (i, item, index) => {
-    const ext = item.ext || 'mp4';
+    const mime = String(item.ext || 'mp4').toLowerCase();
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
     const rawName = batch ? `out/raw-${index + 1}.${ext}` : `out/raw.${ext}`;
     const captionName = batch ? `out/caption-${index + 1}.txt` : 'out/caption.txt';
-    fs.writeFileSync(rawName, Buffer.from(item.b64, 'base64'));
+    const videoBuffer = Buffer.from(item.b64, 'base64');
+    if (!videoBuffer.length) throw new Error('El vídeo generado llegó vacío; no se guardará ni se enviará.');
+    fs.writeFileSync(rawName, videoBuffer);
+    if (!fs.existsSync(rawName) || fs.statSync(rawName).size !== videoBuffer.length) throw new Error('No se pudo verificar el archivo de vídeo guardado: ' + rawName);
+    console.log(`Archivo fuente verificado: ${rawName} (${videoBuffer.length} bytes)`);
     const m = item.meta;
     const tags = (m.hashtags || []).map(h => '#' + h).join(' ');
     fs.writeFileSync(captionName, `${m.titulo}\n\n${m.descripcion}\n\n${tags} #Shorts\n\nFuentes: ${(m.fuentes || []).map(f => f.url || f).join(' · ') || 'n/d'}`);
