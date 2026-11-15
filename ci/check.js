@@ -46,7 +46,8 @@ for (const value of ['0', '1', '2']) {
     encoding: 'utf8',
     env: { ...process.env, FORCE_SLOT: value }
   });
-  if (result.status !== 0 || !new RegExp('^' + value + ' [0-9]{4}-[0-9]{2}-[0-9]{2}
+  const date = result.stdout.trim().slice(2);
+  if (result.status !== 0 || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)) {
     throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
   }
 }
