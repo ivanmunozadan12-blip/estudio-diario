@@ -17,6 +17,9 @@ console.log('Claves Gemini configuradas:', keys.length, '(los valores nunca se m
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 const srv = http.createServer((q, r) => {
   const requestedPath = decodeURIComponent((q.url || '/').split('?')[0]);
+  if (process.env.CI_MOCK && requestedPath === '/.netlify/functions/history-sync') {
+    r.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); r.end(JSON.stringify({ ok: true, duplicate: false })); return;
+  }
   const f = path.join('site', requestedPath === '/' ? 'index.html' : requestedPath);
   fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); } else { r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); r.end(d); } });
 }).listen(8099);
@@ -38,7 +41,7 @@ const toB64 = async blob => {
   page.on('response', r => {
     if (r.status() >= 400) console.log('[HTTP ' + r.status() + ' ' + r.request().method() + ']', r.url());
   });
-  page.on('requestfailed', r => console.log('[request failed]', r.method(), r.url(), r.failure()?.errorText || ''));
+  page.on('requestfailed', r => { if (!r.url().startsWith('blob:')) console.log('[request failed]', r.method(), r.url(), r.failure()?.errorText || ''); });
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (url, options = {}) => {
@@ -128,12 +131,13 @@ const toB64 = async blob => {
     await page.evaluate(i => { const b = document.querySelector(`button[data-a="rec"][data-i="${i}"]`); if (b) b.disabled = false; }, slot);
     await page.click(`button[data-a=rec][data-i="${slot}"]`);
     await page.waitForSelector(`#slot${slot} video.out`, { timeout: 900000 });
-    const item = await page.evaluate(async i => {
+    const voiceLabel = process.env.CI_MOCK ? 'Voz sintética de prueba' : 'Piper neuronal';
+    const item = await page.evaluate(async ({ i, voice }) => {
       const s = window.__studio.slots[i];
       const buf = new Uint8Array(await s.blob.arrayBuffer()); let bin = '';
       for (let k = 0; k < buf.length; k += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(k, k + 0x8000));
-      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }, voice: process.env.CI_MOCK ? 'Voz sintética de prueba' : 'Piper neuronal' };
-    }, slot);
+      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }, voice };
+    }, { i: slot, voice: voiceLabel });
     await saveMeta(slot, item, 0);
   }
   if (pageErrors.length) throw new Error('La página produjo errores JavaScript: ' + pageErrors.join(' | '));
