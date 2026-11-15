@@ -1302,6 +1302,39 @@ async function geminiGen(prompt, o){
   }
   throw { code: 'model_not_found', message: 'No hay modelos de Gemini disponibles en los proyectos configurados.' };
 }
+async function oaiGen(prompt, o){
+  const cfg = AIcfg(), P = PROV[cfg.p], base = (cfg.base || P.base || '').replace(/\/$/, ''), model = cfg.model || P.model;
+  if (!base) throw { code: 'http', message: 'Falta la dirección (URL base) del servicio.' };
+  if (!model) throw { code: 'model_not_found', message: 'Escribe el nombre del modelo.' };
+  if (!P.nokey && !cfg.key) throw { code: 'bad_key', message: 'Falta la clave de ' + P.name + '.' };
+  const headers = { 'Content-Type': 'application/json' }; if (cfg.key) headers.Authorization = 'Bearer ' + cfg.key;
+  let last;
+  for (const useJson of (o.json ? [true, false] : [false])) {
+    try {
+      const j = await httpJson(base + '/chat/completions', { method: 'POST', headers, signal: o.signal, body: JSON.stringify(Object.assign({ model, messages: [{ role: 'user', content: prompt }], temperature: o.temperature ?? .8 }, useJson ? { response_format: { type: 'json_object' } } : {})) });
+      const t = j.choices?.[0]?.message?.content; if (!t || !t.trim()) throw { code: 'empty', message: 'La IA devolvió una respuesta vacía.' };
+      AIstate.used = model; return t;
+    } catch (e) { last = e; if (e.code === 'http' && e.status === 400 && useJson) continue; throw e; }
+  }
+  throw last;
+}
+async function aiText(prompt, o = {}){
+  const call = () => PROV[AIcfg().p].kind === 'gemini' ? geminiGen(prompt, o) : oaiGen(prompt, o);
+  try { return await call(); }
+  catch (e) { if (e.code === 'rate_limited' && !o._retried) { const m = /retry in ([\d.]+)s|(\d+)s/i.exec(e.message || ''), wait = Math.min(25, m ? parseFloat(m[1] || m[2]) + 1 : 12); if (wait <= 25) { o._retried = true; msg(`Límite por minuto: espero ${Math.round(wait)} s…`); await sleep(wait * 1000, o.signal); return call(); } } throw e; }
+}
+function parseJSON(t){
+  let s = t.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''); try { return JSON.parse(s); } catch (e) {}
+  const a = s.indexOf('{'), b = s.lastIndexOf('}'), a2 = s.indexOf('['), b2 = s.lastIndexOf(']'); let cand = '';
+  if (a >= 0 && (a2 < 0 || a < a2)) cand = s.slice(a, b + 1); else if (a2 >= 0) cand = s.slice(a2, b2 + 1);
+  try { return JSON.parse(cand); } catch (e) { throw { code: 'invalid_json', message: 'La IA no devolvió un JSON válido.', text: t }; }
+}
+async function aiJson(prompt, o = {}){
+  const t = await aiText(prompt, Object.assign({ json: true }, o));
+  try { return parseJSON(t); } catch (e) { if (e.code !== 'invalid_json') throw e; const t2 = await aiText(prompt + '\n\nIMPORTANTE: responde únicamente con JSON válido, sin texto antes ni después ni comentarios.', Object.assign({ json: true }, o)); return parseJSON(t2); }
+}
+
+
 /* --- investigación gratuita: Wikipedia --- */
 async function wiki(lang, params, sig){ return httpJson(`https://${lang}.wikipedia.org/w/api.php?` + new URLSearchParams(Object.assign({ format: 'json', origin: '*' }, params)), { signal: sig }); }
 async function wikiSearch(q, lang, sig){ const j = await wiki(lang, { action: 'query', list: 'search', srsearch: q, srlimit: '3', srprop: '' }, sig); return (j.query?.search || []).map(x => x.title); }
