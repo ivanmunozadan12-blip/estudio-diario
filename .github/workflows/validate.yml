@@ -25,12 +25,15 @@ jobs:
         run: node ci/security.test.js
       - name: Comprobar arranque de la web en Chromium (sin generar vídeos)
         run: node ci/smoke.js
-      - name: Probar conversión y validación MP4 sin enviar a Telegram
+      - name: Probar render real con Gemini y Piper simulados (sin cuota ni red)
+        env:
+          CI_MOCK: ci/mock.js
+          GEMINI_API_KEY: CI_MOCK_DUMMY_KEY
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          mkdir -p out
-          ffmpeg -hide_banner -loglevel error -y -f lavfi -i color=c=black:s=360x640:r=30:d=6 -f lavfi -i sine=frequency=440:duration=6 -shortest -c:v libvpx-vp9 -deadline realtime -cpu-used 8 -c:a libopus out/raw.webm
-          printf 'Vídeo de prueba local\n\nSin publicación ni envío.' > out/caption.txt
+          mkdir -p site
+          cp index.html manifest.webmanifest icon-192.png icon-512.png site/
+          node ci/generate.js 0 "$(TZ=Europe/Madrid date +%F)"
           bash ci/send.sh
           test -s out/video.mp4
