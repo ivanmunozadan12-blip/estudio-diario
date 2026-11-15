@@ -1141,7 +1141,8 @@ async function prepAndPlay(i, record){
   finally { await keepAwake(false); sl.busy = ''; sl.pct = 0; $('#stopBtn').hidden = true; }
   if (record && res && res.blob && res.blob.size > 1000) {
     if (sl.url) URL.revokeObjectURL(sl.url); sl.blob = res.blob; sl.url = URL.createObjectURL(res.blob); sl.ext = /mp4/.test(res.blob.type) ? 'mp4' : 'webm'; setDone(i);
-    const historySynced = await syncTopicToHistory(i, sl);\n    if (!historySynced) msg('Vídeo grabado. Falta configurar GITHUB_HISTORY_TOKEN en Netlify para compartir el historial con las generaciones automáticas.');
+    const historySynced = await syncTopicToHistory(i, sl);
+    if (!historySynced) msg('Vídeo grabado. Falta configurar GITHUB_HISTORY_TOKEN en Netlify para compartir el historial con las generaciones automáticas.');
   } else if (record && res === null) sl.err = '';
   renderSlot(i); refreshUI(); idleFrame(record && sl.url ? 'Vídeo grabado' : 'Fin de la vista previa'); $('#stageInfo').textContent = record && sl.url ? `Vídeo ${i+1} grabado. Guárdalo abajo.` : 'Listo';
 }
