@@ -74,16 +74,30 @@ jobs:
             exit 1
           fi
           echo "Claves Gemini y destino Telegram configurados. No se muestran valores."
+      - name: Validar código, configuración y scripts (sin consumir APIs)
+        if: steps.slot.outputs.run == 'si'
+        run: node ci/check.js
+      - name: Preflight de Telegram y YouTube (sin enviar ni publicar)
+        if: steps.slot.outputs.run == 'si'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: node ci/preflight.js
       - name: Instalar
         if: steps.slot.outputs.run == 'si'
         run: |
           npm install --no-audit --no-fund
           npx playwright install --with-deps chromium
           sudo apt-get install -y ffmpeg
-          mkdir -p site && cp index.html manifest.webmanifest icon-192.png icon-512.png site/ 2>/dev/null || true
-      - name: Validar sintaxis e integración Gemini
-        if: steps.slot.outputs.run == 'si'
-        run: node ci/check.js
+          mkdir -p site
+          cp index.html manifest.webmanifest icon-192.png icon-512.png site/
       - name: Preparar modelo de voz neuronal
         if: steps.slot.outputs.run == 'si'
         run: |
