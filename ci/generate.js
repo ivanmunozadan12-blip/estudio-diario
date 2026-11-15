@@ -133,12 +133,12 @@ const toB64 = async blob => {
     await page.evaluate(i => { const b = document.querySelector(`button[data-a="rec"][data-i="${i}"]`); if (b) b.disabled = false; }, slot);
     await page.click(`button[data-a=rec][data-i="${slot}"]`);
     await page.waitForSelector(`#slot${slot} video.out`, { timeout: 900000 });
-    const voiceLabel = process.env.CI_MOCK ? 'Voz sintética de prueba' : 'Piper neuronal';
+    const voiceLabel = process.env.CI_MOCK ? 'Voz sintética de prueba' : null;
     const item = await page.evaluate(async ({ i, voice }) => {
       const s = window.__studio.slots[i];
       const buf = new Uint8Array(await s.blob.arrayBuffer()); let bin = '';
       for (let k = 0; k < buf.length; k += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(k, k + 0x8000));
-      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }, voice };
+      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }, voice: voice || (window.__studio.Voice.failed ? 'Voz sintética de respaldo' : 'Piper neuronal') };
     }, { i: slot, voice: voiceLabel });
     await saveMeta(slot, item, 0);
   }
