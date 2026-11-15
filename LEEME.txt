@@ -1,52 +1,65 @@
-ESTUDIO DIARIO — BEHIND DEL MUNDO
-Automatización diaria: 3 vídeos a las 09:30, 14:30 y 20:30 (Europe/Madrid).
+ESTUDIO DIARIO — 3 vídeos al día solos (9:30, 14:30, 20:30 hora de Madrid)
 
-A) WEB (Netlify)
-- La web permite generar guiones y vídeos manualmente.
-- Los botones Descargar, Abrir y Compartir funcionan sobre el vídeo generado.
-- El piloto automático de la web requiere mantener la página abierta; para la generación diaria se usa GitHub Actions.
-- Service worker actualizado: no cachea las respuestas de las funciones Netlify ni las respuestas HTTP fallidas.
+A) DESCARGA EN CHROME (Netlify)
+ Bajo cada vídeo hay ahora botones reales: «Descargar», «Abrir» y «Compartir».
+ Si «Descargar» no hace nada: pulsa «Abrir» y, en el vídeo, menú ⋮ → Descargar (o mantén pulsado).
+ «Compartir» en el móvil te deja mandarlo directo a YouTube/Instagram/TikTok.
+ Con la automatización (B) no necesitas descargar nada: el MP4 te llega a Telegram.
 
-B) GENERACIÓN AUTOMÁTICA (GitHub Actions)
-- GitHub Actions abre la web real en Chromium, elige los temas, investiga, redacta y verifica los guiones, genera la voz y graba los vídeos.
-- Antes de gastar cuota Gemini, ejecuta comprobaciones de código y un preflight de Telegram y OAuth de YouTube.
-- Los MP4 se convierten y se validan con FFprobe: deben tener imagen, audio, formato vertical 9:16, duración válida y pistas sincronizadas.
-- Si los secretos de YouTube están configurados, los vídeos se publican automáticamente como públicos. Telegram recibe los vídeos y sus textos.
-- El historial se guarda en GitHub antes de los envíos externos. Ese commit usa [skip netlify] para no consumir despliegues por un cambio que solo afecta al historial.
-- La validación del repositorio se ejecuta en cada cambio de código y pull request (omite commits que solo cambian history.json). Comprueba sintaxis, JSON, YAML, shell y slots; prueba la seguridad de las funciones Netlify, simula el preflight y la subida reanudable de YouTube, abre la web en Chromium y genera un vídeo sintético completo para validar MP4, audio, duración y formato 9:16. No llama a Gemini, Piper, Telegram ni YouTube reales ni publica contenido.
-- Si repites una ejecución existente (rerun), se omite todo el flujo: no vuelve a gastar cuota Gemini ni a generar, enviar o publicar. Para reintentar, inicia una ejecución nueva después de comprobar el resultado anterior y el historial.
+B) AUTOMÁTICO REAL (sin abrir la web; el móvil puede estar apagado)
+ Un navegador en los servidores de GitHub abre la web, elige el tema, investiga, escribe el guion, pone voz,
+ graba el vídeo y te lo manda a Telegram. Tú solo lo revisas y lo subes. Gratis.
+ 1. Crea cuenta en github.com y un repositorio nuevo PRIVADO (ej. estudio-diario).
+ 2. Sube TODO el contenido de esta carpeta (Add file → Upload files). Importante: debe subirse la carpeta oculta
+    «.github». Si no se sube, crea a mano el archivo «.github/workflows/videos.yml» y pega dentro el texto de
+    «videos.yml.COPIA-VISIBLE.txt».
+ 3. Clave de Gemini gratis: aistudio.google.com/apikey
+ 4. Telegram: abre @BotFather → /newbot → copia el token. Escribe cualquier cosa a tu bot nuevo.
+    Abre en el navegador https://api.telegram.org/bot<TOKEN>/getUpdates y copia el número de «chat":{"id":...».
+ 5. En el repo: Settings → Secrets and variables → Actions → New repository secret. Crea estos secretos:
+    GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
+    Para pruebas con varias cuentas/proyectos Gemini, añade también GEMINI_API_KEY_2, GEMINI_API_KEY_3 y GEMINI_API_KEY_4.
+    Cada clave adicional debe proceder de un proyecto distinto si quieres cuotas independientes. Si aún no tienes las otras,
+    déjalas sin crear: el sistema funcionará con la clave principal.
+ 6. Pestaña Actions → «Vídeos diarios» → Run workflow (deja el hueco vacío o pon 0) para probar. En 10-20 min
+    te llega el vídeo. Desde entonces se ejecuta solo a las 9:30, 14:30 y 20:30.
+ Ajustes (nicho, duración, voz, horas): edita config.json.
+ Notas: GitHub puede retrasar el reloj hasta ~30 min en horas punta. Gemini: la web y GitHub aceptan hasta 4 claves. En GitHub se leen GEMINI_API_KEY y, opcionalmente,
+ GEMINI_API_KEY_2, GEMINI_API_KEY_3 y GEMINI_API_KEY_4. La rotación automática cambia de clave si detecta
+ cuota diaria agotada o una clave inválida; ante límites temporales reintenta con espera progresiva antes de cambiar.
+ Google aplica cuotas por proyecto, no por clave: para cuotas independientes, usa proyectos distintos.
+ Las cuotas varían por modelo y proyecto; consulta aistudio.google.com/usage y aistudio.google.com/rate-limit.
+ En la web manual, pega la clave principal y las adicionales (una por línea) en Ajustes de IA.
+ Si falla, el error detallado aparece en la pestaña Actions.
 
-C) SECRETOS DE GITHUB
-En Settings → Secrets and variables → Actions:
-- GEMINI_API_KEY
-- TELEGRAM_BOT_TOKEN
-- TELEGRAM_CHAT_ID
-- GEMINI_API_KEY_2, GEMINI_API_KEY_3 y GEMINI_API_KEY_4 (opcionales; para cuotas independientes deben pertenecer a proyectos de Google distintos).
-- YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET y YOUTUBE_REFRESH_TOKEN (opcionales; si se configuran los tres, se activa la publicación automática).
+C) WEB (Netlify) — también sirve a mano
+ index.html es la web. Su «Piloto automático» (ajustes) solo funciona con la página abierta y la pantalla encendida;
+ un navegador no puede trabajar en segundo plano. Para eso está B.
 
-Para conectar YouTube:
-1. En Netlify, configura YOUTUBE_CLIENT_ID y YOUTUBE_CLIENT_SECRET.
-2. Abre la página /youtube-connect.html de la web desplegada y pulsa «Conectar con Google».
-3. Registra en Google Cloud la URI de redirección exacta:
-   https://glistening-cascaron-b5b987.netlify.app/.netlify/functions/youtube-callback
-4. Guarda el refresh token que devuelve Google como secreto YOUTUBE_REFRESH_TOKEN en GitHub.
-5. El preflight renueva el token antes de generar; no sube vídeos durante esa comprobación.
+D) ESCENAS ÚNICAS (novedad)
+ Antes la IA solo elegía entre ~20 fondos y ~45 objetos fijos, por eso los vídeos se parecían. Ahora, con
+ "escenasUnicas": true en config.json (y la casilla «Escenas únicas» en la web), la IA PROGRAMA cada escena
+ (código Canvas a medida de lo que cuenta la narración). Cada código se prueba antes de usarse (que no esté vacío,
+ que se mueva, que no sea lento, que no use nada peligroso); si falla se le pide corregirlo una vez y, si sigue
+ fallando, esa escena usa la plantilla antigua (el caption.txt lo avisa).
+ Cada vídeo recibe además una dirección de arte impuesta (paleta, estilo gráfico, lenguaje de plano, hilo visual)
+ que NO coincide con los vídeos recientes; se guarda como «firma» en history.json. Los temas también se comparan
+ por parecido y se repiden si son casi iguales a uno ya usado.
+ Coste: 3-4 peticiones más a Gemini por vídeo. Si te quedas sin cuota, pon "escenasUnicas": false.
+ YouTube: config.json → "youtubePrivacidad": "public" | "unlisted" | "private" (usa "private" si quieres revisar antes).
 
-D) SECRETOS Y CONFIGURACIÓN DE NETLIFY
-- YOUTUBE_CLIENT_ID y YOUTUBE_CLIENT_SECRET: necesarios para iniciar la conexión OAuth desde la web.
-- GITHUB_HISTORY_TOKEN: token fine-grained de GitHub con acceso Contents: Read and write únicamente al repositorio ivanmunozadan12-blip/estudio-diario. Permite sincronizar el historial de temas desde la web.
-- SITE_ORIGIN: opcional. Solo hace falta si la web se sirve desde otro origen distinto de https://glistening-cascaron-b5b987.netlify.app.
-- No introduzcas tokens en el código fuente ni los compartas por chat.
+E) MODO CHATGPT / OTRA IA (sin gastar Gemini; se hace desde la web, también en el móvil)
+ En cada tarjeta de vídeo: «Usar ChatGPT u otra IA».
+ 1. Escribe el tema (o déjalo vacío) y pulsa «Copiar prompt». Incluye la dirección de arte única de ese vídeo.
+ 2. Pégalo en ChatGPT (o Claude) y copia su respuesta entera.
+ 3. Pégala en «Respuesta de la IA» y pulsa «Cargar». Si alguna escena falla la prueba, usa plantilla y se copia al
+    portapapeles el texto para pedirle a la IA que la corrija; pégalo en el mismo chat y vuelve a cargar.
+ 4. Pulsa «Grabar». Voz, música, subtítulos y grabación los hace el motor.
+ Un vídeo por conversación nueva (el prompt es largo). Requiere pegar el tema: «¿QUÉ PASARÍA SI? — …».
 
-E) EJECUTAR Y REVISAR
-- Pestaña Actions → «Vídeos diarios» → Run workflow.
-- Slot: 0, 1 o 2 para un vídeo; «all» para los tres. Si se deja vacío, el sistema calcula qué franja corresponde a la hora de Madrid.
-- Los horarios de GitHub Actions son UTC y pueden retrasarse en horas punta. ci/slot.js evita ejecutar una franja ya registrada en history.json.
-- Los errores y los pasos de cada ejecución aparecen en Actions. No se debe repetir a ciegas una ejecución que ya haya enviado un vídeo a Telegram o YouTube.
-- Ajustes de nicho, duración y horario: config.json. La duración actual configurada es 60 segundos.
-
-F) CUOTAS GEMINI
-- Google aplica cuotas por proyecto, no por clave. Cuatro claves del mismo proyecto no multiplican la cuota.
-- Las cuotas pueden incluir límites por minuto, tokens y día; varían por modelo y proyecto. Consulta aistudio.google.com/usage y aistudio.google.com/rate-limit.
-- La rotación prueba proyectos alternativos si falla la detección de modelos, se agota la cuota o se produce un error temporal de conexión.
-- Las pruebas automáticas del repositorio no consumen cuota Gemini. El preflight consulta Telegram y OAuth de YouTube, pero nunca genera ni publica contenido.
+F) CALIDAD MÁXIMA CON CHATGPT (por partes)
+ «1) Solo guion» → pegar en la IA → Cargar. «2) Siguientes escenas» pide el código de 4 en 4 (mejor calidad que
+ todo de golpe) → Cargar → repetir hasta que no queden. «Pedir revisión» copia una lista de comprobación para que la
+ IA reescriba solo las escenas flojas. En cada petición se muestran 5 ejemplos distintos de calidad (hay 10).
+ Piezas nuevas para la IA: paloma, caballo, peces, bandada, torres y cables eléctricos, ciudad, multitud, coche,
+ casa, planeta, átomo, rayo. (El caballo y las torres son lo más mejorable; dime si en tus vídeos se ven flojos.)

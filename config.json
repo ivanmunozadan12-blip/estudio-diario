@@ -9,5 +9,7 @@
   "duracion": 60,
   "voz": "natural",
   "investigar": true,
-  "verificar": true
+  "verificar": true,
+  "escenasUnicas": true,
+  "youtubePrivacidad": "public"
 }

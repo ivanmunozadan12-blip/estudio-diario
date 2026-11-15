@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       slot:
-        description: 'Forzar hueco (0, 1 o 2). Vacío = según la hora'
+        description: '0, 1, 2 o all para generar los tres vídeos'
         required: false
 permissions:
   contents: write
@@ -21,18 +21,59 @@ concurrency:
 jobs:
   generar:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
+      - name: Recuperar caché de voz neuronal
+        uses: actions/cache@v4
+        with:
+          path: .cache/piper
+          key: piper-es-davefx-v1
       - name: Qué hueco toca
         id: slot
-        env: { FORCE_SLOT: '${{ github.event.inputs.slot }}' }
+        env:
+          FORCE_SLOT: ${{ github.event.inputs.slot }}
         run: |
-          R=$(node ci/slot.js)
-          echo "Resultado: $R"
-          if [ "$R" = "skip" ]; then echo "run=no" >> $GITHUB_OUTPUT; else echo "run=si" >> $GITHUB_OUTPUT; echo "slot=${R%% *}" >> $GITHUB_OUTPUT; echo "day=${R##* }" >> $GITHUB_OUTPUT; fi
+          if [ "$GITHUB_EVENT_NAME" = "push" ] || [ "$FORCE_SLOT" = "all" ]; then
+            R="all $(TZ=Europe/Madrid date +%F)"
+            echo "run=si" >> "$GITHUB_OUTPUT"
+            echo "batch=si" >> "$GITHUB_OUTPUT"
+            echo "slot=all" >> "$GITHUB_OUTPUT"
+            echo "day=${R##* }" >> "$GITHUB_OUTPUT"
+          else
+            R=$(node ci/slot.js)
+            echo "Resultado: $R"
+            if [ "$R" = "skip" ]; then
+              echo "run=no" >> "$GITHUB_OUTPUT"
+              echo "batch=no" >> "$GITHUB_OUTPUT"
+            else
+              echo "run=si" >> "$GITHUB_OUTPUT"
+              echo "batch=no" >> "$GITHUB_OUTPUT"
+              echo "slot=${R%% *}" >> "$GITHUB_OUTPUT"
+              echo "day=${R##* }" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+      - name: Comprobar secretos antes de generar (sin llamar a Gemini)
+        if: steps.slot.outputs.run == 'si'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$GEMINI_API_KEY$GEMINI_API_KEY_2$GEMINI_API_KEY_3$GEMINI_API_KEY_4" ]; then
+            echo "::error::No hay ninguna clave Gemini configurada. No se ha consumido ninguna API."
+            exit 1
+          fi
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::error::Faltan TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID. No se ha iniciado la generación ni se ha consumido Gemini."
+            exit 1
+          fi
+          echo "Claves Gemini y destino Telegram configurados. No se muestran valores."
       - name: Instalar
         if: steps.slot.outputs.run == 'si'
         run: |
@@ -40,25 +81,57 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get install -y ffmpeg
           mkdir -p site && cp index.html manifest.webmanifest icon-192.png icon-512.png site/ 2>/dev/null || true
+      - name: Validar sintaxis e integración Gemini
+        if: steps.slot.outputs.run == 'si'
+        run: node ci/check.js
+      - name: Preparar modelo de voz neuronal
+        if: steps.slot.outputs.run == 'si'
+        run: |
+          mkdir -p .cache/piper site/voices/es/es_ES/davefx/medium
+          BASE="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
+          [ -s .cache/piper/voices.json ] || curl -fL --retry 3 --retry-delay 2 "$BASE/voices.json?download=true" -o .cache/piper/voices.json
+          [ -s .cache/piper/es_ES-davefx-medium.onnx.json ] || curl -fL --retry 3 --retry-delay 2 "$BASE/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json?download=true" -o .cache/piper/es_ES-davefx-medium.onnx.json
+          [ -s .cache/piper/es_ES-davefx-medium.onnx ] || curl -fL --retry 3 --retry-delay 2 "$BASE/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx?download=true" -o .cache/piper/es_ES-davefx-medium.onnx
+          cp .cache/piper/voices.json site/voices/voices.json
+          cp .cache/piper/es_ES-davefx-medium.onnx.json site/voices/es/es_ES/davefx/medium/
+          cp .cache/piper/es_ES-davefx-medium.onnx site/voices/es/es_ES/davefx/medium/
       - name: Generar el vídeo
         if: steps.slot.outputs.run == 'si'
-        env: { GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}' }
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
         run: node ci/generate.js ${{ steps.slot.outputs.slot }} ${{ steps.slot.outputs.day }}
       - name: Enviar por Telegram
         if: steps.slot.outputs.run == 'si'
-        env: { TELEGRAM_BOT_TOKEN: '${{ secrets.TELEGRAM_BOT_TOKEN }}', TELEGRAM_CHAT_ID: '${{ secrets.TELEGRAM_CHAT_ID }}' }
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: bash ci/send.sh
-      - name: Guardar el vídeo en la ejecución
+      - name: Publicar automáticamente en YouTube
+        if: steps.slot.outputs.run == 'si'
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$YOUTUBE_CLIENT_ID" ] || [ -z "$YOUTUBE_CLIENT_SECRET" ] || [ -z "$YOUTUBE_REFRESH_TOKEN" ]; then
+            echo "YouTube todavía no está conectado; se omite la publicación."
+          else
+            node ci/youtube-upload.js
+          fi
+      - name: Guardar los vídeos en la ejecución
         if: steps.slot.outputs.run == 'si'
         uses: actions/upload-artifact@v4
         with:
-          name: video
+          name: videos
           path: |
-            out/video.mp4
-            out/caption.txt
+            out/video*.mp4
+            out/caption*.txt
           retention-days: 7
-      - name: Anotar el tema usado
+      - name: Anotar los temas usados
         if: steps.slot.outputs.run == 'si'
         run: |
           git config user.name "estudio-diario"; git config user.email "bot@users.noreply.github.com"
-          git add history.json; git commit -m "Tema usado" || true; git push || true
+          git add history.json; git commit -m "Temas usados" || true; git push || true

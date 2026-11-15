@@ -103,6 +103,7 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
   <p class="note" id="aiStatus" style="margin-top:8px"></p>
   <label class="chk"><input type="checkbox" id="research" checked> Investigar en Wikipedia antes de escribir</label>
   <label class="chk"><input type="checkbox" id="verify" checked> Verificar los datos contra las fuentes (1 petición más)</label>
+  <label class="chk"><input type="checkbox" id="codeScenes" checked> Escenas únicas: la IA programa y dibuja cada escena (3-4 peticiones más por vídeo)</label>
 </details>
 
 <details class="card" id="ajustes">
@@ -553,39 +554,6 @@ function drawSpecial(c, sc, u, tm){
 }
 function wrapText(c,text,maxW){ const words = text.split(/\s+/), lines = []; let cur = ''; for (const w of words) { const t = cur ? cur + ' ' + w : w; if (c.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; } if (cur) lines.push(cur); return lines; }
 
-function drawScene(c, sc, idx, u, tm){
-  c.save();
-  const bg = getBg(sc, idx);
-  let s0 = 1.1, s1 = 1.24, ox0 = 0, ox1 = 0, oy0 = 0, oy1 = 0;
-  if (sc.tipo && sc.tipo !== 'normal') { s0 = 1; s1 = 1.05; }
-  else switch (sc.camara) {
-    case 'zoomout': s0 = 1.28; s1 = 1.1; break;
-    case 'izq': s0 = s1 = 1.14; ox0 = 30; ox1 = -30; break;
-    case 'der': s0 = s1 = 1.14; ox0 = -30; ox1 = 30; break;
-    case 'arriba': s0 = s1 = 1.14; oy0 = 45; oy1 = -45; break;
-    case 'abajo': s0 = s1 = 1.14; oy0 = -45; oy1 = 45; break;
-    case 'fija': s0 = s1 = 1.08; break;
-  }
-  const k = ease(clamp(u,0,1)); let ox = lerp(ox0,ox1,k), oy = lerp(oy0,oy1,k);
-  if ((sc.efectos || []).includes('temblor')) { ox += Math.sin(tm*47)*6; oy += Math.cos(tm*53)*6; }
-  const s = lerp(s0,s1,k);
-  c.translate(W/2 + ox, H/2 + oy); c.scale(s,s); c.translate(-W/2,-H/2);
-  c.drawImage(bg,0,0);
-  drawSpecial(c, sc, u, tm);
-  for (const o of (sc.items || [])) {
-    const fn = ITEM[o.t]; if (!fn) continue;
-    const ap = ease(clamp((tm - (o.delay || 0)) * 2.5, 0, 1));
-    c.save(); c.globalAlpha = ap; const S = H * .30 * (o.s || 1);
-    let px = (o.x ?? .5) * W, py = (o.y ?? .8) * H;
-    if (o.mover === 'der') px += lerp(-90,90,k); else if (o.mover === 'izq') px += lerp(90,-90,k); else if (o.mover === 'subir') py += lerp(60,-60,k); else if (o.mover === 'caer') py += lerp(-140,140,k);
-    c.translate(px, py + (1 - ap) * 24); c.scale(S * (o.f === -1 ? -1 : 1), S); c.lineWidth = .01;
-    try { fn(c, o, tm, mulberry(7)); } catch (e) {}
-    c.restore();
-  }
-  drawEffects(c, sc, tm);
-  c.restore();
-}
-
 function drawOverlays(c, sc, u, tm){
   if (sc.rotulo && sc.tipo !== 'titulo') {
     const a = ease(clamp(tm*4,0,1)); c.save(); c.globalAlpha = a; c.font = '900 64px Poppins, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -768,7 +736,7 @@ Object.assign(ITEM, {
 
 /* --- composición de una escena con capas y paralaje --- */
 const SHADOW_W = { arbol:.3, casa:.45, edificio:.35, coche:.55, tren:1.3, farola:.12, banco:.4, perro:.3, ambulancia:.6, regalo:.2, trofeo:.15, vela:.08, asientos:.3, barco:.4 };
-function drawScene(c, sc, idx, u, tm){
+function drawSceneTpl(c, sc, idx, u, tm){
   const bg = getBg(sc, idx), special = !!(sc.tipo && sc.tipo !== 'normal');
   let s0 = 1.1, s1 = 1.24, ox0 = 0, ox1 = 0, oy0 = 0, oy1 = 0;
   if (special) { s0 = 1; s1 = 1.04; }
@@ -803,6 +771,374 @@ function drawScene(c, sc, idx, u, tm){
   c.save(); drawEffects(c, sc, tm); c.restore();
   finishLook(c, sc, tm);
 }
+/* ===== Escenas programadas por la IA: cada escena de cada vídeo es código Canvas propio ===== */
+/* ===== Piezas extra para la IA: animales, red eléctrica, ciudad, vehículos, ciencia ===== */
+const KITX = {
+  // s = largo del cuerpo en px; o: {fly, dir:-1 (mira a la izquierda), col}
+  pigeon(c, x, y, s, t, o){ o = o || {}; const d = o.dir === -1 ? -1 : 1, fly = !!o.fly, col = o.col || '#8f9bb0', dark = shade(col, -.3);
+    c.save(); c.translate(x, y); c.scale(d * s, s); c.translate(0, fly ? Math.sin(t * 10) * .03 : Math.sin(t * 5) * .012);
+    Pg(c, [[-.4, -.02], [-.72, -.09], [-.7, .09], [-.38, .08]], dark);
+    if (!fly) { const w = Math.sin(t * 5); limb(c, -.06, .18, -.06 + w * .05, .4, .035, '#d88a8a'); limb(c, .08, .18, .08 - w * .05, .4, .035, '#d88a8a'); E(c, -.06 + w * .05, .41, .05, .018, '#d88a8a'); E(c, .08 - w * .05, .41, .05, .018, '#d88a8a'); }
+    E(c, 0, 0, .43, .24, col); E(c, -.05, .08, .3, .13, shade(col, .16));
+    c.fillStyle = lg(c, .2, -.3, .38, .05, [[0, '#3fa58a'], [.5, '#8a5ab0'], [1, '#3fa58a']]); c.beginPath(); c.ellipse(.3, -.1, .14, .17, .3, 0, 7); c.fill();
+    E(c, .44, -.23 + (fly ? 0 : Math.sin(t * 5) * .012), .11, .1, shade(col, -.08)); Pg(c, [[.53, -.25], [.67, -.21], [.53, -.19]], '#e8c27a'); E(c, .47, -.25, .024, .024, '#f08a2a'); E(c, .47, -.25, .011, .011, '#111');
+    c.save(); c.translate(-.04, -.1); c.rotate(fly ? -.9 + Math.sin(t * 12) * .95 : .08); Pg(c, [[0, 0], [-.52, -.12], [-.58, .08], [-.1, .15]], dark); Pg(c, [[0, 0], [-.4, -.02], [-.45, .08], [-.08, .12]], shade(dark, .15)); c.restore();
+    c.restore(); },
+  // s = altura hasta el lomo en px; el origen (x,y) es el suelo bajo el cuerpo; o: {col, gait, dir}
+  horse(c, x, y, s, t, o){ o = o || {}; const d = o.dir === -1 ? -1 : 1, col = o.col || '#8b5a3c', dk = shade(col, -.3), ph = t * (o.gait || 5.5), mane = o.mane || '#2b1d14';
+    c.save(); c.translate(x, y); c.scale(d * s, s);
+    const leg = (hx, k, cc) => { const a = Math.sin(ph + k) * .5, lift = Math.max(0, Math.cos(ph + k)) * .07, hy = -.52, kx = hx + Math.sin(a) * .17, ky = hy + .26, fx = kx + Math.sin(a * .5 - .25) * .12, fy = -lift; limb(c, hx, hy, kx, ky, .075, cc); limb(c, kx, ky, fx, fy - .02, .055, cc); E(c, fx, fy, .04, .02, '#1b1410'); };
+    leg(-.34, Math.PI, dk); leg(.34, 0, dk);
+    c.strokeStyle = mane; c.lineWidth = .05; c.lineCap = 'round'; c.beginPath(); c.moveTo(-.5, -.66); c.bezierCurveTo(-.7, -.6, -.72 + Math.sin(t * 3) * .05, -.35, -.66, -.2 + Math.sin(t * 3) * .04); c.stroke();
+    E(c, 0, -.62, .52, .21, col); E(c, 0, -.55, .4, .1, shade(col, .12));
+    Pg(c, [[.36, -.7], [.5, -.98], [.62, -1.02], [.66, -.92], [.52, -.62]], col);
+    c.fillStyle = col; c.beginPath(); c.ellipse(.72, -.96, .15, .075, .65, 0, 7); c.fill(); E(c, .8, -.9, .03, .03, shade(col, -.35)); E(c, .69, -1.0, .014, .014, '#111'); Pg(c, [[.6, -1.03], [.62, -1.12], [.67, -1.03]], dk);
+    c.strokeStyle = mane; c.lineWidth = .05; c.beginPath(); c.moveTo(.54, -1.02); c.bezierCurveTo(.44, -.96, .36, -.84, .3, -.72); c.stroke();
+    leg(-.28, 0, col); leg(.4, Math.PI, col);
+    c.restore(); },
+  fish(c, x, y, s, t, o){ o = o || {}; const d = o.dir === -1 ? -1 : 1, col = o.col || '#f08a4b'; c.save(); c.translate(x, y); c.scale(d * s, s); const w = Math.sin(t * 8 + (o.ph || 0)) * .14;
+    Pg(c, [[-.4, 0], [-.7, -.2 + w], [-.68, .2 + w], [-.4, 0]], shade(col, -.15)); Pg(c, [[-.1, -.2], [.1, -.38], [.2, -.2]], shade(col, -.2));
+    E(c, 0, 0, .5, .23, col); E(c, 0, .08, .4, .1, shade(col, .25)); Pg(c, [[0, .1], [-.1, .28], [.08, .2]], shade(col, -.15)); E(c, .32, -.05, .045, .045, '#fff'); E(c, .33, -.05, .022, .022, '#111'); c.restore(); },
+  flock(c, x, y, w, h, n, t, col){ for (let i = 0; i < n; i++) { const px = x + ((hh(i + 5) * w + t * (30 + hh(i + 9) * 25)) % w), py = y + hh(i + 17) * h + Math.sin(t * 2 + i) * 8; birdAt(c, px, py, 7 + hh(i + 21) * 6, t, i, col || '#27303c'); } },
+  // torre de alta tensión: devuelve los extremos de sus brazos [[x,y],…] para unir con K.cable
+  pylon(c, x, y, h, col){ col = col || '#33404f'; c.save(); c.strokeStyle = col; c.lineWidth = Math.max(2, h * .018); c.lineCap = 'round'; const w0 = h * .2, w1 = h * .035, ty = y - h * .72;
+    c.beginPath(); c.moveTo(x - w0, y); c.lineTo(x - w1, ty); c.moveTo(x + w0, y); c.lineTo(x + w1, ty); c.stroke();
+    for (let i = 0; i < 5; i++) { const k0 = i / 5, k1 = (i + 1) / 5, ya = y - (y - ty) * k0, yb = y - (y - ty) * k1, wa = w0 + (w1 - w0) * k0, wb = w0 + (w1 - w0) * k1; c.beginPath(); c.moveTo(x - wa, ya); c.lineTo(x + wb, yb); c.moveTo(x + wa, ya); c.lineTo(x - wb, yb); c.moveTo(x - wb, yb); c.lineTo(x + wb, yb); c.stroke(); }
+    const ends = []; [[.72, .34], [.84, .26], [.95, .16]].forEach(([k, a]) => { const ay = y - h * (k - .02 * 0), hw = h * a; ay; const yy = y - h * (k > .9 ? .93 : k); c.beginPath(); c.moveTo(x - hw, yy); c.lineTo(x + hw, yy); c.stroke(); [-hw, hw].forEach(ex => { limb(c, x + ex, yy, x + ex, yy + h * .05, h * .018, '#b9c7cf'); ends.push([x + ex, yy + h * .05]); }); });
+    c.beginPath(); c.moveTo(x, ty); c.lineTo(x, y - h); c.stroke(); c.restore(); return ends; },
+  cable(c, x0, y0, x1, y1, sag, col, w){ c.strokeStyle = col || '#1d242c'; c.lineWidth = w || 3; c.lineCap = 'round'; c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo((x0 + x1) / 2, Math.max(y0, y1) + (sag == null ? 60 : sag), x1, y1); c.stroke(); },
+  skyline(c, y, seed, col, o){ o = o || {}; const r = mulberry(hash(String(seed || 's'))), off = o.off || 0, hmax = o.hmax || 420; let x = -60 - (off % 140);
+    c.fillStyle = col; for (let i = 0; i < 40 && x < W + 60; i++) { const bw = 70 + r() * 90, bh = 120 + r() * hmax; c.fillRect(x, y - bh, bw, bh + H); if (r() < .3) c.fillRect(x + bw * .48, y - bh - 40, 4, 40);
+      if (o.lit) for (let wy = y - bh + 18; wy < y - 10; wy += 30) for (let wx = x + 10; wx < x + bw - 14; wx += 22) if (hh(wx * .31 + wy * .17 + (o.seedW || 0)) < (o.lit === true ? .45 : o.lit)) { c.fillStyle = o.win || 'rgba(255,214,120,.85)'; c.fillRect(wx, wy, 10, 15); c.fillStyle = col; }
+      x += bw + 6; } },
+  crowd(c, x, y, w, n, s, t, seed){ const cols = ['#d94a3f', '#3e74c9', '#3f9a5a', '#f0c53d', '#7a52b8', '#ee8a3a', '#2a2a30', '#f3f3ee'], skins = ['#f2cba8', '#d9a27c', '#8d5b3e'], arr = []; for (let i = 0; i < n; i++) arr.push({ px: x + (i + hh(i + (seed || 0))) / n * w, py: y + hh(i + 40 + (seed || 0)) * s * .35, i });
+    arr.sort((a, b) => a.py - b.py).forEach(p => { const k = hh(p.i + 7 + (seed || 0)), b = Math.abs(Math.sin(t * 3 + p.i * 1.7)) * s * .05, hs = s * (.85 + k * .25); c.save(); c.translate(p.px, p.py - b); E(c, 0, b, hs * .22, hs * .04, 'rgba(0,0,0,.3)'); R(c, -hs * .13, -hs * .62, hs * .26, hs * .62, cols[(p.i * 3 + ((seed || 0) | 0)) % cols.length], hs * .09); E(c, 0, -hs * .74, hs * .11, hs * .11, skins[p.i % 3]); c.restore(); }); },
+  // s = largo en px; el origen es el suelo bajo el centro
+  car(c, x, y, s, col, t, o){ o = o || {}; const d = o.dir === -1 ? -1 : 1; c.save(); c.translate(x, y); c.scale(d * s, s); col = col || '#d94a3f';
+    E(c, 0, 0, .5, .03, 'rgba(0,0,0,.3)'); R(c, -.5, -.24, 1, .17, col, .06); Pg(c, [[-.27, -.24], [-.15, -.42], [.17, -.42], [.31, -.24]], shade(col, .08)); Pg(c, [[-.2, -.25], [-.12, -.38], [-.01, -.38], [-.01, -.25]], '#bfe3f5'); Pg(c, [[.02, -.25], [.02, -.38], [.15, -.38], [.24, -.25]], '#bfe3f5'); E(c, .48, -.16, .03, .035, '#fff3b0');
+    [-.3, .3].forEach(wx => { E(c, wx, -.07, .1, .1, '#1b1b1f'); c.save(); c.translate(wx, -.07); c.rotate(t * (o.v || 8)); E(c, 0, 0, .055, .055, '#aab2ba'); c.strokeStyle = '#6d747b'; c.lineWidth = .012; c.beginPath(); c.moveTo(-.05, 0); c.lineTo(.05, 0); c.moveTo(0, -.05); c.lineTo(0, .05); c.stroke(); c.restore(); }); c.restore(); },
+  house(c, x, y, s, col, lit){ c.save(); c.translate(x, y); c.scale(s, s); col = col || '#e6d2a8'; R(c, -.4, -.5, .8, .5, col); Pg(c, [[-.48, -.5], [0, -.88], [.48, -.5]], shade(col, -.45)); R(c, -.07, -.28, .14, .28, '#7a4e2b'); [-.28, .17].forEach(wx => R(c, wx, -.4, .13, .15, lit ? '#ffe08a' : '#bfe3f5')); R(c, .2, -.82, .07, .2, '#8c5a3a'); c.restore(); },
+  planet(c, x, y, r, col, o){ o = o || {}; col = col || '#c98a4b'; c.save(); c.translate(x, y); if (o.ring) { c.strokeStyle = 'rgba(230,205,160,.75)'; c.lineWidth = r * .14; c.beginPath(); c.ellipse(0, 0, r * 1.7, r * .42, -.3, Math.PI, Math.PI * 2); c.stroke(); }
+    c.fillStyle = rg(c, -r * .3, -r * .3, r * .1, r * 1.1, [[0, shade(col, .35)], [.6, col], [1, shade(col, -.55)]]); c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill();
+    if (o.bands) { c.save(); c.beginPath(); c.arc(0, 0, r, 0, 7); c.clip(); for (let i = -3; i <= 3; i++) { c.fillStyle = i % 2 ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.1)'; c.fillRect(-r, i * r * .26, r * 2, r * .13); } c.restore(); }
+    if (o.ring) { c.strokeStyle = 'rgba(240,220,180,.9)'; c.lineWidth = r * .14; c.beginPath(); c.ellipse(0, 0, r * 1.7, r * .42, -.3, 0, Math.PI); c.stroke(); } c.restore(); },
+  atom(c, x, y, r, t, col){ col = col || '#7dd3fc'; c.save(); c.translate(x, y); for (let k = 0; k < 3; k++) { c.save(); c.rotate(k * Math.PI / 3); c.strokeStyle = alphaHex(col, .6); c.lineWidth = Math.max(2, r * .03); c.beginPath(); c.ellipse(0, 0, r, r * .38, 0, 0, 7); c.stroke(); const a = t * (2 + k * .5) + k * 2; E(c, Math.cos(a) * r, Math.sin(a) * r * .38, r * .07, r * .07, '#fff'); c.restore(); } E(c, 0, 0, r * .17, r * .17, '#ff7a45'); E(c, r * .05, -r * .05, r * .08, r * .08, '#ffd23f'); c.restore(); },
+  bolt(c, x0, y0, x1, y1, t, col, w){ const n = 10, fr = Math.floor(t * 14); c.lineJoin = 'round'; c.lineCap = 'round'; for (let pass = 0; pass < 2; pass++) { c.strokeStyle = pass ? '#fff' : (col || '#ffe66b'); c.lineWidth = pass ? (w || 6) * .4 : (w || 6) * 1.6; c.globalAlpha = pass ? 1 : .55; c.beginPath(); for (let i = 0; i <= n; i++) { const k = i / n, jx = i && i < n ? (hh(fr * 13 + i) - .5) * 50 : 0, jy = i && i < n ? (hh(fr * 7 + i + 3) - .5) * 20 : 0; const px = x0 + (x1 - x0) * k + jx, py = y0 + (y1 - y0) * k + jy; i ? c.lineTo(px, py) : c.moveTo(px, py); } c.stroke(); } c.globalAlpha = 1; }
+};
+const alphaHex = (a, al) => { const n = parseInt(a.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${al})`; };
+
+const SceneProg = (() => {
+  // Palabras que nunca pueden aparecer en el código que escribe la IA (se comprueba sin comentarios ni textos).
+  const BAN = /constructor|prototype|__\w+__|\beval\b|\bFunction\b|\bimport\b|\bexport\b|\bwhile\b|\bdo\b|\basync\b|\bawait\b|\byield\b|\bwith\b|\bdebugger\b|\bReflect\b|\bProxy\b|\bSymbol\b|getPrototypeOf|setPrototypeOf|defineProperty|getOwnPropertyDescriptor|globalThis|fromCharCode|fromCodePoint|\\[xu]/;
+  const stripCode = s => s.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, '""').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  function scan(src){
+    const s = stripCode(src);
+    const m = BAN.exec(s); if (m) return 'palabra no permitida: «' + m[0] + '»';
+    if (/[\w)\]]\s*\[\s*['"`]/.test(src)) return 'acceso a propiedades con texto entre corchetes (usa notación con punto)';
+    if (/for\s*\([^;)]*;\s*;/.test(s) || /for\s*\(\s*;/.test(s)) return 'bucle for sin condición';
+    if (/\b\d{6,}\b|\b\d+e[+-]?\d{2,}\b/i.test(s)) return 'número demasiado grande (bucles enormes)';
+    return '';
+  }
+
+  // Endurece los constructores de funciones mientras corre código de la IA.
+  const protos = [function(){}, async function(){}, function*(){}, async function*(){}].map(f => Object.getPrototypeOf(f));
+  const saved = new Map(); let locks = 0;
+  function lock(){ if (locks++) return; for (const p of new Set(protos)) { const d = Object.getOwnPropertyDescriptor(p, 'constructor'); if (d && d.configurable) { saved.set(p, d); try { Object.defineProperty(p, 'constructor', { value: undefined, configurable: true, writable: true }); } catch (e) {} } } }
+  function unlock(){ if (--locks > 0) return; locks = 0; saved.forEach((d, p) => { try { Object.defineProperty(p, 'constructor', d); } catch (e) {} }); saved.clear(); }
+
+  const ALLOW = { Number, Array, parseFloat, parseInt, isNaN, isFinite, NaN, Infinity, undefined, String: v => String(v),
+    Object: Object.freeze({ keys: Object.keys, values: Object.values, entries: Object.entries, assign: Object.assign }),
+    console: Object.freeze({ log(){}, warn(){}, error(){}, info(){} }) };
+
+  function compile(code){
+    const src = String(code || '');
+    if (src.trim().length < 40) return { err: 'código demasiado corto' };
+    if (src.length > 16000) return { err: 'código demasiado largo' };
+    const bad = scan(src); if (bad) return { err: bad };
+    let factory; try { factory = new Function('sb', 'with (sb) { return function (c, t, u, K) { "use strict";\n' + src + '\n}; }'); } catch (e) { return { err: 'error de sintaxis: ' + (e && e.message) }; }
+    const state = Object.create(null); let rr = mulberry(1);
+    const M = Object.create(null); Object.getOwnPropertyNames(Math).forEach(k => { M[k] = Math[k]; }); M.random = () => rr(); Object.freeze(M);
+    const G = Object.assign(Object.create(null), ALLOW, { Math: M });
+    const sb = new Proxy(state, { has: () => true, get: (t, k) => typeof k === 'symbol' ? undefined : (k in t ? t[k] : G[k]), set: (t, k, v) => { t[k] = v; return true; }, deleteProperty: () => true });
+    let fn; try { fn = factory(sb); } catch (e) { return { err: 'no se pudo preparar: ' + (e && e.message) }; }
+    return { fn, seedRandom: s => { rr = mulberry(s | 0); } };
+  }
+
+  // Lienzo compartido y aislado: el código de la IA nunca toca el lienzo principal.
+  let pc = null, px = null, depth = 0, rawRestore = null;
+  function ensureCanvas(){
+    if (pc) return;
+    pc = document.createElement('canvas'); pc.width = W; pc.height = H; px = pc.getContext('2d');
+    const rs = px.save.bind(px); rawRestore = px.restore.bind(px);
+    px.save = () => { depth++; rs(); }; px.restore = () => { if (depth > 0) { depth--; rawRestore(); } };
+  }
+  function resetCtx(){ while (depth > 0) { depth--; rawRestore(); } px.setTransform(1, 0, 0, 1, 0, 0); px.globalAlpha = 1; px.globalCompositeOperation = 'source-over'; px.filter = 'none'; px.shadowBlur = 0; px.shadowColor = 'rgba(0,0,0,0)'; px.setLineDash([]); px.lineWidth = 1; px.lineCap = 'butt'; px.lineJoin = 'miter'; px.textAlign = 'left'; px.textBaseline = 'alphabetic'; px.clearRect(0, 0, W, H); }
+
+  const hexOk = x => /^#[0-9a-f]{6}$/i.test(x || '');
+  const toRGB = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
+  const hex2 = (r, g, b) => '#' + ((1 << 24) + (Math.round(r) << 16) + (Math.round(g) << 8) + Math.round(b)).toString(16).slice(1);
+  const mixC = (a, b, k) => { if (!hexOk(a) || !hexOk(b)) return a; const A = toRGB(a), B = toRGB(b); return hex2(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, A[2] + (B[2] - A[2]) * k); };
+  const alphaC = (a, al) => { if (!hexOk(a)) return a; const A = toRGB(a); return `rgba(${A[0]},${A[1]},${A[2]},${al})`; };
+  const vnoise = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, s = v => v * v * (3 - 2 * v); const g = (i, j) => hh(i * 57.3 + j * 131.7 + 1.9); const a = g(xi, yi), b = g(xi + 1, yi), c2 = g(xi, yi + 1), d = g(xi + 1, yi + 1); return lerp(lerp(a, b, s(xf)), lerp(c2, d, s(xf)), s(yf)); };
+
+  function makeKit(sc){
+    const dir = sc._dir || {};
+    const P = (Array.isArray(dir.paleta) ? dir.paleta.filter(hexOk) : []).slice(0, 8);
+    const base = ['#101a33', '#2b5fd9', '#3ec1d3', '#ffd23f', '#ff7a45', '#f6f3ea'];
+    while (P.length < 6) P.push(base[P.length]);
+    const hero = Object.assign({ t: 'persona', genero: 'm', pelo: 'castano', piel: 'claro', ropa: 'azul' }, dir.protagonista && typeof dir.protagonista === 'object' ? dir.protagonista : {});
+    const K = {
+      W, H, P, hero, dur: sc.dur || 5, n: sc._n || 0, total: sc._total || 1,
+      clamp, lerp, ease, shade, hh, mix: mixC, alpha: alphaC, noise: vnoise,
+      rnd: s => mulberry(hash(String(s) + ':' + (sc._seed || 0))),
+      step: (a, b, x) => clamp((x - a) / ((b - a) || 1), 0, 1),
+      tween: (t, a, b) => ease(clamp((t - a) / ((b - a) || 1), 0, 1)),
+      pop: (t, a, d) => { const k = clamp((t - (a || 0)) / (d || .4), 0, 1), s = 1.70158; return k <= 0 ? 0 : 1 + (s + 1) * Math.pow(k - 1, 3) + s * Math.pow(k - 1, 2); },
+      pulse: (t, f) => .5 + .5 * Math.sin(t * (f || 2) * Math.PI * 2),
+      shake: (t, a) => ({ x: Math.sin(t * 47) * (a || 6), y: Math.cos(t * 53) * (a || 6) }),
+      grad: (c, x0, y0, x1, y1, stops) => lg(c, x0, y0, x1, y1, stops),
+      rgrad: (c, x, y, r0, r1, stops) => rg(c, x, y, r0, r1, stops),
+      vgrad: (c, stops) => { c.fillStyle = lg(c, 0, 0, 0, H, stops); c.fillRect(0, 0, W, H); },
+      glow: (c, x, y, r, col, a) => { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, alphaC(col, a == null ? .8 : a)); g.addColorStop(1, alphaC(col, 0)); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); },
+      rect: (c, x, y, w, h, f, rad) => R(c, x, y, w, h, f, rad), circle: (c, x, y, r, f) => E(c, x, y, r, r, f), ellipse: (c, x, y, rx, ry, f, rot) => E(c, x, y, rx, ry, f, rot),
+      poly: (c, pts, f) => Pg(c, pts, f), line: (c, x0, y0, x1, y1, w, col) => limb(c, x0, y0, x1, y1, w, col),
+      path: (c, pts, o) => { o = o || {}; if (!pts || pts.length < 2) return; c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); if (o.smooth && pts.length > 2) { for (let i = 1; i < pts.length - 1; i++) { const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2; c.quadraticCurveTo(pts[i][0], pts[i][1], mx, my); } c.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); } else for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]); if (o.close) c.closePath(); if (o.fill) { c.fillStyle = o.fill; c.fill(); } if (o.stroke) { c.strokeStyle = o.stroke; c.lineWidth = o.w || 4; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke(); } },
+      blob: (c, x, y, r, f, seed, wob) => { const rr = mulberry(hash(String(seed || 'b'))), n = 9, a0 = rr() * 6; c.fillStyle = f; c.beginPath(); for (let i = 0; i <= n; i++) { const a = a0 + i / n * Math.PI * 2, rad = r * (1 + (rr() - .5) * (wob == null ? .35 : wob)), px2 = x + Math.cos(a) * rad, py2 = y + Math.sin(a) * rad; i ? c.lineTo(px2, py2) : c.moveTo(px2, py2); } c.closePath(); c.fill(); },
+      shadow: (c, x, y, rx, ry, a) => { c.save(); c.translate(x, y); c.scale(1, ry / (rx || 1)); c.fillStyle = rg(c, 0, 0, 1, rx, [[0, `rgba(0,0,0,${a == null ? .35 : a})`], [1, 'rgba(0,0,0,0)']]); c.beginPath(); c.arc(0, 0, rx, 0, 7); c.fill(); c.restore(); },
+      vignette: (c, a) => { c.fillStyle = rg(c, W / 2, H / 2, H * .3, H * .8, [[0, 'rgba(0,0,0,0)'], [1, `rgba(0,0,0,${a == null ? .4 : a})`]]); c.fillRect(0, 0, W, H); },
+      hills: (c, y, amp, col, seed, off, freq) => { const ph = hh(hash(String(seed || 'h')) % 997) * 9; c.fillStyle = col; c.beginPath(); c.moveTo(-10, H + 10); for (let x = -10; x <= W + 20; x += 12) c.lineTo(x, y + Math.sin((x + (off || 0)) * (freq || .008) + ph) * amp + Math.sin((x + (off || 0)) * (freq || .008) * 2.3 + ph * 1.7) * amp * .4); c.lineTo(W + 10, H + 10); c.closePath(); c.fill(); },
+      cloud: (c, x, y, s, a, col) => cloudAt(c, x, y, s, a == null ? .85 : a, col), stars: (c, t, n, maxY, seed) => twinkle(c, t, n || 60, maxY || H * .6, seed || 3), motes: (c, t, n, col, spd, seed) => motes(c, t, n || 30, col || 'rgba(255,255,255,.5)', spd || 10, seed || 1), bird: (c, x, y, s, t, i, col) => birdAt(c, x, y, s, t, i || 0, col),
+      tree: (c, x, y, s, col, trunk) => { c.save(); c.translate(x, y); R(c, -s * .06, -s * .5, s * .12, s * .5, trunk || '#5b3d27'); const cc = col || '#3f9a4a'; E(c, 0, -s * .85, s * .34, s * .34, shade(cc, -.15)); E(c, -s * .2, -s * .62, s * .26, s * .24, cc); E(c, s * .2, -s * .64, s * .26, s * .24, cc); E(c, -s * .05, -s * .98, s * .22, s * .2, shade(cc, .15)); c.restore(); },
+      pine: (c, x, y, s, col) => pine(c, x, y, s, col || '#1d3b2c'),
+      gear: (c, x, y, r, teeth, ang, f) => { c.save(); c.translate(x, y); c.rotate(ang || 0); c.fillStyle = f || '#8791a1'; const n = teeth || 10; for (let i = 0; i < n; i++) { c.rotate(Math.PI * 2 / n); c.fillRect(-r * .13, -r * 1.22, r * .26, r * .4); } c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill(); c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.arc(0, 0, r * .4, 0, 7); c.fill(); c.restore(); },
+      wave: (c, x0, x1, y, amp, len, ph, col, lw) => { c.strokeStyle = col || '#fff'; c.lineWidth = lw || 5; c.lineCap = 'round'; c.beginPath(); for (let x = x0; x <= x1; x += 6) { const yy = y + Math.sin((x - x0) / (len || 60) * Math.PI * 2 + (ph || 0)) * amp; x === x0 ? c.moveTo(x, yy) : c.lineTo(x, yy); } c.stroke(); },
+      arrow: (c, x0, y0, x1, y1, w, col) => { const a = Math.atan2(y1 - y0, x1 - x0), hl = (w || 6) * 3; c.strokeStyle = col || '#fff'; c.fillStyle = col || '#fff'; c.lineWidth = w || 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1 - Math.cos(a) * hl * .6, y1 - Math.sin(a) * hl * .6); c.stroke(); c.beginPath(); c.moveTo(x1, y1); c.lineTo(x1 - Math.cos(a - .45) * hl, y1 - Math.sin(a - .45) * hl); c.lineTo(x1 - Math.cos(a + .45) * hl, y1 - Math.sin(a + .45) * hl); c.closePath(); c.fill(); },
+      text: (c, s, x, y, size, col, o) => { o = o || {}; c.save(); c.font = `${o.weight || 800} ${size || 40}px Poppins, sans-serif`; c.textAlign = o.align || 'center'; c.textBaseline = o.base || 'middle'; c.lineJoin = 'round'; if (o.alpha != null) c.globalAlpha = o.alpha; if (o.stroke) { c.lineWidth = o.sw || 10; c.strokeStyle = o.stroke; c.strokeText(String(s), x, y); } c.fillStyle = col || '#fff'; c.fillText(String(s), x, y); c.restore(); },
+      label: (c, s, x, y, o) => { o = o || {}; const a = o.alpha == null ? 1 : o.alpha; if (a <= 0) return; c.save(); c.globalAlpha = a; c.font = `800 ${o.size || 34}px Poppins, sans-serif`; const w = c.measureText(String(s)).width + 44, h = (o.size || 34) + 28; if (o.tx != null) { c.strokeStyle = o.line || '#fff'; c.lineWidth = 4; c.beginPath(); c.moveTo(x, y + h / 2); c.lineTo(o.tx, o.ty); c.stroke(); E(c, o.tx, o.ty, 8, 8, o.line || '#fff'); } c.fillStyle = o.bg || 'rgba(10,12,20,.82)'; c.beginPath(); c.roundRect(x - w / 2, y - h / 2, w, h, 16); c.fill(); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = o.color || '#fff'; c.fillText(String(s), x, y + 2); c.restore(); },
+      person: (c, spec, x, y, h, t) => { c.save(); c.translate(x, y); c.scale(h, h); c.lineWidth = .01; try { ITEM.persona(c, Object.assign({}, hero, spec || {}), t || 0, mulberry(7)); } catch (e) {} c.restore(); },
+      item: (c, name, spec, x, y, h, t) => { const fn = ITEM[name]; if (!fn) return; c.save(); c.translate(x, y); c.scale(h, h); c.lineWidth = .01; try { fn(c, spec || {}, t || 0, mulberry(7)); } catch (e) {} c.restore(); },
+      bg: (c, name, tono) => { const k = { fondo: BG[name] ? name : 'abstracto', tono: tono || 'dia', _seed: sc._seed }; c.drawImage(getBg(k, 'k' + (sc._n || 0)), 0, 0); }
+    };
+    return Object.assign(K, KITX);
+  }
+
+  function camFor(sc, u, tm){
+    let s0 = 1.1, s1 = 1.22, ox0 = 0, ox1 = 0, oy0 = 0, oy1 = 0;
+    switch (sc.camara) {
+      case 'zoomout': s0 = 1.26; s1 = 1.08; break;
+      case 'izq': s0 = s1 = 1.12; ox0 = 28; ox1 = -28; break;
+      case 'der': s0 = s1 = 1.12; ox0 = -28; ox1 = 28; break;
+      case 'arriba': s0 = s1 = 1.12; oy0 = 40; oy1 = -40; break;
+      case 'abajo': s0 = s1 = 1.12; oy0 = -40; oy1 = 40; break;
+      case 'fija': s0 = s1 = 1.05; break;
+    }
+    const k = ease(clamp(u, 0, 1)); let ox = lerp(ox0, ox1, k), oy = lerp(oy0, oy1, k);
+    if ((sc.efectos || []).includes('temblor')) { ox += Math.sin(tm * 47) * 6; oy += Math.cos(tm * 53) * 6; }
+    return { ox, oy, s: lerp(s0, s1, k) };
+  }
+
+  // Ejecuta el programa de la escena en el lienzo aislado. Devuelve '' si todo va bien o el error.
+  function exec(sc, u, tm){
+    ensureCanvas(); const P = sc._prog; resetCtx();
+    if (!sc._kit) sc._kit = makeKit(sc);
+    P.seedRandom((sc._seed || 1) * 7919);
+    const t0 = performance.now(); let err = '';
+    try { P.fn.call(undefined, px, tm, clamp(u, 0, 1), sc._kit); } catch (e) { err = (e && e.message) || String(e); }
+    resetCtx2();
+    sc._ms = performance.now() - t0;
+    return err;
+  }
+  function resetCtx2(){ while (depth > 0) { depth--; rawRestore(); } }
+
+  function draw(c, sc, idx, u, tm){
+    if (!sc._prog) { const comp = compile(sc.codigo); if (comp.err) { sc._prog = false; sc._progErr = comp.err; return false; } sc._prog = comp; sc._fails = 0; sc._slow = 0; }
+    lock();
+    try {
+      const err = exec(sc, u, tm);
+      if (err) { sc._fails = (sc._fails || 0) + 1; sc._progErr = err; if (sc._fails >= 3) sc._prog = false; return false; }
+      if (sc._ms > 140 && ++sc._slow >= 4) { sc._prog = false; sc._progErr = 'demasiado lento'; }
+    } finally { unlock(); }
+    const cm = camFor(sc, u, tm);
+    c.save(); c.translate(W / 2 + cm.ox, H / 2 + cm.oy); c.scale(cm.s, cm.s); c.translate(-W / 2, -H / 2); c.drawImage(pc, 0, 0); c.restore();
+    if ((sc.efectos || []).length) { c.save(); drawEffects(c, sc, tm); c.restore(); }
+    finishLook(c, sc, tm);
+    return true;
+  }
+
+  // Prueba previa: compila, ejecuta en varios instantes y comprueba que pinta algo vivo y rápido.
+  function smoke(code, dir, info){
+    info = info || {};
+    const comp = compile(code); if (comp.err) return { ok: false, err: comp.err };
+    const sc = { codigo: code, _prog: comp, _seed: 11 + (info.n || 0) * 7, _dir: dir || null, _n: info.n || 0, _total: info.total || 1, dur: info.dur || 5, camara: 'fija', efectos: [] };
+    const sm = document.createElement('canvas'); sm.width = 54; sm.height = 96; const sx = sm.getContext('2d', { willReadFrequently: true });
+    const samples = [], times = [.35, sc.dur * .5, Math.max(.5, sc.dur - .3)]; let ms = 0;
+    lock();
+    try {
+      for (let i = 0; i < times.length; i++) {
+        const err = exec(sc, times[i] / sc.dur, times[i]); if (err) return { ok: false, err: 'error al ejecutar: ' + err };
+        ms += sc._ms; sx.clearRect(0, 0, 54, 96); sx.drawImage(pc, 0, 0, 54, 96); samples.push(sx.getImageData(0, 0, 54, 96).data);
+      }
+    } finally { unlock(); }
+    const d0 = samples[0]; let n = 0, mean = 0, transp = 0; const bins = new Set();
+    for (let i = 0; i < d0.length; i += 4) { const l = .3 * d0[i] + .59 * d0[i + 1] + .11 * d0[i + 2]; mean += l; n++; if (d0[i + 3] < 200) transp++; bins.add((d0[i] >> 5) + ',' + (d0[i + 1] >> 5) + ',' + (d0[i + 2] >> 5)); }
+    mean /= n; let v = 0; for (let i = 0; i < d0.length; i += 4) { const l = .3 * d0[i] + .59 * d0[i + 1] + .11 * d0[i + 2]; v += (l - mean) * (l - mean); } const sd = Math.sqrt(v / n);
+    if (transp / n > .06) return { ok: false, err: 'el fondo queda transparente: rellena TODO el lienzo (720×1280) al empezar' };
+    if (bins.size < 5 || sd < 9) return { ok: false, err: 'la escena sale casi plana o vacía (pocos colores/contraste): dibuja más elementos' };
+    let diff = 0; const d1 = samples[1], d2 = samples[2]; for (let i = 0; i < d0.length; i += 4) diff += Math.abs(d0[i] - d1[i]) + Math.abs(d1[i] - d2[i]);
+    const avg = ms / times.length;
+    if (avg > 55) return { ok: false, err: 'demasiado lenta (' + Math.round(avg) + ' ms por fotograma): simplifica bucles y degradados' };
+    return { ok: true, ms: Math.round(avg), colors: bins.size, anim: diff / n };
+  }
+
+  return { compile, scan, draw, smoke, makeKit, lock, unlock };
+})();
+function drawScene(c, sc, idx, u, tm){
+  if (sc.codigo && sc._prog !== false && SceneProg.draw(c, sc, idx, u, tm)) return;
+  drawSceneTpl(c, sc, idx, u, tm);
+}
+
+/* Ejemplos de NIVEL (no de contenido) que se enseñan a la IA al pedirle el código de cada escena. */
+const SCENE_EXAMPLES = [
+  // 1) Corte transversal de un mecanismo con ondas que se anulan
+  function (c, t, u, K) {
+    const { W, H, P } = K, r = K.rnd('ej1');
+    K.vgrad(c, [[0, K.shade(P[0], -.25)], [1, P[0]]]);
+    for (let i = 0; i < 30; i++) K.glow(c, r() * W, r() * H, 40 + r() * 90, P[2], .05 + r() * .06);
+    const k = K.tween(u, 0, .25), cx = W / 2, cy = H * .38;
+    c.save(); c.translate(cx, cy); c.scale(.88 + .12 * k, .88 + .12 * k);
+    K.shadow(c, 0, 300, 270, 34, .4);
+    K.rect(c, -260, -250, 520, 520, P[1], 70);
+    K.rect(c, -236, -226, 472, 472, K.shade(P[0], -.12), 52);
+    for (let i = 0; i < 5; i++) K.rect(c, -190 + i * 76, 120, 54, 90 - (i % 3) * 20, K.mix(P[3], P[4], i / 4), 12);
+    const sum = K.step(.35, .7, u);
+    K.wave(c, -190, 190, -140, 34, 80, -t * 6, P[3], 7);
+    K.wave(c, -190, 190, -50, 34, 80, -t * 6 + Math.PI, P[4], 7);
+    K.wave(c, -190, 190, 40, 34 * (1 - sum), 80, -t * 6, P[5], 8);
+    K.arrow(c, 0, -110, 0, 0, 7, K.alpha(P[5], .8 * sum));
+    c.restore();
+    K.label(c, 'ONDA + ONDA INVERSA = SILENCIO', cx, H * .68, { size: 30, alpha: K.step(.4, .6, u), tx: cx, ty: cy + 60 });
+  },
+  // 2) Paisaje en capas con paralaje, luz y personaje caminando
+  function (c, t, u, K) {
+    const { W, H, P } = K, r = K.rnd('ej2');
+    K.vgrad(c, [[0, P[1]], [.55, K.mix(P[3], P[5], .5)], [1, P[4]]]);
+    K.glow(c, W * .72, H * .3, 280, P[3], .9); K.circle(c, W * .72, H * .3, 70, K.mix(P[3], P[5], .6));
+    for (let i = 0; i < 4; i++) K.cloud(c, ((r() * W * 1.6 + t * (6 + i * 3)) % (W * 1.6)) - W * .3, H * (.12 + r() * .2), 60 + r() * 50, .75);
+    K.hills(c, H * .52, 40, K.mix(P[1], P[0], .5), 'a', t * 6);
+    K.hills(c, H * .62, 52, K.mix(P[2], P[0], .45), 'b', t * 16, .01);
+    K.hills(c, H * .72, 40, K.mix(P[2], P[0], .7), 'c', t * 34, .012);
+    for (let i = 0; i < 7; i++) K.tree(c, (((i * 190 - t * 60) % (W + 220)) + W + 220) % (W + 220) - 80, H * .76 + (i % 3) * 14, 120 + (i % 2) * 40, K.mix(P[2], P[0], .35));
+    K.rect(c, 0, H * .8, W, H * .2, K.mix(P[0], '#000000', .25));
+    K.shadow(c, W * .42, H * .84, 80, 14, .4);
+    K.person(c, { accion: 'caminar', emocion: 'alegre' }, W * .42, H * .84, 400, t);
+    for (let i = 0; i < 3; i++) K.bird(c, ((t * 45 + i * 260) % (W + 80)) - 40, H * (.2 + i * .06), 10, t, i, P[0]);
+    K.vignette(c, .35);
+  },
+  // 3) Comparación lado a lado con pantalla dividida, barras que crecen y flecha
+  function (c, t, u, K) {
+    const { W, H, P } = K, mid = W / 2;
+    const k = K.tween(u, .05, .45);
+    [[0, mid, P[1], P[2], 'ANTES'], [mid, W, P[4], P[3], 'DESPUÉS']].forEach(([x0, x1, a, b, name], s) => {
+      c.save(); c.beginPath(); c.rect(x0, 0, x1 - x0, H); c.clip();
+      K.vgrad(c, [[0, K.mix(a, P[0], .6)], [1, K.mix(a, P[0], .2)]]);
+      K.motes(c, t, 22, K.alpha(P[5], .45), 12, 3 + s);
+      for (let i = 0; i < 5; i++) { const hgt = (s ? 90 + i * 70 : 90 + (4 - i) * 55) * k; K.rect(c, x0 + 32 + i * 62, H * .62 - hgt, 46, hgt, K.mix(b, P[5], i / 6), 10); }
+      K.label(c, name, (x0 + x1) / 2, H * .14, { alpha: K.step(.05 + s * .15, .3 + s * .15, u) });
+      c.restore();
+    });
+    K.rect(c, mid - 4, 0, 8, H, P[5]);
+    K.arrow(c, mid - 110, H * .3, mid + 110, H * .3, 12, P[3]);
+    K.vignette(c, .3);
+  }
+,
+  // 4) Paisaje industrial: caballo al trote, torres y cables en paralaje
+  function (c, t, u, K) {
+    const { W, H, P } = K;
+    K.vgrad(c, [[0, K.mix(P[1], P[0], .35)], [.6, K.mix(P[3], P[5], .45)], [1, P[4]]]);
+    K.glow(c, W * .2, H * .32, 300, P[3], .8);
+    K.hills(c, H * .55, 36, K.mix(P[1], P[0], .55), 'm1', t * 8);
+    K.hills(c, H * .64, 44, K.mix(P[2], P[0], .6), 'm2', t * 20, .01);
+    for (let i = 0; i < 3; i++) {
+      const px = (((i * 330 - t * 70) % 990) + 990) % 990 - 130, ends = K.pylon(c, px, H * .72, 330, K.mix(P[0], '#000000', .3));
+      if (i < 2) { const nx = px + 330; K.cable(c, ends[0][0], ends[0][1], nx - 76, ends[0][1], 40, '#141a22', 3); K.cable(c, ends[2][0], ends[2][1], nx + 76 - 150, ends[2][1], 40, '#141a22', 3); }
+    }
+    K.rect(c, 0, H * .72, W, H * .3, K.mix(P[0], '#000000', .3));
+    K.shadow(c, W * .5, H * .79, 150, 16, .45);
+    K.horse(c, W * .5, H * .79, 300, t, { col: K.mix(P[4], P[0], .45) });
+    K.motes(c, t, 24, K.alpha(P[3], .6), 30, 2); K.vignette(c, .35);
+  },
+  // 5) Ciudad de noche con ventanas encendidas y palomas
+  function (c, t, u, K) {
+    const { W, H, P } = K;
+    K.vgrad(c, [[0, K.shade(P[0], -.3)], [1, K.mix(P[1], P[0], .5)]]);
+    K.stars(c, t, 50, H * .4); K.glow(c, W * .75, H * .2, 220, P[5], .35);
+    K.skyline(c, H * .66, 'a', K.mix(P[0], P[1], .25), { off: t * 8, hmax: 360, lit: .25, win: K.alpha(P[3], .6) });
+    K.skyline(c, H * .76, 'b', K.mix(P[0], '#000000', .35), { off: t * 22, hmax: 300, lit: .5, win: K.alpha(P[3], .95), seedW: 5 });
+    K.rect(c, 0, H * .76, W, H * .25, K.shade(P[0], -.4));
+    K.crowd(c, 20, H * .82, W - 40, 16, 150, t, 3);
+    K.flock(c, 0, H * .12, W, H * .2, 6, t, K.alpha(P[5], .8));
+    K.pigeon(c, W * .3 + Math.sin(t) * 20, H * .5 - t * 2 % 20, 150, t, { fly: true });
+    K.pigeon(c, W * .68, H * .64, 120, t, { dir: -1 });
+    K.vignette(c, .45);
+  },
+  // 6) Fondo marino con rayos de luz, banco de peces y burbujas
+  function (c, t, u, K) {
+    const { W, H, P } = K, r = K.rnd('mar');
+    K.vgrad(c, [[0, K.mix(P[2], P[5], .2)], [.5, P[1]], [1, K.shade(P[0], -.2)]]);
+    for (let i = 0; i < 5; i++) { c.fillStyle = K.alpha(P[5], .07); const x = i * 170 + Math.sin(t * .5 + i) * 30; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 70, 0); c.lineTo(x - 130, H); c.lineTo(x - 260, H); c.fill(); }
+    for (let i = 0; i < 18; i++) K.fish(c, ((r() * W + t * (40 + i * 3)) % (W + 200)) - 100, H * (.2 + r() * .4) + Math.sin(t * 2 + i) * 10, 60 + r() * 40, t, { col: K.mix(P[4], P[3], r()), ph: i });
+    K.hills(c, H * .84, 30, K.shade(P[0], -.1), 'sea', t * 6);
+    for (let i = 0; i < 9; i++) { c.strokeStyle = K.mix(P[2], P[0], .3); c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); const x = 30 + i * 85; c.moveTo(x, H); c.quadraticCurveTo(x + Math.sin(t * 1.5 + i) * 25, H * .9, x + Math.sin(t + i) * 15, H * .8); c.stroke(); }
+    K.motes(c, t, 40, K.alpha(P[5], .7), 20, 4); K.vignette(c, .3);
+  },
+  // 7) Dato grande: anillo de progreso, cifra y tres iconos
+  function (c, t, u, K) {
+    const { W, H, P } = K, k = K.tween(u, .05, .6), cx = W / 2, cy = H * .36;
+    K.vgrad(c, [[0, P[0]], [1, K.shade(P[0], -.25)]]);
+    for (let i = 0; i < 6; i++) K.glow(c, W * (.1 + i * .16), H * .1 + (i % 2) * H * .5, 160, i % 2 ? P[1] : P[2], .12);
+    c.lineCap = 'round'; c.lineWidth = 34; c.strokeStyle = K.alpha(P[5], .12); c.beginPath(); c.arc(cx, cy, 200, 0, 7); c.stroke();
+    c.strokeStyle = P[3]; c.beginPath(); c.arc(cx, cy, 200, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * .72 * k); c.stroke();
+    K.text(c, Math.round(72 * k) + '%', cx, cy, 130, '#fff', { stroke: K.alpha(P[0], .8), sw: 14 });
+    ['A', 'B', 'C'].forEach((n, i) => { const s = K.pop(t, .6 + i * .25, .4); K.circle(c, W * (.2 + i * .3), H * .62, 58 * s, [P[1], P[2], P[4]][i]); K.text(c, n, W * (.2 + i * .3), H * .62, 52 * s, '#fff'); });
+  },
+  // 8) Escala: planeta enorme, órbita y átomo diminuto en comparación
+  function (c, t, u, K) {
+    const { W, H, P } = K;
+    K.vgrad(c, [[0, K.shade(P[0], -.3)], [1, P[0]]]); K.stars(c, t, 90, H);
+    const z = K.tween(u, .3, .9);
+    c.save(); c.translate(W / 2, H * .38); c.scale(1 - z * .55, 1 - z * .55); c.translate(-W / 2, -H * .38);
+    c.strokeStyle = K.alpha(P[5], .25); c.lineWidth = 3; c.beginPath(); c.ellipse(W / 2, H * .38, 300, 90, -.25, 0, 7); c.stroke();
+    K.planet(c, W / 2, H * .38, 150, P[4], { ring: true, bands: true }); K.circle(c, W / 2 + Math.cos(t) * 300, H * .38 + Math.sin(t) * 90, 14, P[5]);
+    c.restore();
+    K.atom(c, W * .5, H * .38 + 250 * z, 70 * z, t, P[2]);
+    K.label(c, 'ESCALA', W * .5, H * .12, { alpha: K.step(.1, .3, u) });
+  },
+  // 9) Proceso en pasos: cajas conectadas con flechas y un paso resaltado
+  function (c, t, u, K) {
+    const { W, H, P } = K, act = Math.min(2, Math.floor(u * 3.2));
+    K.vgrad(c, [[0, K.mix(P[0], P[1], .15)], [1, P[0]]]);
+    for (let i = 0; i < 3; i++) {
+      const y = H * (.16 + i * .2), s = K.pop(t, i * .5, .45), on = i === act;
+      c.save(); c.translate(W / 2, y); c.scale(s, s);
+      K.shadow(c, 0, 78, 230, 18, .35); K.rect(c, -230, -70, 460, 140, on ? P[3] : K.mix(P[1], P[0], .35), 30);
+      K.circle(c, -165, 0, 40, on ? P[4] : P[2]); K.text(c, i + 1, -165, 3, 44, '#fff');
+      K.rect(c, -105, -26, 300 * (on ? 1 : .6), 18, K.alpha(P[5], .8), 9); K.rect(c, -105, 8, 200 * (on ? 1 : .5), 14, K.alpha(P[5], .45), 7);
+      c.restore(); if (i < 2) K.arrow(c, W / 2, y + 86, W / 2, y + 112 + Math.sin(t * 4) * 5, 8, P[5]);
+    }
+  },
+  // 10) Corte de terreno por capas con raíces, agua y etiquetas
+  function (c, t, u, K) {
+    const { W, H, P } = K, r = K.rnd('capas');
+    K.vgrad(c, [[0, K.mix(P[1], P[5], .35)], [1, K.mix(P[1], P[5], .7)]]); K.cloud(c, ((t * 12) % (W + 300)) - 150, H * .1, 90, .8);
+    const ys = [H * .3, H * .4, H * .5, H * .6, H * .7], cols = [P[2], K.mix(P[4], P[0], .4), K.mix(P[3], P[0], .5), K.mix(P[4], P[0], .65), K.shade(P[0], -.2)];
+    cols.forEach((col, i) => { c.fillStyle = col; c.beginPath(); c.moveTo(0, H); c.lineTo(0, ys[i]); for (let x = 0; x <= W; x += 20) c.lineTo(x, ys[i] + Math.sin(x * .02 + i * 2) * 8); c.lineTo(W, H); c.fill(); });
+    for (let i = 0; i < 6; i++) { const x = 60 + i * 115, g = K.tween(u, .1 + i * .06, .5); K.tree(c, x, ys[0] + 4, 110 * g, K.mix(P[2], P[0], .1)); c.strokeStyle = K.shade(P[4], -.3); c.lineWidth = 5; c.beginPath(); c.moveTo(x, ys[0]); c.quadraticCurveTo(x + 20, ys[1], x - 10 + Math.sin(t + i) * 4, ys[1] + 120 * g); c.stroke(); }
+    for (let i = 0; i < 14; i++) K.circle(c, r() * W, ys[1] + r() * (H * .25), 4 + r() * 7, K.alpha(P[5], .3));
+    ['SUELO', 'SUBSUELO', 'ROCA'].forEach((n, i) => K.label(c, n, W * .82, ys[i] + 60, { size: 26, alpha: K.step(.3 + i * .15, .5 + i * .15, u) }));
+  }
+];
+const exampleBody = fn => { const s = fn.toString(); return s.slice(s.indexOf('{') + 1, s.lastIndexOf('}')).replace(/^\n/, '').replace(/\n\s{2,4}/g, '\n').trim(); };
+
 /* ===== Música de fondo generada con WebAudio ===== */
 const Music = (() => {
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -857,17 +1193,18 @@ let aborter = null, current = null, running = false;
 const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: s.own, script: s.script })));
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
-const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, music: $('#musicOn').checked, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, voiceId: $('#voiceId').value });
-['niche','voiceEngine','voiceId','voiceRate','musicOn','subsOn','target','research','verify','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
+const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, music: $('#musicOn').checked, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value });
+['niche','voiceEngine','voiceId','voiceRate','musicOn','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
 
 /* --- guion --- */
 const ITEM_LIST = Object.keys(ITEM).join(', ');
 const BG_LIST = Object.keys(BG).join(', ');
-function scriptPrompt(topic, S, dossier, plan){
+function scriptPrompt(topic, S, dossier, plan, dir){
+  dir = dir || pickDirection(topic, []);
   const nScenes = Math.round(S.target / 4.1), nWords = Math.round(S.target * 2.5);
   const hypothetical = /¿QUÉ PASARÍA SI/i.test(topic);
    const format = /¿CÓMO FUNCIONA/i.test(topic) ? 'EXPLICACIÓN DE UN OBJETO O FENÓMENO COTIDIANO' : hypothetical ? 'ESCENARIO HIPOTÉTICO ¿QUÉ PASARÍA SI…?' : '¿SABÍAS QUE? / CIENCIA Y CURIOSIDADES';
-   return `Eres el guionista y director de un canal de vídeos verticales en español (YouTube Shorts, TikTok, Reels). Crea vídeos divulgativos muy visuales, dinámicos y entretenidos, con animación 2D plana de calidad y ritmo cinematográfico. Escribe el guion completo y la dirección visual de UN vídeo.
+   return `Eres el guionista y director de un canal de vídeos verticales en español (YouTube Shorts, TikTok, Reels). Crea vídeos divulgativos muy visuales, dinámicos y entretenidos, con animación 2D de calidad y ritmo cinematográfico. Escribe el guion completo y la dirección visual de UN vídeo.
 
 FORMATO DE ESTE VÍDEO: ${format}
 ENCARGO DEL USUARIO: ${topic}
@@ -883,35 +1220,260 @@ REQUISITOS DE GUION
 - Frases cortas, ritmo rápido, español neutro de España, tono de narrador cercano. Cada escena tiene 1 o 2 frases (6 a 20 palabras). Escribe los números con cifras. Sin violencia gráfica.
 - En "texto" marca con asteriscos UNA palabra clave por escena (*así*), que saldrá en amarillo en el subtítulo.
 
-DIRECCIÓN ARTÍSTICA Y VISUAL (prioridad alta: cada vídeo debe tener identidad propia)
-Antes de escribir las escenas, decide internamente una propuesta visual específica para ESTE tema: cuál es el escenario principal, qué objetos o fenómenos son los protagonistas, qué transformación visual contará la explicación y cómo evolucionará la composición desde el gancho hasta el desenlace. No devuelvas esa propuesta como texto: aplícala en todas las escenas.
-- CONSERVA SIEMPRE la identidad gráfica del canal: animación 2D ilustrada, estética, paleta, tratamiento de fondos, formas, iluminación y lenguaje de cámara actuales. No inventes un estilo artístico nuevo ni pidas realismo, 3D, fotografías o cambios de tipografía. La variedad debe venir de la dirección de escena, no de cambiar el estilo del canal.
-- Cada escena debe representar literalmente una acción, objeto, lugar, mecanismo o consecuencia mencionada en su narración. Si el texto habla de ondas sonoras, muestra ondas; si habla del interior de un aparato, sitúa la acción dentro del aparato; si habla de una reacción, representa esa reacción. No añadas decoración genérica sin relación.
-- Construye una secuencia visual propia del tema, no una plantilla. Varía el tipo de plano y composición: primer plano, vista general, corte transversal, vista desde dentro, comparación lado a lado, recorrido, transformación, escala monumental o detalle. Usa solo las que tengan sentido en cada momento.
-- No uses por defecto laboratorio/probetas, contadores, gráficas de barras, diagramas, cielo, espacio o fondos abstractos. Úsalos únicamente si el contenido realmente trata de ellos y aportan información. Prohibido insertar probetas, barras o contadores como relleno visual.
-- Evita repetir entre vídeos la misma secuencia de recursos. No sigas una estructura visual fija de “objeto → laboratorio → contador → barras → cielo”. La progresión debe nacer de la historia concreta.
-- fondo: ${BG_LIST}. Elige el escenario más específico disponible para lo que se cuenta; no elijas un fondo por costumbre. Puedes mantener un escenario coherente durante varias escenas si la acción evoluciona dentro de él; cambiar de fondo sin motivo no es variedad.
-- tono: dia, atardecer, noche, tormenta, calido, niebla o tension.
-- items (0 a 3 por escena), cada uno {"t": nombre, "x": 0-1, "y": 0-1, "s": escala, ...}. Nombres: ${ITEM_LIST}. Escoge los elementos más cercanos al tema y a la frase narrada. No rellenes el plano por obligación. La base de la figura se coloca en y (objetos de suelo y personas: y entre 0.78 y 0.9; objetos flotantes: y entre 0.35 y 0.6). Escala s: 0.8 a 1.6 para primer plano; 0.4 a 0.7 para lejos.
-- persona admite: genero ("f"/"m"), pelo (rubio, castano, negro, pelirrojo, canoso, calvo), piel (claro, medio, oscuro), ropa (color o "vestido", "bata", "uniforme"), emocion (neutral, alegre, triste, miedo, sorpresa, enfado), accesorio (gafas, sombrero, casco), herida (true), brazos ("arriba"). Mantén el mismo aspecto del protagonista en todas las escenas.
-- camara: zoomin, zoomout, izq, der, arriba, abajo o fija. Alterna solo cuando ayude a contar la acción; no hagas movimientos aleatorios.
-- efectos (opcional): lluvia, nieve, niebla, polvo, chispas, rayos, luz, noche, calido, temblor. Solo si tienen sentido en la escena.
+DIRECCIÓN VISUAL IMPUESTA PARA ESTE VÍDEO (es lo que lo hace único: respétala, no la sustituyas por un estilo genérico)
+- Estilo gráfico: ${dir.estilo}
+- Lenguaje de plano y composición: ${dir.camara}
+- Hilo visual recurrente: ${dir.motivo}
+- Paleta base obligatoria: ${dir.paletaNombre}
+Decide además "concepto": UNA frase con la idea visual propia de este tema (qué escenario, qué objeto protagonista, qué transformación cuenta la explicación). Debe ser inconfundible respecto a cualquier otro vídeo del canal.
+Si en el vídeo aparece una persona, define "protagonista" ({"genero":"f|m","pelo":"rubio|castano|negro|pelirrojo|canoso|calvo","piel":"claro|medio|oscuro","ropa":"color|vestido|bata|uniforme","edad":"nino|joven|adulto|mayor","accesorio":"gafas|sombrero|casco o vacío"}) y mantenla igual todo el vídeo. Si el tema no necesita personas, deja "protagonista" en null.
+
+CADA ESCENA:
+- "visual": 1 o 2 frases en español que describen EXACTAMENTE qué se ve y cómo se mueve (qué objetos concretos, dónde, qué hacen, tipo de plano). Debe representar literalmente lo que dice la narración de esa escena: si habla de ondas, ondas; si habla del interior de un aparato, un corte por dentro; si habla de una reacción, la reacción. Prohibida la decoración genérica. Un programador debe poder dibujarlo sin ver la narración.
+- Varía composición y tipo de plano entre escenas (primer plano, vista general, corte transversal, desde dentro, comparación lado a lado, recorrido, transformación, escala monumental, detalle) según lo que pida la historia, no por rutina. No uses por defecto laboratorio, probetas, contadores, gráficas de barras, cielo o fondos abstractos salvo que el contenido trate de ello.
+- "fondo" (${BG_LIST}) y "tono" (dia, atardecer, noche, tormenta, calido, niebla, tension): SOLO son un respaldo sencillo por si falla el dibujo personalizado; elígelos con sentido.
+- "items" (0 a 2, opcional, también solo de respaldo): {"t": nombre, "x": 0-1, "y": 0-1, "s": escala}. Nombres: ${ITEM_LIST}.
+- camara: zoomin, zoomout, izq, der, arriba, abajo o fija. Alterna solo cuando ayude a contar la acción.
 - rotulo (opcional, 1 a 3 palabras): rótulo rojo arriba para un lugar, fecha o concepto.
 - etiqueta (opcional): {"nombre": "...", "sub": "..."} para presentar a una persona real.
-- tipo (opcional): "mapa" con dato {"pins":[{"n":"LIMA","x":0.25,"y":0.6},{"n":"PUCALLPA","x":0.7,"y":0.35}]}; "grid" con dato {"total":92,"dest":1}; "numero" con dato {"valor":11,"sufijo":" días","etiqueta":"..." }; "barras" con dato {"barras":[{"n":"A","v":10},{"n":"B","v":25}]}; "titulo" con dato {"texto":"..."}. Son recursos especiales, NO obligatorios: usa solo el que aporte una explicación real y evita repetirlos por rutina.
-- No repitas el mismo fondo más de dos escenas seguidas, salvo que mantener el mismo escenario sea narrativamente necesario.
+- tipo (opcional): "normal" casi siempre. Recursos especiales con plantilla fija, SOLO si aportan una explicación real: "mapa" con dato {"pins":[{"n":"LIMA","x":0.25,"y":0.6}]}; "grid" con dato {"total":92,"dest":1}; "numero" con dato {"valor":11,"sufijo":" días","etiqueta":"..."}; "barras" con dato {"barras":[{"n":"A","v":10}]}; "titulo" con dato {"texto":"..."}.
 
 También devuelve: titulo (≤ 70 caracteres, que despierte curiosidad sin mentir), descripcion (1 o 2 frases), hashtags (5 o 6, sin #), musica (tension, epico, calma, misterio o alegre).
 
 Responde SOLO con un objeto JSON válido con esta forma:
-{"titulo":"","descripcion":"","hashtags":[""],"musica":"tension","escenas":[{"texto":"","fondo":"cielo","tono":"noche","items":[{"t":"persona","x":0.5,"y":0.85,"s":1.1,"genero":"f","pelo":"rubio","ropa":"vestido","emocion":"miedo"}],"camara":"zoomin","efectos":["lluvia"],"rotulo":"","tipo":"normal"}]}`;
+{"titulo":"","descripcion":"","hashtags":[""],"musica":"tension","concepto":"","protagonista":null,"escenas":[{"texto":"","visual":"","fondo":"cielo","tono":"noche","items":[],"camara":"zoomin","rotulo":"","tipo":"normal"}]}`;
 }
-function sanitizeScript(raw, topic){
+/* ===== Dirección de arte: cada vídeo recibe una firma visual distinta de todos los recientes ===== */
+const ART = {
+  paletas: [
+    { n: 'Neón nocturno (violeta, cian, rosa)', c: ['#0b1030', '#5b3df5', '#16d9e3', '#ffe066', '#ff4d8d', '#f4f1ff'] },
+    { n: 'Papel crema y tinta (terracota, verde azulado)', c: ['#2b2118', '#c8553d', '#588b8b', '#f2c14e', '#8c5e3c', '#f6efe3'] },
+    { n: 'Bosque y miel (verdes y ámbar)', c: ['#10261c', '#2f7d4f', '#8cc084', '#f4c95d', '#e07a3f', '#f3f1de'] },
+    { n: 'Océano profundo (turquesas y coral)', c: ['#031926', '#0a7e8c', '#5ec2b7', '#f6e27a', '#ef6f6c', '#eaf6f6'] },
+    { n: 'Atardecer rosa (magenta, naranja, malva)', c: ['#2a1233', '#c2185b', '#ff8a65', '#ffd54f', '#7e57c2', '#fff3e0'] },
+    { n: 'Acero industrial (azul acero, ámbar, rojo)', c: ['#16191f', '#4a6fa5', '#9db4c0', '#ffb703', '#e63946', '#eef2f5'] },
+    { n: 'Mediterráneo (azul, arena, naranja)', c: ['#0b2545', '#1d70c1', '#8dd3e8', '#f9c74f', '#f3722c', '#fdf6e3'] },
+    { n: 'Desierto ocre (siena, dorado, óxido)', c: ['#2d1b10', '#b5651d', '#e9b872', '#fff1b8', '#c1440e', '#fbf0dc'] },
+    { n: 'Hielo y coral (azules fríos, salmón)', c: ['#0d2233', '#3a86c8', '#bfe3f5', '#ffd1b3', '#ff6f61', '#f7fbff'] },
+    { n: 'Lavanda y menta (violeta suave, verde menta)', c: ['#1e1b3a', '#7c6cf0', '#7de3c4', '#ffe29a', '#ff8fab', '#f6f4ff'] },
+    { n: 'Arcade retro (púrpura, turquesa, amarillo)', c: ['#10002b', '#7b2cbf', '#00f5d4', '#fee440', '#f15bb5', '#fdf0ff'] },
+    { n: 'Tierra y musgo (oliva, mostaza, arcilla)', c: ['#1f2a1a', '#6b8f3a', '#c9b458', '#f2e3a1', '#b5532e', '#f4efdc'] },
+    { n: 'Cobre y petróleo (verde petróleo, cobre)', c: ['#07282e', '#157a80', '#4fb8ad', '#f0c987', '#d1603d', '#f3f0e6'] },
+    { n: 'Rojo imperial (carmesí, oro, jade)', c: ['#1c0a0e', '#a4161a', '#e5989b', '#ffd166', '#4d908e', '#fff0e5'] },
+    { n: 'Mostaza y azul tinta', c: ['#10213f', '#2e5eaa', '#8fb8de', '#f2b705', '#e4572e', '#f7f3e8'] },
+    { n: 'Aurora boreal (verdes eléctricos y violeta)', c: ['#071a2f', '#0e9aa7', '#3cdbd3', '#c9f27a', '#a45cff', '#effffb'] },
+    { n: 'Rosa polvo y grafito', c: ['#26242b', '#6d6875', '#b5838d', '#ffcdb2', '#e5989b', '#fff8f2'] },
+    { n: 'Selva tropical (verde vivo, fucsia, limón)', c: ['#062c1f', '#00a676', '#7ddf64', '#ffd447', '#ff5d8f', '#f3ffe9'] }
+  ],
+  estilos: [
+    'formas geométricas planas y limpias con sombras suaves y mucha luz ambiental',
+    'recortes de papel apilados en capas con sombras duras entre capas (efecto diorama)',
+    'contornos gruesos oscuros tipo cómic con rellenos planos y brillos en trazo',
+    'plano técnico o blueprint: líneas finas claras sobre fondo oscuro, cotas, rejilla y anotaciones',
+    'duotono con trama de puntos (semitono) y grandes masas de color plano',
+    'proyección isométrica: objetos y escenarios en 3/4 con caras de distinto tono',
+    'siluetas contrastadas a contraluz con grandes halos y rayos de luz volumétrica',
+    'collage de formas orgánicas irregulares (blobs) con grano y bordes imperfectos',
+    'pixel art: todo construido con bloques cuadrados grandes y paleta limitada',
+    'acuarela: manchas translúcidas superpuestas, bordes difusos y salpicaduras',
+    'infografía animada: paneles, iconos grandes de formas simples y datos que crecen',
+    'low-poly: superficies facetadas hechas con triángulos de distinto tono'
+  ],
+  camaras: [
+    'travelling lateral continuo: el mundo se desplaza horizontalmente y los elementos entran y salen por los lados',
+    'zoom progresivo: arranca en plano general y cada escena se mete más dentro del objeto o fenómeno',
+    'vista cenital (desde arriba) con elementos que convergen o se reparten por el plano',
+    'montaje de detalles: planos muy cerrados de partes concretas alternados con un plano general',
+    'pantallas divididas y comparaciones lado a lado o arriba/abajo',
+    'corte transversal (cutaway): se ve el interior del objeto o del terreno con el mecanismo en movimiento',
+    'cambios de escala: cada escena salta de lo diminuto a lo gigante (o al revés) con comparaciones de tamaño',
+    'paralaje profundo: capas muy separadas que se mueven a distinta velocidad con primer plano desenfocado'
+  ],
+  motivos: [
+    'una mascota-objeto con ojos (un objeto del propio tema) que reacciona en cada escena',
+    'un hilo de color continuo que atraviesa las escenas y conecta unas ideas con otras',
+    'un reloj o cuenta atrás pequeño que avanza en una esquina superior mientras ocurre el proceso',
+    'una lupa o círculo de enfoque que revela detalles ocultos',
+    'un único protagonista humano que reaparece en cada escena viviendo la explicación',
+    'una forma geométrica simple que se transforma en el objeto protagonista de cada escena',
+    'puntos de luz o partículas que guían la mirada de un elemento al siguiente',
+    'una trayectoria punteada con flecha que une los pasos del proceso',
+    'una regla o escala graduada en el borde que mide tamaños y distancias',
+    'sin personajes: solo objetos, materiales y fenómenos como protagonistas'
+  ]
+};
+function pickDirection(topic, recent){
+  const rec = (recent || []).filter(f => f && typeof f === 'object');
+  const pick = (key, list, win) => {
+    const banned = new Set(rec.slice(-win).map(f => f[key]));
+    let cand = list.map((_, i) => i).filter(i => !banned.has(i));
+    if (!cand.length) cand = list.map((_, i) => i);
+    return cand[Math.floor(Math.random() * cand.length)];
+  };
+  const p = pick('p', ART.paletas, 9), e = pick('e', ART.estilos, 6), c = pick('c', ART.camaras, 4), m = pick('m', ART.motivos, 5);
+  return { p, e, c, m, paleta: ART.paletas[p].c.slice(), paletaNombre: ART.paletas[p].n, estilo: ART.estilos[e], camara: ART.camaras[c], motivo: ART.motivos[m] };
+}
+/* Parecido entre temas: evita repetir asuntos aunque se redacten distinto. */
+const STOPW = new Set('que como cual cuando donde sobre entre desde hasta todo toda todos esto esta este para pero porque cada tiene hace sabias sabias funciona pasaria ocurriria vez dentro luego puede pueden'.split(' '));
+const topicWords = t => new Set(String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^.*?—/, '').replace(/[^a-z0-9ñ ]+/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOPW.has(w)).map(w => w.replace(/(es|s)$/, '')));
+function topicSim(a, b){ const A = topicWords(a), B = topicWords(b); if (!A.size || !B.size) return 0; let i = 0; A.forEach(w => { if (B.has(w)) i++; }); return i / Math.min(A.size, B.size); }
+
+/* ===== La IA programa cada escena (código Canvas propio) ===== */
+const estSceneDur = e => Math.max(2.4, String(e.texto || '').split(/\s+/).length / 2.5 + .6);
+function progHeader(script){
+  const d = script.direccion || {};
+  return `Eres director de arte y programador de animación 2D con Canvas. Escribes el CÓDIGO de las escenas de un vídeo vertical (720×1280) de divulgación en español. Cada escena se dibuja con código propio, hecho a medida de lo que cuenta la narración. Calidad objetivo: animación 2D de estudio, con profundidad, luz, detalle y movimiento continuo.
+
+VÍDEO: «${script.titulo}»
+CONCEPTO VISUAL: ${d.concepto || 'el que mejor explique el tema'}
+ESTILO GRÁFICO IMPUESTO: ${d.estilo}
+LENGUAJE DE PLANO: ${d.camara}
+HILO VISUAL RECURRENTE: ${d.motivo}
+PALETA (K.P): ${d.paletaNombre} → ${JSON.stringify(d.paleta)}  [0 fondo oscuro, 1 primario, 2 secundario, 3 acento claro, 4 acento cálido, 5 claro]
+PROTAGONISTA HUMANO (K.hero): ${d.protagonista ? JSON.stringify(d.protagonista) : 'ninguno: no dibujes personas salvo que la escena lo pida'}
+
+CÓMO SE ESCRIBE UNA ESCENA
+Escribes el CUERPO de una función con parámetros (c, t, u, K): c = contexto Canvas 2D de 720×1280 (limpio, sin transformaciones), t = segundos desde que empieza la escena, u = progreso 0..1 de la escena, K = herramientas. Todo lo demás del navegador está bloqueado.
+K.W, K.H, K.P, K.hero, K.dur (segundos de la escena), K.n (nº de escena).
+Tiempo y azar: Math.* (Math.random es determinista), K.clamp(v,a,b), K.lerp(a,b,k), K.ease(k), K.step(a,b,x) 0..1, K.tween(t,a,b) suavizado, K.pop(t,inicio,dur) aparición con rebote, K.pulse(t,hz), K.noise(x,y), K.rnd('semilla') → generador determinista (const r = K.rnd('x'); r()), K.hh(i).
+Color: K.mix(hexA,hexB,k), K.shade(hex,-1..1), K.alpha(hex,a) → 'rgba(…)'.
+Fondos y luz: K.vgrad(c,[[0,col],[1,col]]) rellena todo el lienzo, K.grad(c,x0,y0,x1,y1,stops) y K.rgrad(c,x,y,r0,r1,stops) devuelven degradado, K.glow(c,x,y,r,hex,a) halo, K.vignette(c,a), K.bg(c,nombre,tono) fondo de plantilla opcional (${BG_LIST}).
+Formas: K.rect(c,x,y,w,h,fill,radio), K.circle(c,x,y,r,fill), K.ellipse(c,x,y,rx,ry,fill,rot), K.poly(c,[[x,y],…],fill), K.line(c,x0,y0,x1,y1,grosor,col), K.path(c,pts,{smooth,close,fill,stroke,w}), K.blob(c,x,y,r,fill,semilla,irregularidad), K.shadow(c,x,y,rx,ry,a), K.arrow(c,x0,y0,x1,y1,grosor,col), K.wave(c,x0,x1,y,amp,longitud,fase,col,grosor), K.gear(c,x,y,r,dientes,ángulo,col).
+Escenario: K.hills(c,y,amp,col,semilla,desplazamiento,frec), K.cloud(c,x,y,tam,alfa,col), K.tree(c,x,y,tam,col), K.pine(c,x,y,tam,col), K.stars(c,t,n,maxY), K.motes(c,t,n,col,vel,semilla), K.bird(c,x,y,tam,t,i,col).
+Personajes y objetos: K.person(c,spec,x_pies,y_pies,alto_px,t) con spec {genero,pelo,piel,ropa,emocion,accion:'caminar|correr|hablar|senalar',brazos:'arriba',accesorio,edad,herida,sucio} (por defecto usa K.hero); K.item(c,nombre,spec,x_base,y_base,alto_px,t) con nombres: ${ITEM_LIST}. Úsalos cuando ahorren trabajo, pero dibuja a mano los objetos propios del tema.
+Piezas hechas (úsalas, ahorran trabajo y quedan bien): K.pigeon(c,x,y,largo_px,t,{fly,dir:-1,col}) paloma; K.horse(c,x,y_suelo,alto_px,t,{col,gait,dir}) caballo; K.fish(c,x,y,largo_px,t,{col,dir,ph}); K.flock(c,x,y,ancho,alto,n,t,col) bandada; K.pylon(c,x,y_suelo,alto_px,col) torre eléctrica (devuelve los extremos de sus brazos) y K.cable(c,x0,y0,x1,y1,caída,col,grosor); K.skyline(c,y,semilla,col,{off,lit,hmax,win}) ciudad; K.crowd(c,x,y,ancho,n,alto_px,t,semilla) multitud; K.car(c,x,y_suelo,largo_px,col,t,{dir,v}); K.house(c,x,y_suelo,tam,col,luz); K.planet(c,x,y,r,col,{ring,bands}); K.atom(c,x,y,r,t,col); K.bolt(c,x0,y0,x1,y1,t,col,grosor) rayo. Lo que no esté aquí, dibújalo tú con formas.
+Texto: K.text(c,'texto',x,y,tam,col,{stroke,align,weight,alpha}), K.label(c,'ETIQUETA',x,y,{size,alpha,tx,ty}) cartel con línea hacia un punto. Solo etiquetas cortas en español.
+
+REGLAS
+- Rellena TODO el lienzo con un fondo opaco al empezar. Dibuja cada fotograma desde cero como función pura de t y u (no acumules estado; usa K.rnd o K.hh para azar fijo).
+- Anima SIEMPRE: algo se mueve en cada instante (entradas escalonadas con K.pop/K.tween, movimiento continuo suave, paralaje). Sincroniza con la narración: lo que se nombra primero aparece primero; la escena dura K.dur segundos.
+- Composición vertical: la acción principal entre el 10% y el 66% de la altura. Entre el 70% y el 84% van los subtítulos: no pongas nada importante ni texto ahí.
+- Calidad: tres capas de profundidad (fondo, plano medio, primer plano), luz (glow, degradados, sombras), objetos con detalle (base + sombra + brillo + al menos un rasgo que los identifique), coherencia total con el ESTILO GRÁFICO impuesto. Colores de K.P y derivados (K.mix/K.shade/K.alpha) más algún color realista puntual (fuego, piel, vegetación) si el objeto lo exige.
+- Representa literalmente lo descrito en «QUÉ SE VE». Nada de decoración sin relación con lo que se explica.
+- Cada escena debe verse distinta a las demás del vídeo (plano, composición), pero con el mismo estilo, paleta e hilo visual.
+- Rendimiento: máximo ~1500 trazados por fotograma, bucles for de menos de 400 iteraciones, sin imágenes, red, getImageData ni document/window.
+- Prohibido: while/do, async/await, eval, import, Function, las palabras constructor y prototype, escapes \\u o \\x, y acceso con corchetes y texto (obj['x']); usa notación con punto.
+- El código va SIN la cabecera function(...) y sin Markdown.`;
+}
+function progExamples(){
+  return '\nEJEMPLOS DE NIVEL (de calidad y de uso de las herramientas, NO de contenido: no los copies, inventa composiciones propias para cada escena)\n' + SCENE_EXAMPLES.map((fn, i) => ({ fn, k: Math.random() })).sort((a, b) => a.k - b.k).slice(0, 5).map((o, i) => `### EJEMPLO ${i + 1}\n${exampleBody(o.fn)}`).join('\n\n') + '\n';
+}
+const progFormat = '\nFORMATO DE RESPUESTA: para cada escena una línea «### ESCENA n» (n = su número) y debajo SOLO el código JavaScript de esa escena, sin ``` ni explicaciones.';
+function progPrompt(script, batch){
+  return progHeader(script) + progExamples() + '\nESCENAS A PROGRAMAR\n' + batch.map(({ e, i }) => `### ESCENA ${i + 1} (dura ${estSceneDur(e).toFixed(1)} s; plano: ${e.camara})\nNARRACIÓN: ${e.texto.replace(/\*/g, '')}\nQUÉ SE VE: ${e.visual || e.texto.replace(/\*/g, '')}`).join('\n\n') + progFormat;
+}
+function repairPrompt(script, failed){
+  return progHeader(script) + '\nEstas escenas fallaron la prueba automática. Reescribe cada una corrigiendo el error indicado (manteniendo la idea visual).\n\n' + failed.map(f => `### ESCENA ${f.i + 1} (dura ${estSceneDur(f.e).toFixed(1)} s)\nQUÉ SE VE: ${f.e.visual || f.e.texto.replace(/\*/g, '')}\nERROR: ${f.err}\nCÓDIGO ANTERIOR:\n${String(f.code || '(vacío)').slice(0, 6000)}`).join('\n\n') + progFormat;
+}
+function parsePrograms(text){
+  const out = {}, parts = String(text || '').split(/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+(\d+)[^\n]*$/im);
+  for (let k = 1; k < parts.length; k += 2) {
+    let code = parts[k + 1].replace(/```[a-z]*\s*/gi, '').replace(/```/g, '').trim();
+    const w = /^(?:function\s*\w*\s*\(\s*c\s*,\s*t\s*,\s*u\s*,\s*K\s*\)\s*\{|\(\s*c\s*,\s*t\s*,\s*u\s*,\s*K\s*\)\s*=>\s*\{)/.exec(code);
+    if (w && /\}\s*;?\s*$/.test(code)) code = code.slice(w[0].length).replace(/\}\s*;?\s*$/, '').trim();
+    out[+parts[k]] = code;
+  }
+  return out;
+}
+/* ===== Modo ChatGPT/otra IA: copias un prompt, pegas la respuesta y el motor hace el resto ===== */
+const pendingDir = {};
+function masterPrompt(i, S, mode){
+  const sl = slots[i], topic = (sl.topic || '').trim() || 'TEMA LIBRE: elige tú un tema sorprendente de ciencia, tecnología o curiosidades';
+  const dir = pickDirection(topic, store.get('sigs', [])); pendingDir[i] = dir;
+  const base = scriptPrompt(topic, S, '', null, dir).replace(/Responde SOLO con un objeto JSON válido con esta forma:[\s\S]*$/, '');
+  const pseudo = { titulo: topic, direccion: Object.assign({}, dir, { concepto: 'el que definas tú en el campo "concepto" del JSON', protagonista: null }) };
+  const code = progHeader(pseudo).replace(/^[\s\S]*?CÓMO SE ESCRIBE UNA ESCENA/, 'CÓMO SE ESCRIBE EL CÓDIGO DE CADA ESCENA');
+  const part1 = `${base}
+No tienes fuentes pegadas: usa solo datos que conozcas con total seguridad (si puedes buscar en internet, hazlo) y no inventes cifras.
+
+════ PARTE 1: EL GUION ════
+Responde primero con UN bloque \`\`\`json con esta forma exacta (sin comentarios):
+{"titulo":"","descripcion":"","hashtags":[""],"musica":"tension","concepto":"","protagonista":null,"escenas":[{"texto":"","visual":"","fondo":"cielo","tono":"noche","items":[],"camara":"zoomin","rotulo":"","tipo":"normal"}]}
+
+════ PARTE 2: EL CÓDIGO DE CADA ESCENA ════
+Después del bloque json, escribe el código de TODAS las escenas con "tipo":"normal", en el orden del guion.
+${code}${progExamples()}${progFormat}
+Usa un bloque \`\`\`js por escena justo debajo de su línea «### ESCENA n». No escribas nada más.`;
+  if (mode === 'guion') return part1.replace(/\n════ PARTE 2[\s\S]*$/, '\nResponde SOLO con ese bloque json (sin código de escenas: se pedirá después).');
+  return part1;
+}
+function nextBatchPrompt(i){
+  const sl = slots[i]; if (!sl.script) return '';
+  const todo = sl.script.escenas.map((e, k) => ({ e, i: k })).filter(x => (x.e.tipo || 'normal') === 'normal' && !x.e.codigo).slice(0, 4);
+  return todo.length ? progPrompt(sl.script, todo) : '';
+}
+function reviewPrompt(i){
+  const sl = slots[i]; if (!sl.script) return '';
+  return `Revisa críticamente TUS escenas de este vídeo («${sl.script.titulo}») con esta lista y reescribe SOLO las que incumplan alguna regla (mismo formato «### ESCENA n» + bloque js; no repitas las que estén bien):
+1. ¿Rellena TODO el lienzo con un fondo opaco y tiene al menos 3 capas de profundidad (fondo, plano medio, primer plano)?
+2. ¿Hay movimiento continuo en cada instante y entradas escalonadas sincronizadas con la narración?
+3. ¿Representa literalmente lo que dice la narración y «QUÉ SE VE», con objetos concretos y reconocibles (no formas genéricas)?
+4. ¿Tiene luz (glow, degradados, sombras) y detalle (brillos, rasgos que identifiquen cada objeto)?
+5. ¿Respeta el estilo gráfico y la paleta impuestos y se diferencia de las otras escenas?
+6. ¿Está lo importante entre el 10% y el 66% de la altura y nada en la franja de subtítulos (70-84%)?
+7. ¿Usa las piezas K.* disponibles (paloma, caballo, torres, ciudad, multitud…) en vez de dibujarlas peor a mano?
+Escenas del vídeo:
+${sl.script.escenas.map((e, k) => `ESCENA ${k + 1}: ${e.texto.replace(/\*/g, '')} | QUÉ SE VE: ${e.visual || '-'}`).join('\n')}`;
+}
+function importPackage(text, i){
+  const sl = slots[i], at = text.search(/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+\d+/im), head = at < 0 ? text : text.slice(0, at);
+  if (sl.script && at >= 0 && !/\{[\s\S]*"escenas"/.test(head)) {
+    const progs = parsePrograms(text.slice(at)), errs = []; let ok = 0, n = 0;
+    Object.keys(progs).forEach(k => { const e = sl.script.escenas[+k - 1]; if (!e) return; n++; const r = SceneProg.smoke(progs[k], sl.script.direccion, { dur: estSceneDur(e), n: +k - 1, total: sl.script.escenas.length }); if (r.ok) { e.codigo = progs[k]; ok++; } else errs.push(`ESCENA ${k}: ${r.err}`); });
+    const tot = sl.script.escenas.filter(e => (e.tipo || 'normal') === 'normal'), done = tot.filter(e => e.codigo).length;
+    sl.script.programadas = done; sl.script.conPlantilla = tot.length - done; persist();
+    return { ok: done, errs, total: tot.length, merged: true };
+  }
+  const raw = parseJSON(head);
+  const dir = pendingDir[i] || pickDirection(sl.topic || raw.titulo || '', store.get('sigs', []));
+  const script = sanitizeScript(raw, sl.topic || raw.titulo || 'Vídeo', dir);
+  const progs = parsePrograms(at < 0 ? '' : text.slice(at)), errs = []; let ok = 0;
+  script.escenas.forEach((e, k) => {
+    if (e.tipo && e.tipo !== 'normal') return;
+    if (at < 0) return;
+    const code = progs[k + 1];
+    const r = code ? SceneProg.smoke(code, script.direccion, { dur: estSceneDur(e), n: k, total: script.escenas.length }) : { ok: false, err: 'falta el código' };
+    if (r.ok) { e.codigo = code; ok++; } else errs.push(`ESCENA ${k + 1}: ${r.err}`);
+  });
+  script.programadas = ok; script.conPlantilla = at < 0 ? script.escenas.length : errs.length; script.sinFuentes = true;
+  if (!sl.topic) sl.topic = script.titulo;
+  sl.script = script; sl.err = ''; persist();
+  return { ok, errs, total: script.escenas.length };
+}
+async function buildPrograms(script, S, progress, sig){
+  const total = script.escenas.length, targets = script.escenas.map((e, i) => ({ e, i })).filter(x => (x.e.tipo || 'normal') === 'normal');
+  const test = (e, i, code) => code ? SceneProg.smoke(code, script.direccion, { dur: estSceneDur(e), n: i, total }) : { ok: false, err: 'no se devolvió código para esta escena' };
+  let apiFails = 0;
+  for (let k = 0; k < targets.length; k += 5) {
+    const batch = targets.slice(k, k + 5);
+    progress(`Programando las escenas ${batch[0].i + 1}-${batch[batch.length - 1].i + 1} de ${total}…`);
+    let text = '';
+    try { text = await aiText(progPrompt(script, batch), { signal: sig, temperature: .7 }); apiFails = 0; }
+    catch (e) { if (e.code === 'cancelled' || e.code === 'bad_key') throw e; apiFails++; console.warn('[escenas]', e.message || e.code); if (apiFails >= 2) break; }
+    const progs = parsePrograms(text), failed = [];
+    for (const { e, i } of batch) { const code = progs[i + 1], r = test(e, i, code); if (r.ok) e.codigo = code; else failed.push({ e, i, code, err: r.err }); }
+    if (failed.length && apiFails === 0) {
+      progress(`Corrigiendo ${failed.length} escena(s)…`);
+      try {
+        const fixed = parsePrograms(await aiText(repairPrompt(script, failed), { signal: sig, temperature: .5 }));
+        for (const f of failed) { const code = fixed[f.i + 1], r = test(f.e, f.i, code); if (r.ok) f.e.codigo = code; }
+      } catch (e) { if (e.code === 'cancelled' || e.code === 'bad_key') throw e; console.warn('[escenas/reparar]', e.message || e.code); }
+    }
+  }
+  const ok = targets.filter(x => x.e.codigo).length;
+  script.programadas = ok; script.conPlantilla = targets.length - ok;
+  return script;
+}
+
+function sanitizeScript(raw, topic, dir){
   if (!raw || !Array.isArray(raw.escenas) || !raw.escenas.length) throw new Error('El guion no tiene escenas');
   const hist = store.get('hist', []); hist.push(topic); store.set('hist', hist.slice(-40));
+  dir = dir || pickDirection(topic, store.get('sigs', []));
+  const sigs = store.get('sigs', []); sigs.push({ p: dir.p, e: dir.e, c: dir.c, m: dir.m }); store.set('sigs', sigs.slice(-30));
   const scenes = raw.escenas.slice(0, 40).map((e, i) => {
     const texto = String(e.texto || '').trim(); if (!texto) return null;
     const sc = { texto, fondo: BG[e.fondo] ? e.fondo : guessBg(texto), tono: VALID_TONO.includes(e.tono) ? e.tono : 'dia', camara: VALID_CAM.includes(e.camara) ? e.camara : VALID_CAM[i % 5], efectos: (Array.isArray(e.efectos) ? e.efectos : []).filter(x => VALID_FX.includes(x)).slice(0,3), tipo: VALID_TIPO.includes(e.tipo) ? e.tipo : 'normal', dato: e.dato && typeof e.dato === 'object' ? e.dato : null };
+    if (e.visual) sc.visual = String(e.visual).slice(0, 500);
     if (e.rotulo) sc.rotulo = String(e.rotulo).slice(0, 40);
     if (e.etiqueta && e.etiqueta.nombre) sc.etiqueta = { nombre: String(e.etiqueta.nombre).slice(0,40), sub: String(e.etiqueta.sub || '').slice(0,50) };
     if (sc.tipo === 'mapa') sc.fondo = 'mapa'; if (sc.tipo === 'grid' || sc.tipo === 'numero' || sc.tipo === 'barras') { if (!e.fondo || !BG[e.fondo]) sc.fondo = 'abstracto'; }
@@ -919,7 +1481,10 @@ function sanitizeScript(raw, topic){
     return sc;
   }).filter(Boolean);
   if (!scenes.length) throw new Error('El guion llegó vacío');
-  return { titulo: String(raw.titulo || topic).slice(0, 100), descripcion: String(raw.descripcion || ''), hashtags: (Array.isArray(raw.hashtags) ? raw.hashtags : []).map(h => String(h).replace(/[^\p{L}\p{N}_]/gu,'')).filter(Boolean).slice(0,8), musica: Music.moods.includes(raw.musica) ? raw.musica : 'tension', tema: topic, escenas: scenes };
+  const HK = { genero: ['f','m'], pelo: ['rubio','castano','negro','pelirrojo','canoso','calvo'], piel: ['claro','medio','oscuro'], edad: ['nino','joven','adulto','mayor'], accesorio: ['gafas','sombrero','casco'] };
+  let hero = null; if (raw.protagonista && typeof raw.protagonista === 'object') { hero = { t: 'persona' }; Object.keys(HK).forEach(k => { if (HK[k].includes(raw.protagonista[k])) hero[k] = raw.protagonista[k]; }); if (raw.protagonista.ropa) hero.ropa = String(raw.protagonista.ropa).slice(0, 20); }
+  const direccion = { paleta: dir.paleta, paletaNombre: dir.paletaNombre, estilo: dir.estilo, camara: dir.camara, motivo: dir.motivo, concepto: String(raw.concepto || '').slice(0, 300), protagonista: hero };
+  return { direccion, firma: { p: dir.p, e: dir.e, c: dir.c, m: dir.m }, titulo: String(raw.titulo || topic).slice(0, 100), descripcion: String(raw.descripcion || ''), hashtags: (Array.isArray(raw.hashtags) ? raw.hashtags : []).map(h => String(h).replace(/[^\p{L}\p{N}_]/gu,'')).filter(Boolean).slice(0,8), musica: Music.moods.includes(raw.musica) ? raw.musica : 'tension', tema: topic, escenas: scenes };
 }
 const KW = [
   [/selva|bosque|amazon|jungla|panguana/i,{fondo:'selva'}],[/avi[oó]n|vuelo|aterriz|aeropuerto/i,{fondo:'cielo',item:'avion'}],[/noche|oscur|medianoche|nochebuena/i,{fondo:'noche',tono:'noche'}],
@@ -956,7 +1521,7 @@ async function prepare(script, S, progress){
   let t = 0.1; const scenes = [];
   for (let i = 0; i < script.escenas.length; i++) {
     const e = script.escenas[i];
-    const sc = Object.assign({}, e, { _seed: i * 7 + 3 });
+    const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
     const clean = e.texto.replace(/\s+/g,' ').trim();
     let words, dur, audio = null;
     if (S.voice) { progress && progress(`Voz: escena ${i + 1}/${script.escenas.length}`, i / script.escenas.length); audio = await Voice.speak(clean, S, m => progress && progress(m, i / script.escenas.length)); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
@@ -1027,7 +1592,7 @@ const stopAll = () => { try { aborter?.abort(); } catch (e) {} try { current?.ca
 
 /* --- IA: temas y guion --- */
 const errCopy = e => ({ bad_key:'La clave no es válida o falta. Revísala en Ajustes de IA.', rate_limited:'Has llegado al límite gratuito de la IA (por minuto o por día). Espera un poco o cambia de IA en Ajustes.', invalid_json:'La IA devolvió un formato que no pude leer. Pulsa Guion otra vez.', cancelled:'Cancelado.', network:(e && e.message), model_not_found:(e && e.message) || 'Modelo no encontrado. Pulsa «Probar y listar modelos» en Ajustes.', empty:(e && e.message) }[e && e.code] || (e && e.message) || 'No se pudo completar.');
-async function pickTopics(n, S, slotIndices = []){
+async function pickTopics(n, S, slotIndices = [], tries = 0, avoid = []){
   const hist = store.get('hist', []).slice(-25), taken = slots.map(s => s.topic).filter(Boolean);
   const formats = ['¿SABÍAS QUE?', '¿CÓMO FUNCIONA?', '¿QUÉ PASARÍA SI?'];
   const requested = slotIndices.map(i => ({ slot: i + 1, formato: formats[i] || formats[i % 3] }));
@@ -1038,15 +1603,20 @@ ${JSON.stringify(requested)}
 1) ¿SABÍAS QUE?: curiosidades científicas sorprendentes, fenómenos naturales, espacio, animales, cuerpo humano, tecnología, inventos, datos poco conocidos y mitos que la ciencia aclara.
 2) ¿CÓMO FUNCIONA?: explica objetos y tecnologías cotidianas que usamos (móvil, microondas, wifi, nevera, coche, GPS, ascensor, pantallas, baterías, etc.) o procesos del mundo que normalmente no entendemos.
 3) ¿QUÉ PASARÍA SI?: experimentos mentales y escenarios hipotéticos, desde situaciones plausibles hasta premisas imposibles o que contradicen la física. Ejemplos: qué pasaría si un tsunami llegase a distintas zonas de España, si la Tierra dejase de girar, si pudiéramos respirar bajo el agua o si desapareciese la gravedad. Deben ser claramente hipotéticos, no noticias.
-Los temas deben ser concretos, visuales, sorprendentes y explicables en 60 segundos. Máximo 16 palabras por tema. No repitas ni te parezcas a estos temas ya usados o elegidos hoy: ${JSON.stringify(hist.concat(taken))}
+Los temas deben ser concretos, visuales, sorprendentes y explicables en 60 segundos. Máximo 16 palabras por tema. No repitas ni te parezcas a estos temas ya usados o elegidos hoy: ${JSON.stringify(hist.concat(taken, avoid))}
 PROHIBIDO: supervivencia extrema, tragedias reales, crímenes, sucesos morbosos, misterio/true crime, teorías conspirativas y titulares engañosos.
 Fecha de hoy: ${dayKey()}.
 Responde solo con JSON: {"temas":["..."]} con ${n} strings, en el mismo orden de formatos solicitado.`, { signal: aborter?.signal, temperature: 1 });
-  return (Array.isArray(arr) ? arr : arr.temas || []).map((v, i) => {
+  const res = (Array.isArray(arr) ? arr : arr.temas || []).map((v, i) => {
     const raw = String(v);
     const format = formats[slotIndices[i] ?? i % 3];
     return /^(¿SABÍAS QUE\?|¿CÓMO FUNCIONA\?|¿QUÉ PASARÍA SI\?)/i.test(raw) ? raw : format + ' — ' + raw;
   }).slice(0, n);
+  // Si algún tema se parece demasiado a uno ya usado (o entre sí), se pide otra tanda.
+  const used = hist.concat(taken);
+  const dup = res.some((t, i) => used.concat(res.filter((_, j) => j !== i)).some(u => topicSim(t, u) >= .6));
+  if (dup && tries < 2) return pickTopics(n, S, slotIndices, tries + 1, avoid.concat(res));
+  return res;
 }
 async function genScript(i, S){
   const sl = slots[i];
@@ -1071,6 +1641,7 @@ function slotHTML(i){
     <button data-a="prev" data-i="${i}" ${busy || !s.script ? 'disabled' : ''}>▶ Ver</button>
     <button class="rec" data-a="rec" data-i="${i}" ${busy || !s.script ? 'disabled' : ''}>● Grabar</button>
   </div>
+  <details><summary>Usar ChatGPT u otra IA (sin gastar Gemini)</summary><p class="meta">Rápido: «Copiar prompt completo», pégalo en ChatGPT, pega aquí la respuesta, «Cargar» y «Grabar». Mejor calidad: «1) Solo guion» → Cargar → «2) Siguientes escenas» (de 4 en 4) → Cargar, repetir → «Pedir revisión» para que la IA mejore las flojas.</p><div class="row"><button data-a="mp" data-i="${i}">Copiar prompt completo</button><button data-a="mg" data-i="${i}">1) Solo guion</button><button data-a="nx" data-i="${i}" ${s.script ? '' : 'disabled'}>2) Siguientes escenas</button><button data-a="rv" data-i="${i}" ${s.script ? '' : 'disabled'}>Pedir revisión</button></div><label class="f">Respuesta de la IA<textarea id="imp${i}" placeholder="Pega aquí la respuesta completa (guion + código)…"></textarea></label><div class="row"><button class="pri" data-a="imp" data-i="${i}">Cargar</button></div></details>
   <details><summary>Pegar mi propio guion</summary><label class="f">Si escribes aquí (15 palabras o más), se usa tu texto en lugar de pedírselo a la IA.<textarea id="own${i}" placeholder="Escribe o pega la narración…">${esc(s.own)}</textarea></label></details>
   ${s.script ? `<div class="row"><button data-a="copy" data-i="${i}" data-k="guion">Guion</button><button data-a="copy" data-i="${i}" data-k="yt">YouTube</button><button data-a="copy" data-i="${i}" data-k="tt">TikTok</button><button data-a="copy" data-i="${i}" data-k="ig">Reels</button></div>` : ''}
   ${s.url ? `<video class="out" src="${s.url}#t=0.1" preload="metadata" controls playsinline></video><div class="row"><button class="pri" data-a="share" data-i="${i}">Compartir</button><a class="btn" href="${s.url}" download="${fileName(i)}">Descargar (.${s.ext})</a><a class="btn" href="${s.url}" target="_blank" rel="noopener">Abrir</a></div>` : ''}`;
@@ -1120,7 +1691,7 @@ async function syncTopicToHistory(i, sl){
     const response = await fetch('/.netlify/functions/history-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tema, titulo: sl.script && sl.script.titulo || tema, slot: i })
+      body: JSON.stringify({ tema, titulo: sl.script && sl.script.titulo || tema, slot: i, firma: sl.script && sl.script.firma || null })
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok) throw new Error(result.error || ('HTTP ' + response.status));
@@ -1151,6 +1722,11 @@ async function guard(fn, i){ try { aborter = new AbortController(); slots[i].err
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('button[data-a]'); if (!b) return; const i = +b.dataset.i, a = b.dataset.a, S = settings();
   if (a === 'copy') return copyText(captions(slots[i].script, b.dataset.k), b);
+  if (a === 'mp') return copyText(masterPrompt(i, S), b);
+  if (a === 'mg') return copyText(masterPrompt(i, S, 'guion'), b);
+  if (a === 'nx') { const t = nextBatchPrompt(i); if (!t) { msg('Todas las escenas ya tienen código.'); return; } return copyText(t, b); }
+  if (a === 'rv') return copyText(reviewPrompt(i), b);
+  if (a === 'imp') { try { const t = ($('#imp' + i) || {}).value || ''; if (t.trim().length < 50) { msg('Pega primero la respuesta de la IA.'); return; } const r = importPackage(t, i); renderSlot(i); refreshUI(); if (!r.merged && r.ok === 0 && !r.errs.length) { msg('Guion cargado. Ahora pulsa «2) Siguientes escenas», pégalo en la IA y carga su respuesta (repite hasta terminar).'); } else if (r.errs.length) { const fix = 'Estas escenas fallaron la prueba automática. Reescribe SOLO esas escenas (mismo formato «### ESCENA n» + código) corrigiendo el error:\n' + r.errs.join('\n'); try { await navigator.clipboard.writeText(fix); } catch (e) {} msg(`Cargado: ${r.ok}/${r.total} escenas a medida. ${r.errs.length} usan plantilla; he copiado al portapapeles lo que debes pedirle a la IA para corregirlas.`); } else msg(`Cargado: ${r.ok}/${r.total} escenas a medida. Ya puedes grabar.`); } catch (e) { msg('No pude leer la respuesta: ' + (e && e.message || 'formato no válido') + '. Pídele a la IA que respete el formato.'); } return; }
   if (a === 'save') return saveVideo(i);
   if (a === 'share') return shareVideo(i);
   if (running) return;
@@ -1264,7 +1840,7 @@ async function geminiGen(prompt, o){
     } catch (e) {
       if (e.code === 'cancelled') throw e;
       last = e; failures.push('Proyecto ' + (ki + 1) + ': ' + (e.code || 'error'));
-      if (['bad_key','daily_quota','rate_limited','model_not_found','network'].includes(e.code) || e.status === 429 || e.status >= 500) {
+      if (['bad_key','daily_quota','rate_limited','model_not_found'].includes(e.code) || e.status === 429 || e.status >= 500) {
         msg('Gemini: proyecto ' + (ki + 1) + '/' + keys.length + ' no disponible; probando el siguiente…');
         continue;
       }
@@ -1399,28 +1975,20 @@ async function buildScript(request, S, progress, sig){
   const hypothetical = /¿QUÉ PASARÍA SI/i.test(request);
   if (S.research && !hypothetical) {
     progress('Planificando la investigación…');
-    try { plan = await aiJson(planPrompt(request), { signal: sig, temperature: .2 }); } catch (e) { if (e.code === 'cancelled') throw e; plan = null; }
+    try { plan = await aiJson(planPrompt(request), { signal: sig, temperature: .2 }); } catch (e) { if (['cancelled', 'bad_key', 'rate_limited', 'network'].includes(e.code)) throw e; plan = null; }
     const r = await research(request, plan, sig, progress); dossier = r.text; sources = r.sources;
-    if (!dossier || !sources.length) throw { code: 'research_failed', message: 'No se han podido obtener fuentes para este tema. No se generará un vídeo factual sin documentación.' };
   }
   progress('Escribiendo el guion…');
-  let raw = await aiJson(scriptPrompt(request, S, dossier, plan), { signal: sig, temperature: .85 });
+  const dir = pickDirection(request, store.get('sigs', []));
+  let raw = await aiJson(scriptPrompt(request, S, dossier, plan, dir), { signal: sig, temperature: .85 });
   let changes = [];
   if (S.verify && dossier) {
     progress('Verificando datos contra las fuentes…');
-    try {
-      const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 });
-      if (!v || !Array.isArray(v.escenas) || v.escenas.length < Math.ceil(raw.escenas.length * .7)) {
-        throw { code: 'verification_failed', message: 'La verificación no devolvió un guion completo y válido.' };
-      }
-      changes = Array.isArray(v.cambios) ? v.cambios : [];
-      raw = Object.assign({}, raw, v);
-    } catch (e) {
-      if (e.code === 'cancelled') throw e;
-      throw { code: 'verification_failed', message: 'No se pudo completar la verificación de datos. No se generará el vídeo: ' + (e.message || e.code || 'error') };
-    }
+    try { const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 }); if (v && Array.isArray(v.escenas) && v.escenas.length >= Math.ceil(raw.escenas.length * .7)) { changes = Array.isArray(v.cambios) ? v.cambios : []; raw = Object.assign({}, raw, v); } } catch (e) { if (e.code === 'cancelled') throw e; }
   }
-  const sc = sanitizeScript(raw, request); sc.fuentes = sources; sc.cambios = changes; sc.sinFuentes = !!S.research && !hypothetical && !dossier; sc.modelo = AIstate.used; return sc;
+  const sc = sanitizeScript(raw, request, dir);
+  if (S.codeScenes) await buildPrograms(sc, S, progress, sig);
+  sc.fuentes = sources; sc.cambios = changes; sc.sinFuentes = !!S.research && !dossier; sc.modelo = AIstate.used; return sc;
 }
 /* ===== Voz: natural (Piper, neuronal, en el navegador) o sintética de respaldo ===== */
 const Voice = {
@@ -1469,14 +2037,14 @@ const Voice = {
   },
   async speak(text, S, progress){
     if (S.engine === 'natural') {
-      if (this.failed) return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
+      if (this.failed) throw new Error('El motor de voz neuronal ya ha fallado en esta sesión.');
       try { return await this.natural(text, progress); }
       catch (e) {
         this.failed = true;
         const detail = e && (e.message || e.toString()) || 'Error desconocido';
-        msg('La voz neuronal no está disponible; se utilizará la voz sintética de respaldo.');
-        console.warn('[Piper neuronal] Se activa la voz sintética de respaldo:', detail);
-        return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
+        msg('Error de voz neuronal: ' + detail);
+        console.error('[Piper neuronal]', detail, e && e.stack || '');
+        throw new Error('No se pudo generar la voz neuronal: ' + detail);
       }
     }
     return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
@@ -1529,6 +2097,6 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferr
 $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $('#installBtn').hidden = true; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 if (!AIcfg().keys.length && !PROV[AIcfg().p].nokey) msg('Primero pega tu clave gratuita en «Ajustes de IA».');
-Object.assign(window.__studio, { Voice, PROV, AIstate });
+Object.assign(window.__studio, { Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
 </script>
 </body></html>
