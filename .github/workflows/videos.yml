@@ -1,0 +1,63 @@
+name: Vídeos diarios
+on:
+  schedule:
+    - cron: '30 7 * * *'
+    - cron: '30 8 * * *'
+    - cron: '30 12 * * *'
+    - cron: '30 13 * * *'
+    - cron: '30 18 * * *'
+    - cron: '30 19 * * *'
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Forzar hueco (0, 1 o 2). Vacío = según la hora'
+        required: false
+permissions:
+  contents: write
+concurrency:
+  group: videos
+  cancel-in-progress: false
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Qué hueco toca
+        id: slot
+        env: { FORCE_SLOT: '${{ github.event.inputs.slot }}' }
+        run: |
+          R=$(node ci/slot.js)
+          echo "Resultado: $R"
+          if [ "$R" = "skip" ]; then echo "run=no" >> $GITHUB_OUTPUT; else echo "run=si" >> $GITHUB_OUTPUT; echo "slot=${R%% *}" >> $GITHUB_OUTPUT; echo "day=${R##* }" >> $GITHUB_OUTPUT; fi
+      - name: Instalar
+        if: steps.slot.outputs.run == 'si'
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          sudo apt-get install -y ffmpeg
+          mkdir -p site && cp index.html manifest.webmanifest icon-192.png icon-512.png site/ 2>/dev/null || true
+      - name: Generar el vídeo
+        if: steps.slot.outputs.run == 'si'
+        env: { GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}' }
+        run: node ci/generate.js ${{ steps.slot.outputs.slot }} ${{ steps.slot.outputs.day }}
+      - name: Enviar por Telegram
+        if: steps.slot.outputs.run == 'si'
+        env: { TELEGRAM_BOT_TOKEN: '${{ secrets.TELEGRAM_BOT_TOKEN }}', TELEGRAM_CHAT_ID: '${{ secrets.TELEGRAM_CHAT_ID }}' }
+        run: bash ci/send.sh
+      - name: Guardar el vídeo en la ejecución
+        if: steps.slot.outputs.run == 'si'
+        uses: actions/upload-artifact@v4
+        with:
+          name: video
+          path: |
+            out/video.mp4
+            out/caption.txt
+          retention-days: 7
+      - name: Anotar el tema usado
+        if: steps.slot.outputs.run == 'si'
+        run: |
+          git config user.name "estudio-diario"; git config user.email "bot@users.noreply.github.com"
+          git add history.json; git commit -m "Tema usado" || true; git push || true
