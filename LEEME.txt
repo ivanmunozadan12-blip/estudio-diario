@@ -13,7 +13,7 @@ B) GENERACIÓN AUTOMÁTICA (GitHub Actions)
 - Los MP4 se convierten y se validan con FFprobe: deben tener imagen, audio, formato vertical 9:16, duración válida y pistas sincronizadas.
 - Si los secretos de YouTube están configurados, los vídeos se publican automáticamente como públicos. Telegram recibe los vídeos y sus textos.
 - La validación del repositorio se ejecuta en cada push y pull request. Comprueba sintaxis, JSON, YAML, shell, slots y el arranque de la web en Chromium. No llama a Gemini ni publica vídeos.
-- Si una ejecución se repite (rerun), se omiten los envíos externos para evitar duplicados. Para reintentar una publicación fallida, inicia una ejecución nueva y revisa antes el historial para evitar repetir el contenido.
+- Si repites una ejecución existente (rerun), se omite todo el flujo: no vuelve a gastar cuota Gemini ni a generar, enviar o publicar. Para reintentar, inicia una ejecución nueva después de comprobar el resultado anterior y el historial.
 
 C) SECRETOS DE GITHUB
 En Settings → Secrets and variables → Actions:
