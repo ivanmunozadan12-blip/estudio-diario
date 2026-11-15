@@ -1297,7 +1297,7 @@ const Voice = {
       const hfPrefix = ciLocal ? (location.origin + '/voices/') : 'https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/';
       window.fetch = (resource, options) => {
         const raw = typeof resource === 'string' ? resource : (resource && resource.url) || '';
-        const fixed = raw.replace('https://huggingface.co/diffusionstudio/piper-voices/resolve/main/', hfPrefix);
+        const fixed = raw.replace(/^https:\/\/huggingface\.co\/(?:diffusionstudio|rhasspy)\/piper-voices\/resolve\/(?:main|v1\.0\.0)\//, hfPrefix);
         return nativeFetch(fixed || resource, options);
       };
       this.fetchPatched = true;
