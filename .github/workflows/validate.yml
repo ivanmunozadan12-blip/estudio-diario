@@ -23,6 +23,8 @@ jobs:
         run: node ci/check.js
       - name: Probar validaciones de seguridad de Netlify (sin red)
         run: node ci/security.test.js
+      - name: Probar preflight de Telegram y YouTube (simulado)
+        run: node ci/preflight.test.js
       - name: Probar protocolo de subida reanudable de YouTube (simulado)
         run: node ci/youtube-upload.test.js
       - name: Comprobar arranque de la web en Chromium (sin generar vídeos)
