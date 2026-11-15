@@ -19,16 +19,19 @@ const srv = http.createServer((q, r) => { let f = path.join('site', q.url.split(
     localStorage.setItem('hist', JSON.stringify(topics));
   }, { key, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
   await p.goto('http://localhost:8099/index.html'); await p.waitForTimeout(800);
-  await p.click(`button[data-a=gen][data-i="${slot}"]`);
-  await p.waitForFunction(i => {
-    const rec = document.querySelector(`button[data-a="rec"][data-i="${i}"]`);
-    const err = document.querySelector(`#slot${i} p[style*="color:var(--red)"]`);
-    return (rec && !rec.disabled) || (err && err.textContent.trim());
-  }, slot, { timeout: 240000 });
-  const generationError = await p.locator(`#slot${slot} p[style*="color:var(--red)"]`).textContent().catch(() => '');
-  if (generationError && generationError.trim()) throw new Error('La web no pudo generar el guion: ' + generationError.trim());
+  const generation = await p.evaluate(async i => {
+    try {
+      await window.__studio.genScript(i, window.__studio.settings());
+      return { ok: true, title: window.__studio.slots[i].script?.titulo || '', topic: window.__studio.slots[i].topic || '' };
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e), code: e?.code || '' };
+    }
+  }, slot);
+  if (!generation.ok) throw new Error('Gemini no pudo generar el guion' + (generation.code ? ' [' + generation.code + ']' : '') + ': ' + generation.error);
+  console.log('Guion listo:', generation.title);
   const meta = await p.evaluate(i => { const s = window.__studio.slots[i]; return { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }; }, slot);
   console.log('Guion listo:', meta.titulo);
+  await p.evaluate(i => { const b = document.querySelector(`button[data-a="rec"][data-i="${i}"]`); if (b) b.disabled = false; }, slot);
   await p.click(`button[data-a=rec][data-i="${slot}"]`);
   await p.waitForSelector(`#slot${slot} video.out`, { timeout: 900000 });
   const info = await p.evaluate(async i => { const s = window.__studio.slots[i]; const buf = new Uint8Array(await s.blob.arrayBuffer()); let bin = ''; for (let k = 0; k < buf.length; k += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(k, k + 0x8000)); return { ext: s.ext, b64: btoa(bin), voz: document.querySelector('#msg').textContent }; }, slot);
