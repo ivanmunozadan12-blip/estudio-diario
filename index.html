@@ -1194,8 +1194,8 @@ async function httpJson(url, opt){
     const message = typeof raw === 'string' ? raw : JSON.stringify(raw);
     const detail = [er.status, er.code, er.reason, message].filter(Boolean).join(' ').toLowerCase();
     let code = r.status === 401 || r.status === 403 ? 'bad_key' : r.status === 404 ? 'model_not_found' : 'http';
-    if (r.status === 429) code = /quota_exceeded|daily quota|per[\\s_-]*day|requests per day|per-day|\\brpd\\b|perday/i.test(detail) ? 'daily_quota' : 'rate_limited';
-    const retry = /retry(?:\\s+in|Delay|\\s*delay)?["':= ]+([0-9.]+)s/i.exec(message);
+    if (r.status === 429) code = /quota_exceeded|daily quota|per[\s_-]*day|requests per day|per-day|\brpd\b|perday/i.test(detail) ? 'daily_quota' : 'rate_limited';
+    const retry = /retry(?:\s+in|Delay|\s*delay)?["':= ]+([0-9.]+)s/i.exec(message);
     throw { code, status: r.status, message, retryAfter: retry ? Math.ceil(parseFloat(retry[1])) : 0, apiCode: er.status || er.code || '' };
   }
   return j;
