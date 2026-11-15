@@ -153,7 +153,7 @@ jobs:
             node ci/youtube-upload.js
           fi
       - name: Guardar los vídeos en la ejecución
-        if: steps.slot.outputs.run == 'si'
+        if: always() && steps.slot.outputs.run == 'si'
         uses: actions/upload-artifact@v7
         with:
           name: videos
@@ -161,3 +161,4 @@ jobs:
             out/video*.mp4
             out/caption*.txt
           retention-days: 7
+          if-no-files-found: ignore
