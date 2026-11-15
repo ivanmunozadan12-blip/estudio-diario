@@ -88,9 +88,12 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
   <summary>Ajustes de IA (necesario la primera vez)</summary>
   <label class="f">Qué IA usar
     <select id="provider"><option value="gemini">Google Gemini (gratis, la más potente)</option><option value="groq">Groq · Llama (gratis)</option><option value="cerebras">Cerebras · Llama (gratis)</option><option value="openrouter">OpenRouter · modelos gratis</option><option value="ollama">Ollama en tu ordenador (sin límites)</option><option value="custom">Otro compatible con OpenAI</option></select></label>
-  <label class="f">Clave de la IA (se guarda solo en este dispositivo)
-    <input type="password" id="apiKey" autocomplete="off" placeholder="Pega aquí tu clave gratuita"></label>
+  <label class="f">Clave principal de Gemini (se guarda solo en este dispositivo)
+    <input type="password" id="apiKey" autocomplete="off" placeholder="Pega aquí tu primera clave"></label>
+  <label class="f" id="extraKeysWrap">Claves adicionales de Gemini (opcional, una por línea; hasta 3)
+    <textarea id="extraApiKeys" rows="3" autocomplete="off" placeholder="AIza…&#10;AIza…&#10;AIza…"></textarea></label>
   <p class="note" id="keyHelp"></p>
+  <p class="note" id="keyRotationHelp">Para disponer de cuotas independientes, cada clave adicional debe pertenecer a un proyecto distinto de Google AI Studio. Las claves se prueban automáticamente en orden cuando una agota su cuota o deja de funcionar.</p>
   <label class="f" id="baseWrap" hidden>Dirección del servicio (URL base)
     <input type="text" id="baseUrl" placeholder="https://…/v1" autocomplete="off"></label>
   <label class="f">Modelo (déjalo vacío en Gemini: elige el mejor gratuito solo)
@@ -855,7 +858,7 @@ const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: 
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
 const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, music: $('#musicOn').checked, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, voiceId: $('#voiceId').value });
-['niche','voiceEngine','voiceId','voiceRate','musicOn','subsOn','target','research','verify','provider','apiKey','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
+['niche','voiceEngine','voiceId','voiceRate','musicOn','subsOn','target','research','verify','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
 
 /* --- guion --- */
 const ITEM_LIST = Object.keys(ITEM).join(', ');
@@ -1175,14 +1178,26 @@ const PROV = {
   ollama:     { name:'Ollama en tu ordenador (sin límites)', kind:'oai', base:'http://localhost:11434/v1', model:'qwen2.5:14b', nokey:true },
   custom:     { name:'Otro servicio compatible con OpenAI', kind:'oai', base:'', model:'' }
 };
-const AIstate = { chain: null, chainKey: '', used: '' };
-const AIcfg = () => ({ p: $('#provider').value, key: $('#apiKey').value.trim(), model: $('#model').value.trim(), base: $('#baseUrl').value.trim() });
+const AIstate = { chain: null, chainKey: '', chains: new Map(), used: '', keyIndex: -1 };
+const AIcfg = () => {
+  const key = $('#apiKey').value.trim();
+  const extras = ($('#extraApiKeys')?.value || '').split(/[\n,;]+/).map(x => x.trim()).filter(Boolean);
+  return { p: $('#provider').value, key, keys: [...new Set([key, ...extras].filter(Boolean))], model: $('#model').value.trim(), base: $('#baseUrl').value.trim() };
+};
 const sleep = (ms, sig) => new Promise((res, rej) => { const t = setTimeout(res, ms); sig && sig.addEventListener('abort', () => { clearTimeout(t); rej({ code: 'cancelled' }); }, { once: true }); });
 
 async function httpJson(url, opt){
   let r; try { r = await fetch(url, opt); } catch (e) { if (e && e.name === 'AbortError') throw { code: 'cancelled' }; throw { code: 'network', message: 'No se pudo conectar con ' + new URL(url).host + '. Revisa tu conexión o que el servicio permita llamadas desde el navegador.' }; }
   const txt = await r.text(); let j = null; try { j = JSON.parse(txt); } catch (e) {}
-  if (!r.ok) { const m = (j && ((j.error && (j.error.message || j.error)) || j.message)) || txt.slice(0, 200); throw { code: r.status === 401 || r.status === 403 ? 'bad_key' : r.status === 429 ? 'rate_limited' : r.status === 404 ? 'model_not_found' : 'http', status: r.status, message: typeof m === 'string' ? m : JSON.stringify(m) }; }
+  if (!r.ok) {
+    const er = j && j.error || {}, raw = er.message || j?.message || txt.slice(0, 300);
+    const message = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const detail = [er.status, er.code, er.reason, message].filter(Boolean).join(' ').toLowerCase();
+    let code = r.status === 401 || r.status === 403 ? 'bad_key' : r.status === 404 ? 'model_not_found' : 'http';
+    if (r.status === 429) code = /quota_exceeded|daily quota|per day|requests per day|per-day|rpd|quota.*exceed/.test(detail) ? 'daily_quota' : 'rate_limited';
+    const retry = /retry(?:Delay| delay)?["':= ]+([0-9.]+)s/i.exec(message);
+    throw { code, status: r.status, message, retryAfter: retry ? Math.ceil(parseFloat(retry[1])) : 0, apiCode: er.status || er.code || '' };
+  }
   return j;
 }
 
@@ -1199,33 +1214,67 @@ async function geminiModels(key, sig){
   const j = await httpJson('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, signal: sig });
   return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, ''));
 }
-async function ensureChain(cfg, sig){
-  const key = cfg.key + '|' + cfg.model;
-  if (AIstate.chain && AIstate.chainKey === key) return AIstate.chain;
-  let auto = []; try { auto = geminiChain(await geminiModels(cfg.key, sig)); } catch (e) { if (e.code === 'cancelled' || e.code === 'bad_key') throw e; }
-  const chain = cfg.model ? [cfg.model].concat(auto.filter(m => m !== cfg.model)) : auto;
-  if (!chain.length) throw { code: 'model_not_found', message: 'Tu clave no tiene modelos disponibles. Escribe el nombre de un modelo en «Modelo» (míralo en aistudio.google.com).' };
-  AIstate.chain = chain; AIstate.chainKey = key; return chain;
+async function ensureChain(key, model, sig){
+  const cacheKey = key + '|' + model;
+  if (AIstate.chains.has(cacheKey)) return AIstate.chains.get(cacheKey);
+  const ids = await geminiModels(key, sig);
+  const auto = geminiChain(ids);
+  const chain = model ? [model].concat(auto.filter(m => m !== model)) : auto;
+  if (!chain.length) throw { code: 'model_not_found', message: 'Esta clave no tiene modelos de texto disponibles. Comprueba el proyecto o indica un modelo.' };
+  AIstate.chains.set(cacheKey, chain); return chain;
 }
 async function geminiGen(prompt, o){
-  const cfg = AIcfg(); if (!cfg.key) throw { code: 'bad_key', message: 'Falta la clave de Gemini.' };
-  const chain = await ensureChain(cfg, o.signal); let last;
-  for (const model of chain) {
-    for (const useJson of (o.json ? [true, false] : [false])) {
-      try {
-        const j = await httpJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', signal: o.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.key }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: Object.assign({ temperature: o.temperature ?? .8, maxOutputTokens: 16000 }, useJson ? { responseMimeType: 'application/json' } : {}) }) });
-        const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
-        if (!t.trim()) throw { code: 'empty', message: 'La IA devolvió una respuesta vacía' + (j.promptFeedback?.blockReason ? ' (' + j.promptFeedback.blockReason + ')' : '') + '.' };
-        AIstate.used = model; return t;
-      } catch (e) {
-        last = e; if (e.code === 'cancelled') throw e;
-        if (e.code === 'http' && e.status === 400 && useJson) continue;
-        if (e.code === 'rate_limited' || e.code === 'model_not_found' || e.code === 'empty' || e.status >= 500) break;
-        throw e;
+  const cfg = AIcfg(), keys = cfg.keys; if (!keys.length) throw { code: 'bad_key', message: 'Falta la clave de Gemini.' };
+  let last, failures = [];
+  for (let ki = 0; ki < keys.length; ki++) {
+    const key = keys[ki]; let chain;
+    try { chain = await ensureChain(key, cfg.model, o.signal); }
+    catch (e) {
+      if (e.code === 'cancelled') throw e;
+      last = e; failures.push('Clave ' + (ki + 1) + ': ' + (e.code || 'error'));
+      if (['bad_key','daily_quota','rate_limited','model_not_found'].includes(e.code)) continue;
+      throw e;
+    }
+    let switchKey = false;
+    for (const model of chain) {
+      for (const useJson of (o.json ? [true, false] : [false])) {
+        let transientAttempt = 0;
+        while (true) {
+          try {
+            const j = await httpJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', signal: o.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: Object.assign({ temperature: o.temperature ?? .8, maxOutputTokens: 16000 }, useJson ? { responseMimeType: 'application/json' } : {}) }) });
+            const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
+            if (!t.trim()) throw { code: 'empty', message: 'La IA devolvió una respuesta vacía' + (j.promptFeedback?.blockReason ? ' (' + j.promptFeedback.blockReason + ')' : '') + '.' };
+            AIstate.used = model; AIstate.keyIndex = ki; return t;
+          } catch (e) {
+            last = e; if (e.code === 'cancelled') throw e;
+            if (e.code === 'http' && e.status === 400 && useJson) break;
+            if (e.code === 'daily_quota' || e.code === 'bad_key') { switchKey = true; break; }
+            if (e.code === 'rate_limited' || e.status >= 500 || e.code === 'network') {
+              if (transientAttempt < 2) {
+                const wait = Math.min(30, e.retryAfter || (2 ** (transientAttempt + 1) + Math.random() * 2));
+                transientAttempt++; msg(`Gemini: límite temporal en clave ${ki + 1}/${keys.length}; reintento en ${Math.ceil(wait)} s…`);
+                await sleep(wait * 1000, o.signal); continue;
+              }
+              switchKey = true; break;
+            }
+            if (e.code === 'model_not_found' || e.code === 'empty') break;
+            throw e;
+          }
+        }
+        if (switchKey) break;
       }
+      if (switchKey) break;
+    }
+    if (switchKey || last?.code === 'model_not_found') {
+      failures.push('Clave ' + (ki + 1) + ': ' + (last?.code || 'sin modelo'));
+      continue;
     }
   }
-  throw last;
+  if (last) {
+    const summary = failures.length ? ' (' + failures.join('; ') + ')' : '';
+    throw Object.assign({}, last, { message: (last.message || 'No se pudo completar la petición.') + summary + (keys.length > 1 ? '. Se han probado las ' + keys.length + ' claves configuradas.' : '') });
+  }
+  throw { code: 'http', message: 'No hay claves Gemini disponibles.' };
 }
 async function oaiGen(prompt, o){
   const cfg = AIcfg(), P = PROV[cfg.p], base = (cfg.base || P.base || '').replace(/\/$/, ''), model = cfg.model || P.model;
@@ -1376,7 +1425,7 @@ const KEYHELP = {
 };
 function syncProvider(){
   const p = $('#provider').value, P = PROV[p];
-  $('#keyHelp').textContent = KEYHELP[p] || ''; $('#baseWrap').hidden = !(p === 'custom' || p === 'ollama');
+  $('#keyHelp').textContent = KEYHELP[p] || ''; $('#baseWrap').hidden = !(p === 'custom' || p === 'ollama'); $('#extraKeysWrap').hidden = p !== 'gemini'; $('#keyRotationHelp').hidden = p !== 'gemini';
   $('#model').placeholder = p === 'gemini' ? 'automático' : (P.model || 'nombre del modelo'); $('#apiKey').disabled = !!P.nokey; AIstate.chain = null;
 }
 $('#provider').addEventListener('change', syncProvider); syncProvider();
@@ -1384,14 +1433,20 @@ $('#testAI').addEventListener('click', async () => {
   const st = $('#aiStatus'); st.textContent = 'Probando…'; const cfg = AIcfg(), P = PROV[cfg.p];
   try {
     if (P.kind === 'gemini') {
-      if (!cfg.key) throw { code: 'bad_key', message: 'Pega primero tu clave.' }; AIstate.chain = null;
-      const ids = await geminiModels(cfg.key), ch = geminiChain(ids);
-      $('#modelList').innerHTML = ids.map(i => `<option value="${esc(i)}">`).join('');
-      st.textContent = ch.length ? 'Clave válida. Se usará, por este orden: ' + ch.join(' → ') + '.' : 'Clave válida, pero no encontré modelos de texto. Escribe uno en «Modelo».';
+      if (!cfg.keys.length) throw { code: 'bad_key', message: 'Pega primero tu clave.' };
+      const reports = [], allModels = new Set(); AIstate.chains.clear();
+      for (let i = 0; i < cfg.keys.length; i++) {
+        try {
+          const ids = await geminiModels(cfg.keys[i]); ids.forEach(x => allModels.add(x));
+          const ch = geminiChain(ids); reports.push('Clave ' + (i + 1) + ': válida' + (ch.length ? ' (' + ch.join(' → ') + ')' : ' (sin modelo de texto)'));
+        } catch (e) { reports.push('Clave ' + (i + 1) + ': ' + (e.message || e.code || 'error')); }
+      }
+      const ids = [...allModels]; $('#modelList').innerHTML = ids.map(i => '<option value="' + esc(i) + '">').join('');
+      st.textContent = reports.join(' · ') + '. Rotación automática activada.';
     } else {
       const base = (cfg.base || P.base || '').replace(/\/$/, ''); if (!base) throw { message: 'Falta la dirección del servicio.' };
       const j = await httpJson(base + '/models', { headers: cfg.key ? { Authorization: 'Bearer ' + cfg.key } : {} }); const ids = (j.data || j.models || []).map(m => m.id || m.name).filter(Boolean);
-      $('#modelList').innerHTML = ids.map(i => `<option value="${esc(i)}">`).join(''); st.textContent = `Conexión correcta. ${ids.length} modelos disponibles (despliega «Modelo» para elegir).`;
+      $('#modelList').innerHTML = ids.map(i => '<option value="' + esc(i) + '">').join(''); st.textContent = `Conexión correcta. ${ids.length} modelos disponibles (despliega «Modelo» para elegir).`;
     }
   } catch (e) { st.textContent = errCopy(e); }
 });
@@ -1407,7 +1462,7 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('#installBtn').hidden = false; });
 $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $('#installBtn').hidden = true; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
-if (!AIcfg().key && !PROV[AIcfg().p].nokey) msg('Primero pega tu clave gratuita en «Ajustes de IA».');
+if (!AIcfg().keys.length && !PROV[AIcfg().p].nokey) msg('Primero pega tu clave gratuita en «Ajustes de IA».');
 Object.assign(window.__studio, { Voice, PROV, AIstate });
 </script>
 </body></html>
