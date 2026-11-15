@@ -26,7 +26,9 @@ for (const file of ['config.json', 'history.json', 'package.json', 'manifest.web
   JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 run('bash', ['-n', 'ci/send.sh'], 'Sintaxis incorrecta en ci/send.sh');
-run('bash', ['-n', '.github/workflows/videos.yml'], 'El workflow no es un script shell completo; esta comprobación no aplica a YAML.');
+const yamlCheck = spawnSync('ruby', ['-e', 'require \'yaml\'; YAML.load_file(ARGV[0])', '.github/workflows/videos.yml'], { encoding: 'utf8' });
+if (yamlCheck.error && yamlCheck.error.code !== 'ENOENT') throw yamlCheck.error;
+if (!yamlCheck.error && yamlCheck.status !== 0) throw new Error('YAML inválido en videos.yml: ' + (yamlCheck.stderr || yamlCheck.stdout));
 
 const invalidSlots = ['invalid', '3', '-1', '1.5'];
 for (const value of invalidSlots) {
