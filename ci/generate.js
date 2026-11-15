@@ -6,6 +6,9 @@ const path = require('path');
 const requested = process.argv[2], day = process.argv[3];
 const batch = requested === 'all' || process.env.BATCH_ALL === 'true';
 const slot = batch ? 0 : +requested;
+if (!batch && (!Number.isInteger(slot) || slot < 0 || slot > 2)) throw new Error('El slot debe ser 0, 1 o 2.');
+if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day || '')) throw new Error('La fecha de generación no es válida.');
+if (!fs.existsSync('site/index.html')) throw new Error('No existe site/index.html; no se iniciará Chromium.');
 const cfg = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const hist = JSON.parse(fs.readFileSync('history.json', 'utf8'));
 const keys = [...new Set([process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2, process.env.GEMINI_API_KEY_3, process.env.GEMINI_API_KEY_4].map(v => (v || '').trim()).filter(Boolean))];
@@ -65,6 +68,7 @@ const toB64 = async blob => {
   }, { keys, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
   await page.goto('http://localhost:8099/index.html');
   await page.waitForFunction(() => window.__studio && window.__studio.Voice, null, { timeout: 30000 });
+  if (pageErrors.length) throw new Error('La web ha producido errores antes de generar: ' + pageErrors.join(' | '));
 
   // La voz neuronal se utiliza directamente durante la generación; no se ejecuta una prueba previa.
 
