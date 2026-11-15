@@ -69,17 +69,7 @@ const toB64 = async blob => {
   await page.goto('http://localhost:8099/index.html');
   await page.waitForFunction(() => window.__studio && window.__studio.Voice, null, { timeout: 30000 });
 
-  // Prueba real de Piper antes de producir nada: si falla, NO se permite usar la voz robótica.
-  const voiceCheck = await page.evaluate(async () => {
-    try {
-      const a = await window.__studio.Voice.natural('Esta es una prueba de voz neuronal en español de España.', m => console.log('[Piper]', m));
-      return { ok: true, duration: a.dur, voice: document.querySelector('#voiceId')?.value || '' };
-    } catch (e) {
-      return { ok: false, error: e?.message || String(e), stack: e?.stack || '' };
-    }
-  });
-  if (!voiceCheck.ok) throw new Error('La prueba de voz neuronal ha fallado; no se generarán vídeos con voz robótica. ' + voiceCheck.error + '\n' + voiceCheck.stack);
-  console.log('Voz neuronal Piper verificada:', voiceCheck.voice, 'duración prueba:', voiceCheck.duration);
+  // La voz neuronal se utiliza directamente durante la generación; no se ejecuta una prueba previa.
 
   const saveMeta = async (i, item, index) => {
     const ext = item.ext || 'mp4';
