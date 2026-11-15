@@ -36,7 +36,11 @@ jobs:
         env:
           FORCE_SLOT: ${{ github.event.inputs.slot }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "push" ] || [ "$FORCE_SLOT" = "all" ]; then
+          if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
+            echo "run=no" >> "$GITHUB_OUTPUT"
+            echo "batch=no" >> "$GITHUB_OUTPUT"
+            echo "Reintento detectado: se omite toda la ejecución para no volver a gastar Gemini ni duplicar entregas. Inicia una ejecución nueva tras revisar el resultado anterior."
+          elif [ "$GITHUB_EVENT_NAME" = "push" ] || [ "$FORCE_SLOT" = "all" ]; then
             R="all $(TZ=Europe/Madrid date +%F)"
             echo "run=si" >> "$GITHUB_OUTPUT"
             echo "batch=si" >> "$GITHUB_OUTPUT"
