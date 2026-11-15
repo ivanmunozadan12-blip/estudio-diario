@@ -12,23 +12,26 @@ function walk(dir) {
 }
 function run(command, args, label) {
   const result = spawnSync(command, args, { encoding: 'utf8' });
-  if (result.status !== 0) throw new Error(label + '\\n' + (result.stderr || result.stdout || 'fallo sin salida'));
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(label + '\n' + (result.stderr || result.stdout || 'fallo sin salida'));
 }
 const html = fs.readFileSync('index.html', 'utf8');
-const inlineScripts = [...html.matchAll(/<script\\b(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
 if (!inlineScripts.length) throw new Error('No se encontró JavaScript inline en index.html.');
 inlineScripts.forEach((match, i) => new vm.Script(match[1], { filename: 'index.html:inline-' + (i + 1) }));
 
 const sourceFiles = ['ci', 'netlify/functions'].flatMap(dir => walk(dir))
-  .filter(file => /\\.(?:js|mjs|cjs)$/.test(file));
+  .filter(file => /\.(?:js|mjs|cjs)$/.test(file));
 for (const file of sourceFiles) run(process.execPath, ['--check', file], 'Sintaxis incorrecta en ' + file);
 for (const file of ['config.json', 'history.json', 'package.json', 'manifest.webmanifest']) {
   JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 run('bash', ['-n', 'ci/send.sh'], 'Sintaxis incorrecta en ci/send.sh');
-const yamlCheck = spawnSync('ruby', ['-e', 'require \'yaml\'; YAML.load_file(ARGV[0])', '.github/workflows/videos.yml'], { encoding: 'utf8' });
-if (yamlCheck.error && yamlCheck.error.code !== 'ENOENT') throw yamlCheck.error;
-if (!yamlCheck.error && yamlCheck.status !== 0) throw new Error('YAML inválido en videos.yml: ' + (yamlCheck.stderr || yamlCheck.stdout));
+for (const file of ['.github/workflows/videos.yml', '.github/workflows/validate.yml']) {
+  const yamlCheck = spawnSync('ruby', ['-e', 'require \'yaml\'; YAML.load_file(ARGV[0])', file], { encoding: 'utf8' });
+  if (yamlCheck.error && yamlCheck.error.code !== 'ENOENT') throw yamlCheck.error;
+  if (!yamlCheck.error && yamlCheck.status !== 0) throw new Error('YAML inválido en ' + file + ': ' + (yamlCheck.stderr || yamlCheck.stdout));
+}
 
 const invalidSlots = ['invalid', '3', '-1', '1.5'];
 for (const value of invalidSlots) {
@@ -43,7 +46,7 @@ for (const value of ['0', '1', '2']) {
     encoding: 'utf8',
     env: { ...process.env, FORCE_SLOT: value }
   });
-  if (result.status !== 0 || !new RegExp('^' + value + ' \\d{4}-\\d{2}-\\d{2}\\s*$').test(result.stdout.trim())) {
+  if (result.status !== 0 || !new RegExp('^' + value + ' \d{4}-\d{2}-\d{2}\s*$').test(result.stdout.trim())) {
     throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
   }
 }
@@ -59,4 +62,4 @@ for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/yout
 if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
   throw new Error('Persisten entrypoints Netlify duplicados.');
 }
-console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
+console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, YAML, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
