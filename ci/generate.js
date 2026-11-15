@@ -132,7 +132,7 @@ const toB64 = async blob => {
       const s = window.__studio.slots[i];
       const buf = new Uint8Array(await s.blob.arrayBuffer()); let bin = '';
       for (let k = 0; k < buf.length; k += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(k, k + 0x8000));
-      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }, voice: 'Piper neuronal' };
+      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }, voice: process.env.CI_MOCK ? 'Voz sintética de prueba' : 'Piper neuronal' };
     }, slot);
     await saveMeta(slot, item, 0);
   }
