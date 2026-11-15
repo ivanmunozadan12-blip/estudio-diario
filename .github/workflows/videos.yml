@@ -55,6 +55,25 @@ jobs:
               echo "day=${R##* }" >> "$GITHUB_OUTPUT"
             fi
           fi
+      - name: Comprobar secretos antes de generar (sin llamar a Gemini)
+        if: steps.slot.outputs.run == 'si'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$GEMINI_API_KEY$GEMINI_API_KEY_2$GEMINI_API_KEY_3$GEMINI_API_KEY_4" ]; then
+            echo "::error::No hay ninguna clave Gemini configurada. No se ha consumido ninguna API."
+            exit 1
+          fi
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::error::Faltan TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID. No se ha iniciado la generación ni se ha consumido Gemini."
+            exit 1
+          fi
+          echo "Claves Gemini y destino Telegram configurados. No se muestran valores."
       - name: Instalar
         if: steps.slot.outputs.run == 'si'
         run: |
