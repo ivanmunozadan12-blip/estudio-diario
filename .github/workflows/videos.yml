@@ -33,6 +33,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
+      - name: Recuperar caché de voz neuronal
+        uses: actions/cache@v4
+        with:
+          path: .cache/piper
+          key: piper-es-davefx-v1
       - name: Qué hueco toca
         id: slot
         env:
@@ -64,6 +69,17 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get install -y ffmpeg
           mkdir -p site && cp index.html manifest.webmanifest icon-192.png icon-512.png site/ 2>/dev/null || true
+      - name: Preparar modelo de voz neuronal
+        if: steps.slot.outputs.run == 'si'
+        run: |
+          mkdir -p .cache/piper site/voices/es/es_ES/davefx/medium
+          BASE="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
+          [ -s .cache/piper/voices.json ] || curl -fL --retry 3 --retry-delay 2 "$BASE/voices.json?download=true" -o .cache/piper/voices.json
+          [ -s .cache/piper/es_ES-davefx-medium.onnx.json ] || curl -fL --retry 3 --retry-delay 2 "$BASE/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json?download=true" -o .cache/piper/es_ES-davefx-medium.onnx.json
+          [ -s .cache/piper/es_ES-davefx-medium.onnx ] || curl -fL --retry 3 --retry-delay 2 "$BASE/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx?download=true" -o .cache/piper/es_ES-davefx-medium.onnx
+          cp .cache/piper/voices.json site/voices/voices.json
+          cp .cache/piper/es_ES-davefx-medium.onnx.json site/voices/es/es_ES/davefx/medium/
+          cp .cache/piper/es_ES-davefx-medium.onnx site/voices/es/es_ES/davefx/medium/
       - name: Generar el vídeo
         if: steps.slot.outputs.run == 'si'
         env:
