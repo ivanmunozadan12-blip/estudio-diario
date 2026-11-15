@@ -59,6 +59,10 @@ for (const value of ['0', '1', '2']) {
   }
 }
 
+const uploader = fs.readFileSync('ci/youtube-upload.js', 'utf8');
+if (!uploader.includes('uploadType=resumable') || uploader.includes('uploadType=multipart') || !uploader.includes('Content-Range')) {
+  throw new Error('YouTube debe usar subida reanudable por bloques.');
+}
 const generate = fs.readFileSync('ci/generate.js', 'utf8');
 const app = html;
 if (!app.includes("'network'].includes(e.code)") || !app.includes("code: 'research_failed'") || !app.includes("code: 'verification_failed'") || !app.includes('return TTS.speak(text.replace')) {
