@@ -1290,7 +1290,17 @@ const Voice = {
   mod: null, ready: false, failed: false, voices: [],
   async load(progress){
     if (this.mod) return this.mod;
-    progress && progress('Cargando la voz natural (la primera vez descarga unos 60 MB)…');
+    // El espejo antiguo de Piper en Hugging Face responde 405; usar el repositorio oficial fijado v1.0.0.
+    if (!this.fetchPatched) {
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = (resource, options) => {
+        const raw = typeof resource === 'string' ? resource : (resource && resource.url) || '';
+        const fixed = raw.replace('https://huggingface.co/diffusionstudio/piper-voices/resolve/main/', 'https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/');
+        return nativeFetch(fixed || resource, options);
+      };
+      this.fetchPatched = true;
+    }
+    progress && progress('Cargando la voz neuronal natural (primera vez descarga unos 60 MB)…');
     const urls = ['https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/+esm', 'https://esm.sh/@mintplex-labs/piper-tts-web@1.0.5'];
     let err; for (const u of urls) { try { this.mod = await import(u); break; } catch (e) { err = e; } }
     if (!this.mod) throw new Error('No se pudo cargar el motor de voz natural: ' + (err && err.message || err));
