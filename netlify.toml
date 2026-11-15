@@ -1,5 +1,5 @@
 [build]
-  command = "mkdir -p site && cp index.html manifest.webmanifest icon-192.png icon-512.png sw.js config.json history.json site/"
+  command = "mkdir -p site && cp index.html manifest.webmanifest icon-192.png icon-512.png sw.js config.json history.json youtube-connect.html site/"
   publish = "site"
 
 [functions]
