@@ -1,5 +1,6 @@
 const REPO = 'ivanmunozadan12-blip/estudio-diario';
 const BRANCH = 'main';
+const DEFAULT_ORIGIN = 'https://glistening-cascaron-b5b987.netlify.app';
 const API = `https://api.github.com/repos/${REPO}/contents/history.json`;
 
 const response = (statusCode, body, origin) => ({
@@ -13,16 +14,20 @@ const response = (statusCode, body, origin) => ({
 });
 
 const normalize = value => String(value || '')
-  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+  .normalize('NFD').replace(/\\p{M}/gu, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 exports.handler = async event => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
   const host = event.headers?.host || event.headers?.Host || '';
   let originHost = '';
+  const allowedOrigin = (process.env.SITE_ORIGIN || DEFAULT_ORIGIN).replace(/\\/$/, '');
   try { originHost = new URL(origin).host; } catch (_) {}
-  if (!origin || originHost !== host) return response(403, { ok: false, error: 'Origen no permitido.' });
+  if (origin !== allowedOrigin || originHost !== host) return response(403, { ok: false, error: 'Origen no permitido.' });
   if (event.httpMethod !== 'POST') return response(405, { ok: false, error: 'Método no permitido.' }, origin);
+  const contentType = event.headers?.['content-type'] || event.headers?.['Content-Type'] || '';
+  if (!/^application\\/json(?:;|$)/i.test(contentType)) return response(415, { ok: false, error: 'Se requiere Content-Type application/json.' }, origin);
+  if (Buffer.byteLength(event.body || '', 'utf8') > 4096) return response(413, { ok: false, error: 'Solicitud demasiado grande.' }, origin);
 
   const token = process.env.GITHUB_HISTORY_TOKEN;
   if (!token) return response(503, { ok: false, error: 'Falta configurar GITHUB_HISTORY_TOKEN en Netlify.' }, origin);
@@ -34,6 +39,7 @@ exports.handler = async event => {
   const tema = String(input.tema || '').trim().slice(0, 300);
   const titulo = String(input.titulo || '').trim().slice(0, 160);
   if (tema.length < 8) return response(400, { ok: false, error: 'El tema es demasiado corto.' }, origin);
+  if (!Number.isInteger(input.slot) || input.slot < 0 || input.slot > 2) return response(400, { ok: false, error: 'El slot debe ser 0, 1 o 2.' }, origin);
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -56,7 +62,7 @@ exports.handler = async event => {
 
       history.push({
         dia: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' }),
-        slot: Number.isInteger(input.slot) ? input.slot : -1,
+        slot: input.slot,
         tema,
         titulo: titulo || tema,
         origen: 'web'
