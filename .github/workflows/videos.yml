@@ -23,11 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: '22' }
       - name: Recuperar caché de voz neuronal
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/piper
           key: piper-es-davefx-v1
@@ -137,7 +137,7 @@ jobs:
           fi
       - name: Guardar los vídeos en la ejecución
         if: steps.slot.outputs.run == 'si'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: videos
           path: |
