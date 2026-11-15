@@ -97,6 +97,7 @@ const toB64 = async blob => {
     await page.click('#allBtn');
     await page.waitForFunction(() => document.querySelector('#allBtn')?.disabled === true, null, { timeout: 15000 });
     await page.waitForFunction(() => document.querySelector('#allBtn')?.disabled === false, null, { timeout: 1800000 });
+    if (pageErrors.length) throw new Error('La web produjo errores JavaScript al preparar los guiones: ' + pageErrors.join(' | '));
     const result = await page.evaluate(async () => {
       const slots = window.__studio.slots;
       return Promise.all(slots.map(async (s, i) => ({
@@ -127,6 +128,7 @@ const toB64 = async blob => {
       } catch (e) { return { ok: false, error: e?.message || String(e), code: e?.code || '' }; }
     }, slot);
     if (!generation.ok) throw new Error('Gemini no pudo generar el guion: ' + generation.error);
+    if (pageErrors.length) throw new Error('La web produjo errores JavaScript al generar el guion: ' + pageErrors.join(' | '));
     const meta = await page.evaluate(i => { const s = window.__studio.slots[i]; return { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }; }, slot);
     await page.evaluate(i => { const b = document.querySelector(`button[data-a="rec"][data-i="${i}"]`); if (b) b.disabled = false; }, slot);
     await page.click(`button[data-a=rec][data-i="${slot}"]`);
