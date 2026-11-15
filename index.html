@@ -1211,7 +1211,7 @@ function geminiChain(ids){
   // se puede probar otro antes de abandonar el proyecto.
   return [...sorted(/gemini-.*flash/).filter(i => !/lite/.test(i)),
           ...sorted(/gemini-.*flash-lite/),
-          ...sorted(/^gemma/)].filter((v, i, a) => a.indexOf(v) === i).slice(0, 12);
+          ...sorted(/^gemma/)].filter((v, i, a) => a.indexOf(v) === i).slice(0, 3);
 }
 async function geminiModels(key, sig){
   const j = await httpJson('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, signal: sig });
@@ -1250,6 +1250,7 @@ async function geminiGen(prompt, o){
       msg('Gemini: probando proyecto ' + (ki + 1) + '/' + keys.length + ' · ' + model + '…');
       for (const useJson of (o.json ? [true, false] : [false])) {
         let transientAttempt = 0;
+        let skipModel = false;
         while (true) {
           try {
             const j = await httpJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', signal: o.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: Object.assign({ temperature: o.temperature ?? .8, maxOutputTokens: 16000 }, useJson ? { responseMimeType: 'application/json' } : {}) }) });
@@ -1281,13 +1282,14 @@ async function geminiGen(prompt, o){
                 continue;
               }
               failures.push('Proyecto ' + (ki + 1) + ' (' + model + '): ' + (e.code || 'HTTP ' + e.status));
+              skipModel = true;
               break;
             }
             if (e.code === 'model_not_found' || e.code === 'empty') break;
             throw e;
           }
         }
-        if (switchKey) break;
+        if (switchKey || skipModel) break;
       }
       if (switchKey) break;
     }
