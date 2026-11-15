@@ -21,7 +21,7 @@ permissions:
   contents: write
 concurrency:
   group: videos
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   generar:
     runs-on: ubuntu-latest
