@@ -3,7 +3,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 const html = fs.readFileSync('index.html', 'utf8');
-const inlineScripts = [...html.matchAll(/<script\\b(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
 if (!inlineScripts.length) throw new Error('No se encontró JavaScript inline en index.html.');
 inlineScripts.forEach((match, i) => new vm.Script(match[1], { filename: 'index.html:inline-' + (i + 1) }));
 new vm.Script(fs.readFileSync('ci/generate.js', 'utf8'), { filename: 'ci/generate.js' });
