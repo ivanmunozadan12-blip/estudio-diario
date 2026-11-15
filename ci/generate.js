@@ -10,6 +10,9 @@ const srv = http.createServer((q, r) => { let f = path.join('site', q.url.split(
   const ctx = await b.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); const p = await ctx.newPage();
   if (process.env.CI_MOCK) await require(path.resolve(process.env.CI_MOCK))(p);
   p.on('pageerror', e => console.log('[pageerror]', e.message));
+  p.on('console', m => { if (m.type() === 'error') console.log('[browser console]', m.text()); });
+  p.on('requestfailed', r => { if (/googleapis|wikipedia/i.test(r.url())) console.log('[request failed]', r.url(), r.failure()?.errorText || ''); });
+  p.on('response', r => { if (/generativelanguage.googleapis.com/.test(r.url()) && r.status() >= 400) console.log('[Gemini HTTP]', r.status(), r.url()); });
   await p.addInitScript(({ key, cfg, topics }) => {
     const set = (k, v) => localStorage.setItem('set:' + k, JSON.stringify(v));
     set('provider', 'gemini'); set('apiKey', key); set('niche', cfg.nicho); set('target', String(cfg.duracion)); set('voiceEngine', cfg.voz); set('research', !!cfg.investigar); set('verify', !!cfg.verificar);
@@ -17,7 +20,13 @@ const srv = http.createServer((q, r) => { let f = path.join('site', q.url.split(
   }, { key, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
   await p.goto('http://localhost:8099/index.html'); await p.waitForTimeout(800);
   await p.click(`button[data-a=gen][data-i="${slot}"]`);
-  await p.waitForSelector(`button[data-a=rec][data-i="${slot}"]:not([disabled])`, { timeout: 240000 });
+  await p.waitForFunction(i => {
+    const rec = document.querySelector(`button[data-a="rec"][data-i="${i}"]`);
+    const err = document.querySelector(`#slot${i} p[style*="color:var(--red)"]`);
+    return (rec && !rec.disabled) || (err && err.textContent.trim());
+  }, slot, { timeout: 240000 });
+  const generationError = await p.locator(`#slot${slot} p[style*="color:var(--red)"]`).textContent().catch(() => '');
+  if (generationError && generationError.trim()) throw new Error('La web no pudo generar el guion: ' + generationError.trim());
   const meta = await p.evaluate(i => { const s = window.__studio.slots[i]; return { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }; }, slot);
   console.log('Guion listo:', meta.titulo);
   await p.click(`button[data-a=rec][data-i="${slot}"]`);
