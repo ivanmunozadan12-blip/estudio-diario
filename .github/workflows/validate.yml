@@ -21,5 +21,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Validar todo el código y las configuraciones (sin APIs ni secretos)
         run: node ci/check.js
+      - name: Probar validaciones de seguridad de Netlify (sin red)
+        run: node ci/security.test.js
       - name: Comprobar arranque de la web en Chromium (sin generar vídeos)
         run: node ci/smoke.js
