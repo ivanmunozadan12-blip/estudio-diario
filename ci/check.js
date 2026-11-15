@@ -12,4 +12,7 @@ for (const token of ['extraApiKeys', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3', 'GE
   const source = token === 'extraApiKeys' ? html : fs.readFileSync('ci/generate.js', 'utf8');
   if (!source.includes(token)) throw new Error('Falta la integración esperada: ' + token);
 }
-console.log('Sintaxis correcta. Rotación Gemini (hasta 4 claves) integrada.');
+for (const token of ['slice(0, 12)', 'e.status === 429', 'transientAttempt < 1', 'AIstate.keyIndex = ki']) {
+  if (!html.includes(token)) throw new Error('Falta el respaldo avanzado de Gemini: ' + token);
+}
+console.log('Sintaxis correcta. Rotación entre 4 proyectos, modelos alternativos y cambio inmediato ante HTTP 429 integrados.');
