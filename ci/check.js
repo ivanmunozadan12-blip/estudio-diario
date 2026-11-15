@@ -22,7 +22,7 @@ const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
 if (!scripts.length) throw new Error('No se encontró JavaScript inline en index.html.');
 scripts.forEach((match, i) => new vm.Script(match[1], { filename: 'index.html:inline-' + (i + 1) }));
 
-const sourceFiles = ['ci', 'netlify/functions'].flatMap(walk)
+const sourceFiles = ['ci', 'netlify/functions'].flatMap(walk).concat(['sw.js'])
   .filter(file => ['.js', '.mjs', '.cjs'].some(ext => file.endsWith(ext)));
 for (const file of sourceFiles) run(process.execPath, ['--check', file], 'Sintaxis incorrecta en ' + file);
 
@@ -60,6 +60,18 @@ for (const value of ['0', '1', '2']) {
 }
 
 const generate = fs.readFileSync('ci/generate.js', 'utf8');
+const app = html;
+if (!app.includes("'network'].includes(e.code)") || !app.includes("code: 'research_failed'") || !app.includes("code: 'verification_failed'") || !app.includes('return TTS.speak(text.replace')) {
+  throw new Error('Falta una protección de respaldo Gemini, investigación, verificación o voz sintética.');
+}
+const sender = fs.readFileSync('ci/send.sh', 'utf8');
+if (!sender.includes('ffprobe') || !sender.includes('codec_type') || !sender.includes('9 / 16') || !sender.includes('sendVideo') || !sender.includes('sendMessage')) {
+  throw new Error('Faltan las validaciones del MP4 o la confirmación de los envíos Telegram.');
+}
+const preflight = fs.readFileSync('ci/preflight.js', 'utf8');
+if (!preflight.includes('/getMe') || !preflight.includes('/getChat') || !preflight.includes('oauth2.googleapis.com/token') || preflight.includes('sendVideo')) {
+  throw new Error('El preflight debe validar Telegram y OAuth sin enviar contenido.');
+}
 if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) {
   throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
 }
