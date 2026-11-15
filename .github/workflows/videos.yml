@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '22' }
       - name: Recuperar caché de voz neuronal
         uses: actions/cache@v4
         with:
@@ -118,13 +118,13 @@ jobs:
           GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
         run: node ci/generate.js ${{ steps.slot.outputs.slot }} ${{ steps.slot.outputs.day }}
       - name: Enviar por Telegram
-        if: steps.slot.outputs.run == 'si'
+        if: steps.slot.outputs.run == 'si' && github.run_attempt == 1
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: bash ci/send.sh
       - name: Publicar automáticamente en YouTube
-        if: steps.slot.outputs.run == 'si'
+        if: steps.slot.outputs.run == 'si' && github.run_attempt == 1
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
@@ -147,5 +147,13 @@ jobs:
       - name: Anotar los temas usados
         if: steps.slot.outputs.run == 'si'
         run: |
-          git config user.name "estudio-diario"; git config user.email "bot@users.noreply.github.com"
-          git add history.json; git commit -m "Temas usados" || true; git push || true
+          git config user.name "estudio-diario"
+          git config user.email "bot@users.noreply.github.com"
+          git add history.json
+          if git diff --cached --quiet; then
+            echo "El historial no ha cambiado."
+          else
+            git commit -m "Temas usados"
+            git pull --rebase origin "$GITHUB_REF_NAME"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
