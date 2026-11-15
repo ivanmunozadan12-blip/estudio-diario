@@ -33,7 +33,7 @@ const toB64 = async blob => {
   page.on('response', r => {
     if (r.status() >= 400) console.log('[HTTP ' + r.status() + ' ' + r.request().method() + ']', r.url());
   });
-  page.on('requestfailed', r => console.log('[request failed]', r.request().method(), r.url(), r.failure()?.errorText || ''));
+  page.on('requestfailed', r => console.log('[request failed]', r.method(), r.url(), r.failure()?.errorText || ''));
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (url, options = {}) => {
