@@ -109,6 +109,18 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: bash ci/send.sh
+      - name: Publicar automáticamente en YouTube
+        if: steps.slot.outputs.run == 'si'
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$YOUTUBE_CLIENT_ID" ] || [ -z "$YOUTUBE_CLIENT_SECRET" ] || [ -z "$YOUTUBE_REFRESH_TOKEN" ]; then
+            echo "YouTube todavía no está conectado; se omite la publicación."
+          else
+            node ci/youtube-upload.js
+          fi
       - name: Guardar los vídeos en la ejecución
         if: steps.slot.outputs.run == 'si'
         uses: actions/upload-artifact@v4
