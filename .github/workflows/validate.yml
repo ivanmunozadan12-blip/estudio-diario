@@ -9,11 +9,17 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Instalar Playwright
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
       - name: Validar todo el código y las configuraciones (sin APIs ni secretos)
         run: node ci/check.js
+      - name: Comprobar arranque de la web en Chromium (sin generar vídeos)
+        run: node ci/smoke.js
