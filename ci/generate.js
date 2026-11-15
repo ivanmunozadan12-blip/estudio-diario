@@ -7,7 +7,7 @@ const requested = process.argv[2], day = process.argv[3];
 const batch = requested === 'all' || process.env.BATCH_ALL === 'true';
 const slot = batch ? 0 : +requested;
 if (!batch && (!Number.isInteger(slot) || slot < 0 || slot > 2)) throw new Error('El slot debe ser 0, 1 o 2.');
-if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day || '')) throw new Error('La fecha de generación no es válida.');
+if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day || '')) throw new Error('La fecha de generación no es válida.');
 if (!fs.existsSync('site/index.html')) throw new Error('No existe site/index.html; no se iniciará Chromium.');
 const cfg = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const hist = JSON.parse(fs.readFileSync('history.json', 'utf8'));
