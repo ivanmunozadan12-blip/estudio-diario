@@ -16,13 +16,21 @@ B) AUTOMÁTICO REAL (sin abrir la web; el móvil puede estar apagado)
  3. Clave de Gemini gratis: aistudio.google.com/apikey
  4. Telegram: abre @BotFather → /newbot → copia el token. Escribe cualquier cosa a tu bot nuevo.
     Abre en el navegador https://api.telegram.org/bot<TOKEN>/getUpdates y copia el número de «chat":{"id":...».
- 5. En el repo: Settings → Secrets and variables → Actions → New repository secret. Crea tres:
-    GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+ 5. En el repo: Settings → Secrets and variables → Actions → New repository secret. Crea estos secretos:
+    GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
+    Para pruebas con varias cuentas/proyectos Gemini, añade también GEMINI_API_KEY_2, GEMINI_API_KEY_3 y GEMINI_API_KEY_4.
+    Cada clave adicional debe proceder de un proyecto distinto si quieres cuotas independientes. Si aún no tienes las otras,
+    déjalas sin crear: el sistema funcionará con la clave principal.
  6. Pestaña Actions → «Vídeos diarios» → Run workflow (deja el hueco vacío o pon 0) para probar. En 10-20 min
     te llega el vídeo. Desde entonces se ejecuta solo a las 9:30, 14:30 y 20:30.
  Ajustes (nicho, duración, voz, horas): edita config.json.
- Notas: GitHub puede retrasar el reloj hasta ~30 min en horas punta. Cuota gratuita de Gemini: unas 20 peticiones al día por modelo;
- cada vídeo gasta unas 3-4, así que 3 vídeos entran. Si falla, el error sale en la pestaña Actions.
+ Notas: GitHub puede retrasar el reloj hasta ~30 min en horas punta. Gemini: la web y GitHub aceptan hasta 4 claves. En GitHub se leen GEMINI_API_KEY y, opcionalmente,
+ GEMINI_API_KEY_2, GEMINI_API_KEY_3 y GEMINI_API_KEY_4. La rotación automática cambia de clave si detecta
+ cuota diaria agotada o una clave inválida; ante límites temporales reintenta con espera progresiva antes de cambiar.
+ Google aplica cuotas por proyecto, no por clave: para cuotas independientes, usa proyectos distintos.
+ Las cuotas varían por modelo y proyecto; consulta aistudio.google.com/usage y aistudio.google.com/rate-limit.
+ En la web manual, pega la clave principal y las adicionales (una por línea) en Ajustes de IA.
+ Si falla, el error detallado aparece en la pestaña Actions.
 
 C) WEB (Netlify) — también sirve a mano
  index.html es la web. Su «Piloto automático» (ajustes) solo funciona con la página abierta y la pantalla encendida;
