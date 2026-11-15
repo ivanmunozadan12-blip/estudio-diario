@@ -111,7 +111,9 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
 <details class="card" id="ajustes">
   <summary>Ajustes del canal</summary>
   <label class="f">Nicho y estilo (lo usa la IA para elegir temas y escribir)
-    <textarea id="niche">Historias reales increíbles de supervivencia, misterios resueltos y curiosidades de ciencia e historia, contadas como un thriller breve.</textarea></label>
+    <textarea id="niche">Divulgación científica y curiosidades con humor: cómo funciona el mundo y escenarios hipotéticos («¿qué pasaría si…?»), contados de forma visual, rápida y divertida.</textarea></label>
+  <label class="f">Humor en los vídeos
+    <select id="humor"><option value="auto" selected>Automático (recomendado): mucho en hipotéticos, un toque en explicaciones, nada en temas serios</option><option value="siempre">Siempre divertido (salvo temas sensibles)</option><option value="nunca">Nunca: tono serio</option></select></label>
   <label class="f">Voz
     <select id="voiceEngine"><option value="natural" selected>Natural (neuronal, gratis, va dentro del vídeo)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
   <label class="f">Voz concreta (se rellena al cargar la voz natural)
@@ -1195,8 +1197,9 @@ let aborter = null, current = null, running = false;
 const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: s.own, script: s.script })));
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
-const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, music: $('#musicOn').checked, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value });
-['niche','voiceEngine','voiceId','voiceRate','musicOn','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
+const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, music: $('#musicOn').checked, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, humor: ($('#humor') || {}).value || 'auto' });
+try { if (store.get('set:niche', null) === "Historias reales increíbles de supervivencia, misterios resueltos y curiosidades de ciencia e historia, contadas como un thriller breve.") localStorage.removeItem('set:niche'); } catch (e) {}
+['niche','humor','voiceEngine','voiceId','voiceRate','musicOn','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
 
 /* --- guion --- */
 const ITEM_LIST = Object.keys(ITEM).join(', ');
@@ -1210,7 +1213,7 @@ function scriptPrompt(topic, S, dossier, plan, dir){
 
 FORMATO DE ESTE VÍDEO: ${format}
 ENCARGO DEL USUARIO: ${topic}
-NICHO DEL CANAL: ${S.niche || 'ciencia, curiosidades y explicaciones de cómo funciona el mundo'}${hypothetical ? '\nESCENARIO HIPOTÉTICO: no presentes la premisa como un hecho ocurrido. Explora consecuencias paso a paso, separando las leyes científicas conocidas de las partes especulativas. Si la premisa es físicamente imposible, dilo claramente y explica qué ocurriría si imagináramos que esa regla pudiera romperse.' : dossierBlock(dossier)}${hypothetical ? '' : sensitiveBlock(topic, plan)}
+NICHO DEL CANAL: ${S.niche || 'ciencia, curiosidades y explicaciones de cómo funciona el mundo'}${humorBlock(topic, S, plan)}${hypothetical ? '\nESCENARIO HIPOTÉTICO: no presentes la premisa como un hecho ocurrido. Explora consecuencias paso a paso, separando las leyes científicas conocidas de las partes especulativas. Si la premisa es físicamente imposible, dilo claramente y explica qué ocurriría si imagináramos que esa regla pudiera romperse.' : dossierBlock(dossier)}${hypothetical ? '' : sensitiveBlock(topic, plan)}
 
 REQUISITOS DE GUION
 - Duración objetivo ${S.target} s: unas ${nWords} palabras de narración repartidas en ${nScenes} escenas (entre ${nScenes - 2} y ${nScenes + 3}).
@@ -2080,8 +2083,18 @@ async function research(request, plan, sig, progress){
 }
 
 /* --- instrucciones --- */
-const SENSITIVE = /atentad|terror|asesin|v[ií]ctim|genocid|violaci|suicid|masacre|holocaust|tiroteo|secuestr|guerra|11[ -]?m\b|11[ -]?s\b|9\/11/i;
+const SENSITIVE = /hundimiento|naufragio|peste|epidemia|pandemia|accidente|incendio|bombardeo|atentad|terror|asesin|v[ií]ctim|genocid|violaci|suicid|masacre|holocaust|tiroteo|secuestr|guerra|11[ -]?m\b|11[ -]?s\b|9\/11/i;
 const planPrompt = req => `El usuario quiere un vídeo corto con este encargo: «${req}»\nPrepara la investigación. Responde SOLO con JSON: {"tema":"título claro del tema","consultas_es":["2 o 3 búsquedas para Wikipedia en español, con el título probable de los artículos (por ejemplo 'Atentados del 11 de marzo de 2004')"],"consultas_en":["1 o 2 búsquedas en inglés para Wikipedia"],"sensible":true o false (true si trata de muertes, víctimas, terrorismo, guerra, delitos o personas reales vivas)}`;
+function humorBlock(topic, S, plan){
+  const mode = (S && S.humor) || 'auto';
+  const serio = (plan && plan.sensible) || SENSITIVE.test(topic);
+  if (mode === 'nunca' || serio) return '\nTONO: serio y sobrio, SIN chistes ni bromas (tema delicado o humor desactivado). Sigue siendo ameno y claro, sin sensacionalismo.';
+  const hyp = /¿QUÉ PASARÍA SI/i.test(topic), how = /¿CÓMO FUNCIONA|¿POR QUÉ/i.test(topic);
+  const nivel = mode === 'siempre' ? (hyp ? 'alto' : 'medio') : hyp ? 'alto' : how ? 'medio' : 'ligero';
+  const base = '\nTONO CON HUMOR (nivel ' + nivel.toUpperCase() + '): el humor nace de llevar la consecuencia lógica al absurdo, de comparaciones cotidianas inesperadas y de apartes del narrador con sorna cariñosa; NUNCA de inventar datos. Los hechos y la ciencia siguen siendo correctos y se entienden perfectamente aunque quites las bromas. Prohibido: humor negro, burlas a personas, grupos o países, chistes sobre muertes o víctimas reales, y explicar el chiste.';
+  const por = { alto: ' En casi todas las escenas (salvo el gancho y el dato final, que pueden ser serios) mete una broma, exageración cómica o aparte ingenioso; incluye un running gag que reaparezca 3 veces (por ejemplo un personaje, objeto o frase recurrente) y cierra con un remate gracioso. En el campo "visual" describe también el gag visual (caras de pánico, carteles absurdos, objetos con reacción exagerada) y usa rótulos con humor.', medio: ' Una broma o comparación graciosa cada 2 escenas, con ironía suave; el resto, claro y directo. Un gag visual ocasional en "visual".', ligero: ' Solo un par de toques de ingenio en todo el vídeo (una comparación simpática y un remate final con gracia); el tono general es de divulgación amena.' };
+  return base + por[nivel];
+}
 function sensitiveBlock(req, plan){ return (plan && plan.sensible) || SENSITIVE.test(req) ? `\nTEMA SENSIBLE: tono sobrio y respetuoso con las víctimas y sus familias. Sin morbo, sin detalles gráficos, sin ganchos sensacionalistas, sin especular sobre culpables ni causas más allá de lo que digan las fuentes. Música "calma" o "misterio". Cierra con homenaje o reflexión, no con una llamada a seguir el canal.` : ''; }
 function dossierBlock(d){ return d ? `\nDOSSIER DE FUENTES (usa EXCLUSIVAMENTE los hechos que aparecen aquí: nombres, cifras, fechas y lugares. Si un dato no está en el dossier, no lo uses. Si las fuentes se contradicen, usa la cifra más prudente o di "según las fuentes"):\n"""\n${d}\n"""\n` : `\nNo hay fuentes disponibles: usa solo datos que conozcas con total seguridad y evita cifras exactas dudosas.\n`; }
 const verifyPrompt = (raw, d) => `Eres verificador de datos. Te paso un guion en JSON y el dossier de fuentes. Revisa cada nombre, cifra, fecha, lugar y relación causal del campo "texto" y de rótulos, etiquetas y datos. Corrige o elimina todo lo que el dossier no respalde o contradiga, sin añadir hechos nuevos. Conserva el número de escenas, la dirección visual y el tono. Si cambias algo, anótalo.\n\nDOSSIER:\n"""\n${d}\n"""\n\nGUION:\n${JSON.stringify(raw)}\n\nResponde SOLO con el JSON completo corregido, con el mismo formato y un campo extra "cambios": ["breve descripción de cada corrección"] (vacío si todo era correcto).`;
