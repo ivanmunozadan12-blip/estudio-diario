@@ -1,7 +1,11 @@
 {
   "zona": "Europe/Madrid",
-  "horas": ["09:30", "14:30", "20:30"],
-  "nicho": "Historias reales y sorprendentes (supervivencia, historia, ciencia, casos misteriosos), contadas con respeto y rigor.",
+  "horas": [
+    "09:30",
+    "14:30",
+    "20:30"
+  ],
+  "nicho": "Ciencia y curiosidades: vídeos ¿Sabías que?, cómo funcionan las cosas cotidianas y escenarios hipotéticos ¿Qué pasaría si? No incluir supervivencia extrema, tragedias, crímenes ni misterios.",
   "duracion": 60,
   "voz": "natural",
   "investigar": true,
