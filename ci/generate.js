@@ -8,8 +8,9 @@ const batch = requested === 'all' || process.env.BATCH_ALL === 'true';
 const slot = batch ? 0 : +requested;
 const cfg = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const hist = JSON.parse(fs.readFileSync('history.json', 'utf8'));
-const key = process.env.GEMINI_API_KEY;
-if (!key) { console.error('Falta el secreto GEMINI_API_KEY'); process.exit(2); }
+const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2, process.env.GEMINI_API_KEY_3, process.env.GEMINI_API_KEY_4].map(v => (v || '').trim()).filter(Boolean);
+if (!keys.length) { console.error('Falta el secreto GEMINI_API_KEY'); process.exit(2); }
+console.log('Claves Gemini configuradas:', keys.length, '(los valores nunca se muestran).');
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 const srv = http.createServer((q, r) => {
   const requestedPath = decodeURIComponent((q.url || '/').split('?')[0]);
@@ -42,10 +43,11 @@ const toB64 = async blob => {
       return originalFetch(url, { ...options, signal });
     };
   });
-  await page.addInitScript(({ key, cfg, topics }) => {
+  await page.addInitScript(({ keys, cfg, topics }) => {
     const set = (k, v) => localStorage.setItem('set:' + k, JSON.stringify(v));
     set('provider', 'gemini');
-    set('apiKey', key);
+    set('apiKey', keys[0]);
+    set('extraApiKeys', keys.slice(1).join('\n'));
     set('niche', cfg.nicho);
     set('target', String(cfg.duracion));
     set('voiceEngine', 'natural');
@@ -53,7 +55,7 @@ const toB64 = async blob => {
     set('research', !!cfg.investigar);
     set('verify', !!cfg.verificar);
     localStorage.setItem('hist', JSON.stringify(topics));
-  }, { key, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
+  }, { keys, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
   await page.goto('http://localhost:8099/index.html');
   await page.waitForFunction(() => window.__studio && window.__studio.Voice, null, { timeout: 30000 });
 
