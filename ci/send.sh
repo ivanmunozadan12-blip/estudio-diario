@@ -24,6 +24,8 @@ for RAW in "${raws[@]}"; do
   echo "Convirtiendo $RAW ($(stat -c%s "$RAW") bytes) -> $VIDEO"
   ffmpeg -loglevel error -y -i "$RAW" -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -r 30 -c:a aac -b:a 160k -movflags +faststart "$VIDEO"
   if [ ! -s "$VIDEO" ]; then echo "FFmpeg no creó un vídeo válido: $VIDEO"; exit 1; fi
+  size=$(stat -c%s "$VIDEO")
+  if [ "$size" -gt 52428800 ]; then echo "El MP4 supera el límite de 50 MB de Telegram: $size bytes."; exit 1; fi
   node - "$VIDEO" <<'NODE'
 const { execFileSync } = require('node:child_process');
 const file = process.argv[2];
