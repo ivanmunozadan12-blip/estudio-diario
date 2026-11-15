@@ -65,6 +65,7 @@ exports.handler = async event => {
         slot: input.slot,
         tema,
         titulo: titulo || tema,
+        ...(input.firma && typeof input.firma === 'object' ? { firma: ['p', 'e', 'c', 'm'].reduce((o, k) => (Number.isInteger(input.firma[k]) ? { ...o, [k]: input.firma[k] } : o), {}) } : {}),
         origen: 'web'
       });
       const updated = await fetch(API, {

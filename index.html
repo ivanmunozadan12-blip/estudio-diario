@@ -67,13 +67,14 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
 #msg{font-size:12px;color:var(--muted);text-align:center;margin:0 0 8px;min-height:16px}
 .note{font-size:12px;color:var(--muted);margin:0 0 12px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,body.simple #auto,body.simple label.chk:has(#auto),body.simple #autoHint{display:none!important}
 </style>
 </head>
 <body>
 
 <header>
   <div><h1>Estudio Diario</h1><small>3 vídeos al día · 9:16 para Shorts, Reels y TikTok</small></div>
-  <span class="pill" id="counter">Hoy 0/3</span>
+  <span class="pill" id="counter">Hoy 0/3</span><button id="modeBtn" style="margin-left:8px;padding:6px 10px;font-size:13px">Modo avanzado</button>
 </header>
 
 <section id="stageWrap" aria-label="Pantalla de vista previa">
@@ -82,6 +83,7 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
   <button id="stopBtn" hidden>Detener</button>
 </section>
 
+<section class="card" id="simple" hidden></section>
 <section id="slots"></section>
 
 <details class="card" id="ia" open>
@@ -1654,10 +1656,10 @@ function renderSlot(i){
   $('#topic' + i).addEventListener('input', e => { slots[i].topic = e.target.value; persist(); });
   $('#own' + i).addEventListener('input', e => { slots[i].own = e.target.value; persist(); });
 }
-function paintStatus(i){ const p = document.querySelector(`[data-st="${i}"]`); if (p) p.textContent = slots[i].busy; const b = document.querySelector(`[data-bar="${i}"]`); if (b) b.style.width = slots[i].pct + '%'; }
+function paintStatus(i){ const p = document.querySelector(`[data-st="${i}"]`); if (p) p.textContent = slots[i].busy; const b = document.querySelector(`[data-bar="${i}"]`); if (b) b.style.width = slots[i].pct + '%'; if (i === 0) { const q = document.getElementById('simStatus'); if (q) q.textContent = slots[0].busy; } }
 function refreshUI(){
   const d = doneToday().filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/3`; $('#counter').classList.toggle('ok', d >= 3);
-  [0,1,2].forEach(renderSlot); $('#allBtn').disabled = running; $('#stopBtn').hidden = !running && !current;
+  [0,1,2].forEach(renderSlot); renderSimple(); $('#allBtn').disabled = running; $('#stopBtn').hidden = !running && !current;
 }
 function toMarkdownScript(s){ return s.escenas.map(e => e.texto.replace(/\*/g,'')).join('\n'); }
 function captions(s, k){
@@ -1713,7 +1715,7 @@ async function prepAndPlay(i, record){
   if (record && res && res.blob && res.blob.size > 1000) {
     if (sl.url) URL.revokeObjectURL(sl.url); sl.blob = res.blob; sl.url = URL.createObjectURL(res.blob); sl.ext = /mp4/.test(res.blob.type) ? 'mp4' : 'webm'; setDone(i);
     const historySynced = await syncTopicToHistory(i, sl);
-    if (!historySynced) msg('Vídeo grabado. Falta configurar GITHUB_HISTORY_TOKEN en Netlify para compartir el historial con las generaciones automáticas.');
+    if (!historySynced && !document.body.classList.contains('simple')) msg('Vídeo grabado. Falta configurar GITHUB_HISTORY_TOKEN en Netlify para compartir el historial con las generaciones automáticas.');
   } else if (record && res === null) sl.err = '';
   renderSlot(i); refreshUI(); idleFrame(record && sl.url ? 'Vídeo grabado' : 'Fin de la vista previa'); $('#stageInfo').textContent = record && sl.url ? `Vídeo ${i+1} grabado. Guárdalo abajo.` : 'Listo';
 }
@@ -1769,6 +1771,98 @@ async function autoTick(){
 }
 setInterval(autoTick, 20000);
 $('#auto').addEventListener('change', async () => { if ($('#auto').checked) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} keepAwake(true); msg('Piloto automático activado: deja esta página abierta.'); autoTick(); } });
+/* ===== MODO SIMPLE (ChatGPT): un vídeo cada vez, sin límite; la web elige el tema ===== */
+const TOPIC_BANK = (() => {
+  const nunca = ['las palomas','las abejas','los mosquitos','las nubes','los gatos','las hormigas','los árboles','los relojes','la Luna','las tormentas','los murciélagos','el dinero','los espejos','los semáforos','las ballenas','el fuego','las arañas','los hongos','los pulpos','los cuervos','las cebras','los puentes','las cucarachas','los volcanes','los idiomas','las estaciones del año','el sueño','los ríos','los dinosaurios','la gravedad en la Luna','los colores','las matemáticas','los aviones','el hierro','la sal','las estrellas fugaces','los perros','las lombrices','los océanos','las fronteras'];
+  const evento = ['la Tierra dejara de girar durante un segundo','el Sol se apagara de golpe','todos los satélites cayeran a la vez','toda la humanidad saltara al mismo tiempo','se derritiera todo el hielo del planeta','una persona no durmiera durante una semana','cayera una moneda desde un rascacielos','la Luna estuviera la mitad de lejos','el agua dejara de ser transparente','desaparecieran todos los insectos','tragaras un imán potente','un tren circulara dentro de un túnel sin aire','la Tierra tuviera dos lunas','se acabara el petróleo mañana','pudiéramos respirar bajo el agua','Júpiter ocupara el lugar de la Luna','se cortara internet en todo el mundo durante un mes','el día durara 48 horas','todo el mundo hablara el mismo idioma','un meteorito del tamaño de una casa cayera en el mar','la sangre fuera azul','los humanos pudieran volar','se vaciaran todos los embalses a la vez','se apagara la luz de toda una ciudad una semana','el oro fuera tan común como la arena'];
+  const como = ['un rayo','un avión','un frigorífico','el GPS','una red eléctrica movida por caballos','el wifi','un ascensor','una presa hidroeléctrica','la memoria humana','una vacuna','la batería del móvil','un submarino','un agujero negro','un microondas','un reloj mecánico','una cámara de fotos','un cohete espacial','una central nuclear','un faro','una pila de limón','un molino de viento','una brújula','un transbordador de canal','un órgano de iglesia','una cerradura','el Bitcoin','un telescopio','un volcán','una colmena','el oído humano','una impresora 3D','un tren de levitación magnética','el cerebro al aprender','una ciudad sin electricidad','un puente colgante','una máquina de vapor','una planta carnívora','el sistema de alcantarillado de una ciudad','una bombilla','la fotosíntesis'];
+  const porque = ['el cielo es azul','bostezamos','las estrellas titilan','el hielo flota','nos da hipo','los gatos ronronean','el mar es salado','los flamencos son rosas','se oye el mar en una caracola','los dedos se arrugan en el agua','sentimos cosquillas','las cebras tienen rayas','el café nos despierta','soñamos','la Luna siempre enseña la misma cara','los relámpagos se ven antes que los truenos','los aviones dejan estelas','las hojas cambian de color en otoño','tenemos huellas dactilares','las campanas suenan distinto','se nos eriza la piel','los pájaros no se electrocutan en los cables','el cielo se pone rojo al atardecer','las burbujas son redondas','la miel nunca caduca'];
+  const hist = ['la construcción de las pirámides de Giza','la biblioteca de Alejandría','el eclipse que paró una guerra','la expedición de Magallanes y Elcano','el hundimiento del Titanic','la carrera espacial','el primer vuelo de los hermanos Wright','la peste negra','el descubrimiento de la penicilina','la invención de la imprenta','el misterio de la Atlántida','el Apolo 13','la erupción del Vesubio en Pompeya','la construcción del canal de Panamá','la lucha contra la viruela'];
+  const out = [];
+  nunca.forEach(x => out.push({ t: `¿Qué pasaría si no ${/^(el|la) /.test(x) ? 'existiera' : 'existiesen'} ${x}?`, c: 'si' }));
+  evento.forEach(x => out.push({ t: `¿Qué pasaría si ${x}?`, c: 'si' }));
+  como.forEach(x => out.push({ t: `¿Cómo funciona ${x}?`, c: 'como' }));
+  porque.forEach(x => out.push({ t: `¿Por qué ${x}?`, c: 'porque' }));
+  hist.forEach(x => out.push({ t: `La historia real de ${x}`, c: 'hist' }));
+  return out;
+})();
+function pickSimpleTopic(){
+  const used = store.get('usedTopics', []), rec = used.slice(-40), lastCat = store.get('lastTopicCat', '');
+  let pool = TOPIC_BANK.filter(x => !rec.some(u => topicSim(u, x.t) >= .6));
+  if (pool.length < 10) pool = TOPIC_BANK.slice();
+  const other = pool.filter(x => x.c !== lastCat); if (other.length > 5) pool = other;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  store.set('lastTopicCat', pick.c); return pick.t;
+}
+let simpleText = '', simpleNote = '';
+const simpleOn = () => document.body.classList.contains('simple');
+function renderSimple(){
+  const el = $('#simple'); if (!el) return;
+  if (!simpleOn()) { el.hidden = true; return; } el.hidden = false;
+  const s = slots[0], busy = !!s.busy;
+  if (!s.topic.trim() && !s.script && !busy) { s.topic = pickSimpleTopic(); persist(); }
+  const sc = s.script, normal = sc ? sc.escenas.filter(e => (e.tipo || 'normal') === 'normal') : [], faltan = sc ? normal.filter(e => !e.codigo).length : 0;
+  let h = `<div class="top"><h2>Vídeo con ChatGPT</h2><span class="pill" id="simStatus">${esc(s.busy || (s.url ? 'Listo' : sc ? 'Guion cargado' : 'Paso 1'))}</span></div>`;
+  if (s.url) {
+    h += `<p class="meta"><b>${esc(sc ? sc.titulo : '')}</b></p><video class="out" src="${s.url}#t=0.1" preload="metadata" controls playsinline></video>
+    <div class="row"><button class="pri" data-a="share" data-i="0">Compartir</button><a class="btn" href="${s.url}" download="${fileName(0)}">Descargar (.${s.ext})</a><a class="btn" href="${s.url}" target="_blank" rel="noopener">Abrir</a></div>
+    ${sc ? `<div class="row"><button data-a="copy" data-i="0" data-k="yt">Texto YouTube</button><button data-a="copy" data-i="0" data-k="tt">Texto TikTok</button><button data-a="copy" data-i="0" data-k="ig">Texto Reels</button></div>` : ''}
+    <div class="row"><button class="pri" id="simNew">➕ Nuevo vídeo (otro tema)</button></div>`;
+  } else if (busy) {
+    h += `<div class="bar"><i data-bar="0" style="width:${s.pct}%"></i></div><p class="meta">Deja la pantalla encendida mientras se graba.</p>`;
+  } else {
+    if (!sc) {
+      h += `<label class="f">Tema elegido por la web (puedes cambiarlo)<input type="text" id="simTopic" autocomplete="off" value="${esc(s.topic)}"></label>
+      <div class="row"><button id="simDice">🎲 Otro tema</button><button class="pri" id="simCopy">1 · Copiar prompt</button></div>
+      <p class="meta">Pega el prompt en ChatGPT (chat nuevo), espera a que termine y copia <b>toda</b> su respuesta.</p>`;
+    } else {
+      h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ${normal.length - faltan} con código propio${faltan ? ` · <span style="color:var(--red)">faltan ${faltan}</span>` : ' · todas listas'}</p>`;
+      if (faltan) h += `<div class="row"><button class="pri" id="simNext">Copiar siguiente tanda de escenas</button></div><p class="meta">Pégalo en el MISMO chat de ChatGPT y pega abajo la respuesta. Repite hasta que no falte ninguna (o graba ya: las que falten usarán el diseño de plantilla).</p>`;
+    }
+    h += `<label class="f">${sc ? 'Pega aquí la nueva respuesta de ChatGPT' : '2 · Pega aquí la respuesta de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí todo lo que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
+    <div class="row">${sc && !faltan ? '' : `<button class="pri" id="simImp">${sc ? 'Cargar respuesta' : '3 · Crear vídeo'}</button>`}${sc ? `<button class="${faltan ? '' : 'pri'}" id="simRec">● ${faltan ? 'Grabar ya' : 'Grabar vídeo'}</button><button id="simReview">Pedir revisión a ChatGPT</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>`;
+  }
+  if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
+  if (s.err) h += `<p class="meta" style="color:var(--red)">${esc(s.err)}</p>`;
+  const keep = document.activeElement && document.activeElement.id; el.innerHTML = h;
+  if (keep) { const k = document.getElementById(keep); if (k && k.focus) { try { k.focus(); } catch (e) {} } }
+}
+async function simpleRecord(){
+  if (running) return; running = true; refreshUI(); await guard(() => prepAndPlay(0, true), 0); running = false; refreshUI();
+}
+function simpleReset(pick){
+  const s = slots[0]; if (s.url) { try { URL.revokeObjectURL(s.url); } catch (e) {} }
+  Object.assign(s, { topic: '', own: '', script: null, busy: '', pct: 0, url: '', blob: null, err: '' }); delete pendingDir[0]; simpleText = ''; simpleNote = ''; persist();
+  if (pick) s.topic = pickSimpleTopic(); persist(); renderSimple();
+}
+document.addEventListener('input', e => { if (e.target.id === 'simPaste') simpleText = e.target.value; if (e.target.id === 'simTopic') { slots[0].topic = e.target.value; persist(); } });
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('button'); if (!b || !b.id || !b.id.startsWith('sim') && b.id !== 'modeBtn') return;
+  const S = settings(), s = slots[0];
+  if (b.id === 'modeBtn') { document.body.classList.toggle('simple'); store.set('simple', simpleOn()); b.textContent = simpleOn() ? 'Modo avanzado' : 'Modo simple'; renderSimple(); return; }
+  if (b.id === 'simDice') { s.topic = pickSimpleTopic(); persist(); renderSimple(); return; }
+  if (b.id === 'simCopy') { if (!s.topic.trim()) s.topic = pickSimpleTopic(); persist(); return copyText(masterPrompt(0, S), b); }
+  if (b.id === 'simNext') { const t = nextBatchPrompt(0); if (!t) { simpleNote = 'Todas las escenas ya tienen código.'; renderSimple(); return; } return copyText(t, b); }
+  if (b.id === 'simReview') return copyText(reviewPrompt(0), b);
+  if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
+  if (b.id === 'simNew') { simpleReset(true); return; }
+  if (b.id === 'simRec') { simpleNote = ''; return simpleRecord(); }
+  if (b.id === 'simImp') {
+    simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
+    if (t.trim().length < 50) { simpleNote = 'Pega primero la respuesta de ChatGPT.'; renderSimple(); return; }
+    let r; try { r = importPackage(t, 0); } catch (e) { simpleNote = 'No pude leer la respuesta: ' + (e && e.message || e) + '. Pide a ChatGPT «Repite la respuesta completa con el bloque json y los bloques js».'; renderSimple(); return; }
+    simpleText = ''; const used = store.get('usedTopics', []); used.push(s.topic || (s.script && s.script.titulo) || ''); store.set('usedTopics', used.slice(-120));
+    const normal = s.script.escenas.filter(e => (e.tipo || 'normal') === 'normal'), faltan = normal.filter(e => !e.codigo).length;
+    if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
+    if (faltan) { renderSimple(); return; }
+    renderSimple(); return simpleRecord();
+  }
+});
+(function(){
+  const on = store.get('simple', true); if (on) document.body.classList.add('simple');
+  const mb = $('#modeBtn'); if (mb) mb.textContent = on ? 'Modo avanzado' : 'Modo simple';
+  renderSimple();
+})();
 refreshUI();
 window.__studio = { slots, prepare, sanitizeScript, autoScenes, TTS, drawFrame, playProject, settings, genScript, buildScript, geminiChain, aiJson };
 /* ===== IA gratuita externa + investigación en Wikipedia ===== */
@@ -1977,6 +2071,7 @@ async function buildScript(request, S, progress, sig){
     progress('Planificando la investigación…');
     try { plan = await aiJson(planPrompt(request), { signal: sig, temperature: .2 }); } catch (e) { if (['cancelled', 'bad_key', 'rate_limited', 'network'].includes(e.code)) throw e; plan = null; }
     const r = await research(request, plan, sig, progress); dossier = r.text; sources = r.sources;
+    if (!dossier && window.__strictFacts) throw Object.assign(new Error('No se pudo investigar el tema en Wikipedia.'), { code: 'research_failed' });
   }
   progress('Escribiendo el guion…');
   const dir = pickDirection(request, store.get('sigs', []));
@@ -1984,7 +2079,7 @@ async function buildScript(request, S, progress, sig){
   let changes = [];
   if (S.verify && dossier) {
     progress('Verificando datos contra las fuentes…');
-    try { const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 }); if (v && Array.isArray(v.escenas) && v.escenas.length >= Math.ceil(raw.escenas.length * .7)) { changes = Array.isArray(v.cambios) ? v.cambios : []; raw = Object.assign({}, raw, v); } } catch (e) { if (e.code === 'cancelled') throw e; }
+    try { const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 }); if (v && Array.isArray(v.escenas) && v.escenas.length >= Math.ceil(raw.escenas.length * .7)) { changes = Array.isArray(v.cambios) ? v.cambios : []; raw = Object.assign({}, raw, v); } else if (window.__strictFacts) throw Object.assign(new Error('La verificación no devolvió un guion válido.'), { code: 'verification_failed' }); } catch (e) { if (e.code === 'cancelled' || e.code === 'verification_failed') throw e; if (window.__strictFacts) throw Object.assign(new Error('Falló la verificación de datos: ' + (e.message || e)), { code: 'verification_failed' }); }
   }
   const sc = sanitizeScript(raw, request, dir);
   if (S.codeScenes) await buildPrograms(sc, S, progress, sig);

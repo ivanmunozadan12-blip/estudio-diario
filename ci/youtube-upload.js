@@ -42,7 +42,7 @@ async function main(options = {}) {
       .map(x => x.slice(1).replace(/[^\p{L}\p{N}_]/gu, '')).filter(Boolean))].slice(0, 15);
     const metadata = {
       snippet: { title, description, tags, categoryId: '27', defaultLanguage: 'es' },
-      status: { privacyStatus: 'public', selfDeclaredMadeForKids: false }
+      status: { privacyStatus: (() => { try { const c = JSON.parse(fs.readFileSync(path.join(cwd, 'config.json'), 'utf8')); return ['public', 'unlisted', 'private'].includes(c.youtubePrivacidad) ? c.youtubePrivacidad : 'public'; } catch (_) { return 'public'; } })(), selfDeclaredMadeForKids: false }
     };
     const video = fs.readFileSync(path.join(outDir, file));
     if (!video.length) throw new Error('El vídeo está vacío: ' + file);
