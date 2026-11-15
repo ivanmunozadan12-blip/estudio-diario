@@ -1381,15 +1381,16 @@ function codeFromBlock(raw){
   return code;
 }
 /* Acepta respuestas "sucias": títulos distintos, bloques ```json con el código, o bloques sin título (por orden). */
-function normalizeAnswer(text){
+function normalizeAnswer(text, from, merge){
+  from = from || 1;
   text = String(text || '').replace(/\r\n?/g, '\n');
   if (/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+\d+/im.test(text)) return text;
   const hasHead = new RegExp(SCENE_HEAD.source, 'm').test(text);
   if (hasHead) return text.replace(SCENE_HEAD, '### ESCENA $1');
   const fences = [...text.matchAll(/```[a-zA-Z]*[ \t]*\n([\s\S]*?)```/g)].map(m => m[1]);
-  if (fences.length < 2) return text;
+  if (fences.length < (merge ? 1 : 2)) return text;
   const si = fences.findIndex(f => /"escenas"\s*:/.test(f)); const rest = fences.filter((f, k) => k !== si);
-  return (si >= 0 ? '```json\n' + fences[si] + '\n```\n' : '') + rest.map((f, k) => `### ESCENA ${k + 1}\n${f}`).join('\n');
+  return (si >= 0 ? '```json\n' + fences[si] + '\n```\n' : '') + rest.map((f, k) => `### ESCENA ${k + from}\n${f}`).join('\n');
 }
 function parsePrograms(text){
   const out = {}, parts = String(text || '').split(/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+(\d+)[^\n]*$/im);
@@ -1437,7 +1438,8 @@ Escenas del vídeo:
 ${sl.script.escenas.map((e, k) => `ESCENA ${k + 1}: ${e.texto.replace(/\*/g, '')} | QUÉ SE VE: ${e.visual || '-'}`).join('\n')}`;
 }
 function importPackage(text, i){
-  text = normalizeAnswer(text);
+  const sl0 = slots[i], hasScriptJson = /"escenas"\s*:/.test(text), firstMissing = sl0.script && !hasScriptJson ? (sl0.script.escenas.findIndex(e => (e.tipo || 'normal') === 'normal' && !e.codigo) + 1) || 1 : 1;
+  text = normalizeAnswer(text, firstMissing, !!(sl0.script && !hasScriptJson));
   const sl = slots[i], at = text.search(/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+\d+/im), head = at < 0 ? text : text.slice(0, at);
   if (sl.script && at >= 0 && !/\{[\s\S]*"escenas"/.test(head)) {
     const progs = parsePrograms(text.slice(at)), errs = []; let ok = 0, n = 0;
