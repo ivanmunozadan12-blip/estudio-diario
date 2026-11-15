@@ -1201,18 +1201,21 @@ async function httpJson(url, opt){
   return j;
 }
 
-/* --- Gemini: descubre qué modelos gratuitos tiene tu clave y los ordena de más a menos potente --- */
-const verOf = id => { const m = id.match(/(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+/* --- Gemini: descubre modelos de texto y prepara una cadena de respaldo --- */
+const verOf = id => { const m = id.match(/(\\d+(?:\\.\\d+)?)/); return m ? parseFloat(m[1]) : 0; };
 function geminiChain(ids){
   const bad = /image|tts|live|audio|embed|robotics|computer|vision|imagen|veo|lyria|aqa|native/i;
   const ok = ids.filter(i => !bad.test(i));
   const sorted = re => ok.filter(i => re.test(i)).sort((a, b) => verOf(b) - verOf(a));
-  const flash = sorted(/gemini-.*flash/).filter(i => !/lite/.test(i)), lite = sorted(/gemini-.*flash-lite/), gem = sorted(/^gemma/);
-  return [flash[0], lite[0], gem[0]].filter(Boolean);
+  // Se conservan varios modelos de cada familia: si uno está saturado o no responde,
+  // se puede probar otro antes de abandonar el proyecto.
+  return [...sorted(/gemini-.*flash/).filter(i => !/lite/.test(i)),
+          ...sorted(/gemini-.*flash-lite/),
+          ...sorted(/^gemma/)].filter((v, i, a) => a.indexOf(v) === i).slice(0, 12);
 }
 async function geminiModels(key, sig){
   const j = await httpJson('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, signal: sig });
-  return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, ''));
+  return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\\//, ''));
 }
 async function ensureChain(key, model, sig){
   const cacheKey = key + '|' + model;
@@ -1224,19 +1227,27 @@ async function ensureChain(key, model, sig){
   AIstate.chains.set(cacheKey, chain); return chain;
 }
 async function geminiGen(prompt, o){
-  const cfg = AIcfg(), keys = cfg.keys; if (!keys.length) throw { code: 'bad_key', message: 'Falta la clave de Gemini.' };
+  const cfg = AIcfg(), keys = cfg.keys;
+  if (!keys.length) throw { code: 'bad_key', message: 'Falta la clave de Gemini.' };
   let last, failures = [];
   for (let ki = 0; ki < keys.length; ki++) {
     const key = keys[ki]; let chain;
-    try { chain = await ensureChain(key, cfg.model, o.signal); }
-    catch (e) {
+    try {
+      chain = await ensureChain(key, cfg.model, o.signal);
+      console.info('[Gemini] Proyecto ' + (ki + 1) + '/' + keys.length + ': ' + chain.length + ' modelos de respaldo disponibles.');
+    } catch (e) {
       if (e.code === 'cancelled') throw e;
-      last = e; failures.push('Clave ' + (ki + 1) + ': ' + (e.code || 'error'));
-      if (['bad_key','daily_quota','rate_limited','model_not_found'].includes(e.code)) continue;
+      last = e; failures.push('Proyecto ' + (ki + 1) + ': ' + (e.code || 'error'));
+      if (['bad_key','daily_quota','rate_limited','model_not_found'].includes(e.code) || e.status === 429 || e.status >= 500) {
+        msg('Gemini: proyecto ' + (ki + 1) + '/' + keys.length + ' no disponible; probando el siguiente…');
+        continue;
+      }
       throw e;
     }
     let switchKey = false;
     for (const model of chain) {
+      console.info('[Gemini] Probando proyecto ' + (ki + 1) + '/' + keys.length + ' · modelo ' + model);
+      msg('Gemini: probando proyecto ' + (ki + 1) + '/' + keys.length + ' · ' + model + '…');
       for (const useJson of (o.json ? [true, false] : [false])) {
         let transientAttempt = 0;
         while (true) {
@@ -1244,18 +1255,33 @@ async function geminiGen(prompt, o){
             const j = await httpJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', signal: o.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: Object.assign({ temperature: o.temperature ?? .8, maxOutputTokens: 16000 }, useJson ? { responseMimeType: 'application/json' } : {}) }) });
             const t = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
             if (!t.trim()) throw { code: 'empty', message: 'La IA devolvió una respuesta vacía' + (j.promptFeedback?.blockReason ? ' (' + j.promptFeedback.blockReason + ')' : '') + '.' };
-            AIstate.used = model; AIstate.keyIndex = ki; return t;
+            AIstate.used = model; AIstate.keyIndex = ki;
+            console.info('[Gemini] Generación completada con proyecto ' + (ki + 1) + '/' + keys.length + ' · ' + model);
+            return t;
           } catch (e) {
-            last = e; if (e.code === 'cancelled') throw e;
+            last = e;
+            if (e.code === 'cancelled') throw e;
             if (e.code === 'http' && e.status === 400 && useJson) break;
-            if (e.code === 'daily_quota' || e.code === 'bad_key') { switchKey = true; break; }
-            if (e.code === 'rate_limited' || e.status >= 500 || e.code === 'network') {
-              if (transientAttempt < 2) {
-                const wait = Math.min(30, e.retryAfter || (2 ** (transientAttempt + 1) + Math.random() * 2));
-                transientAttempt++; msg(`Gemini: límite temporal en clave ${ki + 1}/${keys.length}; reintento en ${Math.ceil(wait)} s…`);
-                await sleep(wait * 1000, o.signal); continue;
+            // Un 429 significa que este proyecto ha alcanzado un límite: no gastar
+            // más tiempo en él, pasar inmediatamente al siguiente proyecto.
+            if (e.code === 'daily_quota' || e.code === 'rate_limited' || e.status === 429 || e.code === 'bad_key') {
+              switchKey = true;
+              failures.push('Proyecto ' + (ki + 1) + ' (' + model + '): ' + (e.code || 'HTTP ' + e.status));
+              msg('Gemini: límite en proyecto ' + (ki + 1) + '/' + keys.length + '; cambiando de proyecto…');
+              break;
+            }
+            // Los 5xx y errores de red reciben un único reintento breve. Después
+            // se prueba el siguiente modelo del mismo proyecto.
+            if (e.status >= 500 || e.code === 'network') {
+              if (transientAttempt < 1) {
+                const wait = Math.min(8, Math.max(1, e.retryAfter || 2));
+                transientAttempt++;
+                msg('Gemini: error temporal en ' + model + '; reintento en ' + wait + ' s…');
+                await sleep(wait * 1000, o.signal);
+                continue;
               }
-              switchKey = true; break;
+              failures.push('Proyecto ' + (ki + 1) + ' (' + model + '): ' + (e.code || 'HTTP ' + e.status));
+              break;
             }
             if (e.code === 'model_not_found' || e.code === 'empty') break;
             throw e;
@@ -1265,49 +1291,17 @@ async function geminiGen(prompt, o){
       }
       if (switchKey) break;
     }
-    if (switchKey || last?.code === 'model_not_found') {
-      failures.push('Clave ' + (ki + 1) + ': ' + (last?.code || 'sin modelo'));
-      continue;
-    }
+    if (switchKey) continue;
+    // Se agotaron los modelos de este proyecto; seguir con el siguiente.
+    failures.push('Proyecto ' + (ki + 1) + ': modelos agotados');
+    msg('Gemini: agotados los modelos del proyecto ' + (ki + 1) + '/' + keys.length + '; probando el siguiente…');
   }
   if (last) {
     const summary = failures.length ? ' (' + failures.join('; ') + ')' : '';
-    throw Object.assign({}, last, { message: (last.message || 'No se pudo completar la petición.') + summary + (keys.length > 1 ? '. Se han probado las ' + keys.length + ' claves configuradas.' : '') });
+    throw Object.assign({}, last, { message: (last.message || 'No se pudo completar la petición.') + summary + (keys.length > 1 ? '. Se han probado los ' + keys.length + ' proyectos configurados.' : '') });
   }
-  throw { code: 'http', message: 'No hay claves Gemini disponibles.' };
+  throw { code: 'model_not_found', message: 'No hay modelos de Gemini disponibles en los proyectos configurados.' };
 }
-async function oaiGen(prompt, o){
-  const cfg = AIcfg(), P = PROV[cfg.p], base = (cfg.base || P.base || '').replace(/\/$/, ''), model = cfg.model || P.model;
-  if (!base) throw { code: 'http', message: 'Falta la dirección (URL base) del servicio.' };
-  if (!model) throw { code: 'model_not_found', message: 'Escribe el nombre del modelo.' };
-  if (!P.nokey && !cfg.key) throw { code: 'bad_key', message: 'Falta la clave de ' + P.name + '.' };
-  const headers = { 'Content-Type': 'application/json' }; if (cfg.key) headers.Authorization = 'Bearer ' + cfg.key;
-  let last;
-  for (const useJson of (o.json ? [true, false] : [false])) {
-    try {
-      const j = await httpJson(base + '/chat/completions', { method: 'POST', headers, signal: o.signal, body: JSON.stringify(Object.assign({ model, messages: [{ role: 'user', content: prompt }], temperature: o.temperature ?? .8 }, useJson ? { response_format: { type: 'json_object' } } : {})) });
-      const t = j.choices?.[0]?.message?.content; if (!t || !t.trim()) throw { code: 'empty', message: 'La IA devolvió una respuesta vacía.' };
-      AIstate.used = model; return t;
-    } catch (e) { last = e; if (e.code === 'http' && e.status === 400 && useJson) continue; throw e; }
-  }
-  throw last;
-}
-async function aiText(prompt, o = {}){
-  const call = () => PROV[AIcfg().p].kind === 'gemini' ? geminiGen(prompt, o) : oaiGen(prompt, o);
-  try { return await call(); }
-  catch (e) { if (e.code === 'rate_limited' && !o._retried) { const m = /retry in ([\d.]+)s|(\d+)s/i.exec(e.message || ''), wait = Math.min(25, m ? parseFloat(m[1] || m[2]) + 1 : 12); if (wait <= 25) { o._retried = true; msg(`Límite por minuto: espero ${Math.round(wait)} s…`); await sleep(wait * 1000, o.signal); return call(); } } throw e; }
-}
-function parseJSON(t){
-  let s = t.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''); try { return JSON.parse(s); } catch (e) {}
-  const a = s.indexOf('{'), b = s.lastIndexOf('}'), a2 = s.indexOf('['), b2 = s.lastIndexOf(']'); let cand = '';
-  if (a >= 0 && (a2 < 0 || a < a2)) cand = s.slice(a, b + 1); else if (a2 >= 0) cand = s.slice(a2, b2 + 1);
-  try { return JSON.parse(cand); } catch (e) { throw { code: 'invalid_json', message: 'La IA no devolvió un JSON válido.', text: t }; }
-}
-async function aiJson(prompt, o = {}){
-  const t = await aiText(prompt, Object.assign({ json: true }, o));
-  try { return parseJSON(t); } catch (e) { if (e.code !== 'invalid_json') throw e; const t2 = await aiText(prompt + '\n\nIMPORTANTE: responde únicamente con JSON válido, sin texto antes ni después ni comentarios.', Object.assign({ json: true }, o)); return parseJSON(t2); }
-}
-
 /* --- investigación gratuita: Wikipedia --- */
 async function wiki(lang, params, sig){ return httpJson(`https://${lang}.wikipedia.org/w/api.php?` + new URLSearchParams(Object.assign({ format: 'json', origin: '*' }, params)), { signal: sig }); }
 async function wikiSearch(q, lang, sig){ const j = await wiki(lang, { action: 'query', list: 'search', srsearch: q, srlimit: '3', srprop: '' }, sig); return (j.query?.search || []).map(x => x.title); }
