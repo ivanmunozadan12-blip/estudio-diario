@@ -1264,7 +1264,7 @@ async function geminiGen(prompt, o){
     } catch (e) {
       if (e.code === 'cancelled') throw e;
       last = e; failures.push('Proyecto ' + (ki + 1) + ': ' + (e.code || 'error'));
-      if (['bad_key','daily_quota','rate_limited','model_not_found'].includes(e.code) || e.status === 429 || e.status >= 500) {
+      if (['bad_key','daily_quota','rate_limited','model_not_found','network'].includes(e.code) || e.status === 429 || e.status >= 500) {
         msg('Gemini: proyecto ' + (ki + 1) + '/' + keys.length + ' no disponible; probando el siguiente…');
         continue;
       }
