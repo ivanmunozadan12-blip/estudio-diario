@@ -1,4 +1,4 @@
-// Validación local de sintaxis, configuración y reglas de seguridad. No llama a APIs externas.
+// Validación estática y pruebas de entradas. No consume APIs externas.
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -13,28 +13,30 @@ function walk(dir) {
 function run(command, args, label) {
   const result = spawnSync(command, args, { encoding: 'utf8' });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(label + '\n' + (result.stderr || result.stdout || 'fallo sin salida'));
+  if (result.status !== 0) throw new Error(label + ': ' + (result.stderr || result.stdout || 'fallo sin salida'));
 }
-const html = fs.readFileSync('index.html', 'utf8');
-const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
-if (!inlineScripts.length) throw new Error('No se encontró JavaScript inline en index.html.');
-inlineScripts.forEach((match, i) => new vm.Script(match[1], { filename: 'index.html:inline-' + (i + 1) }));
 
-const sourceFiles = ['ci', 'netlify/functions'].flatMap(dir => walk(dir))
-  .filter(file => /\.(?:js|mjs|cjs)$/.test(file));
+const html = fs.readFileSync('index.html', 'utf8');
+const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+  .filter(match => !/\bsrc\s*=/.test(match[0].slice(0, match[0].indexOf('>') + 1)));
+if (!scripts.length) throw new Error('No se encontró JavaScript inline en index.html.');
+scripts.forEach((match, i) => new vm.Script(match[1], { filename: 'index.html:inline-' + (i + 1) }));
+
+const sourceFiles = ['ci', 'netlify/functions'].flatMap(walk)
+  .filter(file => ['.js', '.mjs', '.cjs'].some(ext => file.endsWith(ext)));
 for (const file of sourceFiles) run(process.execPath, ['--check', file], 'Sintaxis incorrecta en ' + file);
+
 for (const file of ['config.json', 'history.json', 'package.json', 'manifest.webmanifest']) {
   JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 run('bash', ['-n', 'ci/send.sh'], 'Sintaxis incorrecta en ci/send.sh');
 for (const file of ['.github/workflows/videos.yml', '.github/workflows/validate.yml']) {
-  const yamlCheck = spawnSync('ruby', ['-e', 'require \'yaml\'; YAML.load_file(ARGV[0])', file], { encoding: 'utf8' });
-  if (yamlCheck.error && yamlCheck.error.code !== 'ENOENT') throw yamlCheck.error;
-  if (!yamlCheck.error && yamlCheck.status !== 0) throw new Error('YAML inválido en ' + file + ': ' + (yamlCheck.stderr || yamlCheck.stdout));
+  const parsed = spawnSync('ruby', ['-e', 'require \'yaml\'; YAML.load_file(ARGV[0])', file], { encoding: 'utf8' });
+  if (parsed.error && parsed.error.code !== 'ENOENT') throw parsed.error;
+  if (!parsed.error && parsed.status !== 0) throw new Error('YAML inválido en ' + file + ': ' + (parsed.stderr || parsed.stdout));
 }
 
-const invalidSlots = ['invalid', '3', '-1', '1.5'];
-for (const value of invalidSlots) {
+for (const value of ['invalid', '3', '-1', '1.5']) {
   const result = spawnSync(process.execPath, ['ci/slot.js'], {
     encoding: 'utf8',
     env: { ...process.env, FORCE_SLOT: value }
@@ -46,13 +48,21 @@ for (const value of ['0', '1', '2']) {
     encoding: 'utf8',
     env: { ...process.env, FORCE_SLOT: value }
   });
-  const date = result.stdout.trim().slice(2);
-  if (result.status !== 0 || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)) {
+  const output = result.stdout.trim();
+  const date = output.slice(2);
+  const validDate = date.length === 10 && date[4] === '-' && date[7] === '-' &&
+    date.slice(0, 4).split('').every(c => c >= '0' && c <= '9') &&
+    date.slice(5, 7).split('').every(c => c >= '0' && c <= '9') &&
+    date.slice(8, 10).split('').every(c => c >= '0' && c <= '9');
+  if (result.status !== 0 || !output.startsWith(value + ' ') || !validDate) {
     throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
   }
 }
+
 const generate = fs.readFileSync('ci/generate.js', 'utf8');
-if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
+if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) {
+  throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
+}
 const sw = fs.readFileSync('sw.js', 'utf8');
 if (!sw.includes("u.pathname.startsWith('/.netlify/functions/')") || !sw.includes('r.ok')) {
   throw new Error('El service worker debe excluir funciones Netlify y cachear solo respuestas correctas.');
@@ -63,55 +73,4 @@ for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/yout
 if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
   throw new Error('Persisten entrypoints Netlify duplicados.');
 }
-console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, YAML, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
-).test(result.stdout.trim())) {
-    throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
-  }
-}
-const generate = fs.readFileSync('ci/generate.js', 'utf8');
-if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
-const sw = fs.readFileSync('sw.js', 'utf8');
-if (!sw.includes("u.pathname.startsWith('/.netlify/functions/')") || !sw.includes('r.ok')) {
-  throw new Error('El service worker debe excluir funciones Netlify y cachear solo respuestas correctas.');
-}
-for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/youtube-callback.js']) {
-  if (!fs.existsSync(file)) throw new Error('Falta el endpoint Netlify activo: ' + file);
-}
-if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
-  throw new Error('Persisten entrypoints Netlify duplicados.');
-}
-console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, YAML, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
-).test(result.stdout.trim())) {
-    throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
-  }
-}
-const generate = fs.readFileSync('ci/generate.js', 'utf8');
-if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
-const sw = fs.readFileSync('sw.js', 'utf8');
-if (!sw.includes("u.pathname.startsWith('/.netlify/functions/')") || !sw.includes('r.ok')) {
-  throw new Error('El service worker debe excluir funciones Netlify y cachear solo respuestas correctas.');
-}
-for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/youtube-callback.js']) {
-  if (!fs.existsSync(file)) throw new Error('Falta el endpoint Netlify activo: ' + file);
-}
-if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
-  throw new Error('Persisten entrypoints Netlify duplicados.');
-}
-console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, YAML, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
-).test(result.stdout.trim())) {
-    throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
-  }
-}
-const generate = fs.readFileSync('ci/generate.js', 'utf8');
-if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
-const sw = fs.readFileSync('sw.js', 'utf8');
-if (!sw.includes("u.pathname.startsWith('/.netlify/functions/')") || !sw.includes('r.ok')) {
-  throw new Error('El service worker debe excluir funciones Netlify y cachear solo respuestas correctas.');
-}
-for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/youtube-callback.js']) {
-  if (!fs.existsSync(file)) throw new Error('Falta el endpoint Netlify activo: ' + file);
-}
-if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
-  throw new Error('Persisten entrypoints Netlify duplicados.');
-}
-console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, YAML, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
+console.log('OK: ' + scripts.length + ' scripts inline, ' + sourceFiles.length + ' archivos JS, JSON, YAML, shell, slots válidos e inválidos y service worker.');
