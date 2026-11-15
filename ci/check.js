@@ -46,7 +46,41 @@ for (const value of ['0', '1', '2']) {
     encoding: 'utf8',
     env: { ...process.env, FORCE_SLOT: value }
   });
-  if (result.status !== 0 || !new RegExp('^' + value + ' \\d{4}-\\d{2}-\\d{2}\\s*.test(result.stdout.trim())) {
+  if (result.status !== 0 || !new RegExp('^' + value + ' [0-9]{4}-[0-9]{2}-[0-9]{2}
+    throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
+  }
+}
+const generate = fs.readFileSync('ci/generate.js', 'utf8');
+if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
+const sw = fs.readFileSync('sw.js', 'utf8');
+if (!sw.includes("u.pathname.startsWith('/.netlify/functions/')") || !sw.includes('r.ok')) {
+  throw new Error('El service worker debe excluir funciones Netlify y cachear solo respuestas correctas.');
+}
+for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/youtube-callback.js']) {
+  if (!fs.existsSync(file)) throw new Error('Falta el endpoint Netlify activo: ' + file);
+}
+if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
+  throw new Error('Persisten entrypoints Netlify duplicados.');
+}
+console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, YAML, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
+).test(result.stdout.trim())) {
+    throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
+  }
+}
+const generate = fs.readFileSync('ci/generate.js', 'utf8');
+if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
+const sw = fs.readFileSync('sw.js', 'utf8');
+if (!sw.includes("u.pathname.startsWith('/.netlify/functions/')") || !sw.includes('r.ok')) {
+  throw new Error('El service worker debe excluir funciones Netlify y cachear solo respuestas correctas.');
+}
+for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/youtube-callback.js']) {
+  if (!fs.existsSync(file)) throw new Error('Falta el endpoint Netlify activo: ' + file);
+}
+if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
+  throw new Error('Persisten entrypoints Netlify duplicados.');
+}
+console.log('OK: JavaScript inline, ' + sourceFiles.length + ' archivos JS/MJS/CJS, JSON, YAML, shell, slots 0-2, rechazo de slots inválidos, selección automática de temas y reglas del service worker.');
+).test(result.stdout.trim())) {
     throw new Error('FORCE_SLOT=' + value + ' no ha producido un resultado válido: ' + result.stdout + result.stderr);
   }
 }
