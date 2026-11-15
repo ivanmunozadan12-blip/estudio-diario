@@ -6,6 +6,12 @@ const day = `${f.year}-${f.month}-${f.day}`, cur = (+f.hour % 24) * 60 + +f.minu
 const forced = process.env.FORCE_SLOT; let slot = -1;
 if (forced !== undefined && forced !== '') slot = +forced;
 else cfg.horas.forEach((h, i) => { const [a, b] = h.split(':').map(Number), t = a * 60 + b; if (cur >= t - 30 && cur <= t + 120 && slot < 0) slot = i; });
-if (slot < 0 || slot > 2) { console.log('skip'); process.exit(0); }
+if (!Number.isInteger(slot) || slot < 0 || slot > 2) {
+  if (forced !== undefined && forced !== '') {
+    console.error('FORCE_SLOT debe ser 0, 1 o 2; recibido: ' + String(forced));
+    process.exit(2);
+  }
+  console.log('skip'); process.exit(0);
+}
 if ((forced === undefined || forced === '') && hist.some(h => h.dia === day && h.slot === slot)) { console.log('skip'); process.exit(0); }
 console.log(slot + ' ' + day);
