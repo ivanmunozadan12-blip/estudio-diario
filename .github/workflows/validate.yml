@@ -2,8 +2,12 @@ name: Validación del proyecto
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - history.json
   pull_request:
     branches: [main]
+    paths-ignore:
+      - history.json
 permissions:
   contents: read
 jobs:
