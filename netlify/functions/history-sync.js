@@ -13,8 +13,8 @@ const response = (statusCode, body, origin) => ({
   body: JSON.stringify(body)
 });
 
+const normalize = value => String(value || '')
   .normalize('NFD').replace(/\p{M}/gu, '')
-  .normalize('NFD').replace(/\\p{M}/gu, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 exports.handler = async event => {
