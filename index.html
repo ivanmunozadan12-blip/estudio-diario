@@ -1306,6 +1306,10 @@ const Voice = {
     const urls = ['https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/+esm', 'https://esm.sh/@mintplex-labs/piper-tts-web@1.0.5'];
     let err; for (const u of urls) { try { this.mod = await import(u); break; } catch (e) { err = e; } }
     if (!this.mod) throw new Error('No se pudo cargar el motor de voz natural: ' + (err && err.message || err));
+    // ONNX Runtime 1.18.0 publica sus módulos WASM en npm/jsDelivr, no en cdnjs.
+    if (this.mod.TtsSession && this.mod.TtsSession.WASM_LOCATIONS) {
+      this.mod.TtsSession.WASM_LOCATIONS.onnxWasm = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+    }
     try { const all = await this.mod.voices(); this.voices = Object.keys(all || {}).filter(k => /^es_/.test(k)).sort((a, b) => (/es_ES/.test(b) - /es_ES/.test(a)) || (/high|medium/.test(b) - /high|medium/.test(a))); } catch (e) { this.voices = ['es_ES-davefx-medium']; }
     if (!this.voices.length) this.voices = ['es_ES-davefx-medium'];
     const sel = $('#voiceId'); if (sel) { const cur = sel.value; sel.innerHTML = this.voices.map(v => `<option value="${esc(v)}">${esc(v.replace(/^es_/, '').replace(/-/g, ' · '))}</option>`).join(''); if (cur && this.voices.includes(cur)) sel.value = cur; }
