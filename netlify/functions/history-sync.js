@@ -20,14 +20,14 @@ const normalize = value => String(value || '')
 exports.handler = async event => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
   const host = event.headers?.host || event.headers?.Host || '';
+  const allowedOrigin = process.env.SITE_ORIGIN || DEFAULT_ORIGIN;
   let originHost = '';
-  const allowedOrigin = process.env.SITE_ORIGIN || DEFAULT_ORIGIN;
   try { originHost = new URL(origin).host; } catch (_) {}
-  const allowedOrigin = process.env.SITE_ORIGIN || DEFAULT_ORIGIN;
+  if (origin !== allowedOrigin || originHost !== host) return response(403, { ok: false, error: 'Origen no permitido.' });
   if (event.httpMethod !== 'POST') return response(405, { ok: false, error: 'Método no permitido.' }, origin);
   const contentType = event.headers?.['content-type'] || event.headers?.['Content-Type'] || '';
-  if (!/^application\\/json(?:;|$)/i.test(contentType)) return response(415, { ok: false, error: 'Se requiere Content-Type application/json.' }, origin);
   if ((contentType.split(';', 1)[0] || '').trim().toLowerCase() !== 'application/json') return response(415, { ok: false, error: 'Se requiere Content-Type application/json.' }, origin);
+  if (Buffer.byteLength(event.body || '', 'utf8') > 4096) return response(413, { ok: false, error: 'Solicitud demasiado grande.' }, origin);
 
   const token = process.env.GITHUB_HISTORY_TOKEN;
   if (!token) return response(503, { ok: false, error: 'Falta configurar GITHUB_HISTORY_TOKEN en Netlify.' }, origin);
