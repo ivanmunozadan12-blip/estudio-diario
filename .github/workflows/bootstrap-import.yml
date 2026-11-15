@@ -1,0 +1,29 @@
+name: Importar proyecto original
+on:
+  push:
+    paths:
+      - 'estudio-diario-completo.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extraer el ZIP sin alterar sus archivos
+        run: |
+          if [ ! -f estudio-diario-completo.zip ]; then
+            echo "Sube estudio-diario-completo.zip a la raíz del repositorio."
+            exit 1
+          fi
+          mkdir -p /tmp/estudio-diario
+          unzip -q estudio-diario-completo.zip -d /tmp/estudio-diario
+          cp -a /tmp/estudio-diario/. .
+          rm -f estudio-diario-completo.zip
+          rm -f .github/workflows/bootstrap-import.yml
+          git config user.name "estudio-diario-import"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Importar proyecto original"
+          git push
