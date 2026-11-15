@@ -1107,6 +1107,24 @@ async function saveVideo(i){
 }
 function setStage(i, p, txt){ $('#stageInfo').textContent = txt; slots[i].pct = Math.round(p * 100); paintStatus(i); }
 
+async function syncTopicToHistory(i, sl){
+  const tema = String(sl.topic || (sl.script && sl.script.tema) || (sl.script && sl.script.titulo) || '').trim();
+  if (!tema) return false;
+  try {
+    const response = await fetch('/.netlify/functions/history-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tema, titulo: sl.script && sl.script.titulo || tema, slot: i })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || ('HTTP ' + response.status));
+    return true;
+  } catch (error) {
+    console.warn('No se pudo sincronizar el tema con el historial compartido:', error);
+    return false;
+  }
+}
+
 async function prepAndPlay(i, record){
   const S = settings(), sl = slots[i];
   sl.busy = 'Preparando voz y escenas…'; sl.pct = 2; renderSlot(i); await new Promise(r => setTimeout(r, 30));
@@ -1116,7 +1134,7 @@ async function prepAndPlay(i, record){
   let res; try { res = await playProject(proj, { record, onTick: (p, k, t) => { setStage(i, p, `${record ? 'Grabando' : 'Vista previa'} · escena ${k + 1}/${proj.scenes.length} · ${Math.round(t)} s de ${Math.round(proj.total)} s`); } }); }
   finally { await keepAwake(false); sl.busy = ''; sl.pct = 0; $('#stopBtn').hidden = true; }
   if (record && res && res.blob && res.blob.size > 1000) {
-    if (sl.url) URL.revokeObjectURL(sl.url); sl.blob = res.blob; sl.url = URL.createObjectURL(res.blob); sl.ext = /mp4/.test(res.blob.type) ? 'mp4' : 'webm'; setDone(i);
+    if (sl.url) URL.revokeObjectURL(sl.url); sl.blob = res.blob; sl.url = URL.createObjectURL(res.blob); sl.ext = /mp4/.test(res.blob.type) ? 'mp4' : 'webm'; setDone(i);\n    const historySynced = await syncTopicToHistory(i, sl);\n    if (!historySynced) msg('Vídeo grabado. Falta configurar GITHUB_HISTORY_TOKEN en Netlify para compartir el historial con las generaciones automáticas.');
   } else if (record && res === null) sl.err = '';
   renderSlot(i); refreshUI(); idleFrame(record && sl.url ? 'Vídeo grabado' : 'Fin de la vista previa'); $('#stageInfo').textContent = record && sl.url ? `Vídeo ${i+1} grabado. Guárdalo abajo.` : 'Listo';
 }
