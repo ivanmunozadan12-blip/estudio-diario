@@ -48,14 +48,27 @@ const toB64 = async blob => {
     set('provider', 'gemini');
     set('apiKey', keys[0]);
     set('extraApiKeys', keys.slice(1).join('\n'));
+    if (cfg.forceTopics && cfg.forceTopics.length === 3) {
+      set('slots', cfg.forceTopics.map(topic => ({ topic, own: '', script: null })));
+    }
     set('niche', cfg.nicho);
     set('target', String(cfg.duracion));
     set('voiceEngine', 'natural');
     set('voiceId', cfg.voiceId || 'es_ES-davefx-medium');
     set('research', !!cfg.investigar);
     set('verify', !!cfg.verificar);
+    set('slots', (cfg.forceTopics && cfg.forceTopics.length === 3)
+      ? cfg.forceTopics.map(topic => ({ topic, own: '', script: null }))
+      : []);
+
     localStorage.setItem('hist', JSON.stringify(topics));
-  }, { keys, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
+  }, { keys, cfg: Object.assign({}, cfg, batch && day === '2026-11-15' ? {
+    forceTopics: [
+      '¿SABÍAS QUE? — Los plátanos son naturalmente radiactivos por el potasio-40 que contienen',
+      '¿CÓMO FUNCIONA? — Cómo los auriculares con cancelación activa neutralizan el ruido con ondas sonoras',
+      '¿QUÉ PASARÍA SI? — Qué ocurriría si todo el oxígeno de la Tierra desapareciera durante cinco segundos'
+    ]
+  } : {}), topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
   await page.goto('http://localhost:8099/index.html');
   await page.waitForFunction(() => window.__studio && window.__studio.Voice, null, { timeout: 30000 });
 
