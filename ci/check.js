@@ -64,6 +64,10 @@ const app = html;
 if (!app.includes("'network'].includes(e.code)") || !app.includes("code: 'research_failed'") || !app.includes("code: 'verification_failed'") || !app.includes('return TTS.speak(text.replace')) {
   throw new Error('Falta una protección de respaldo Gemini, investigación, verificación o voz sintética.');
 }
+const mock = fs.readFileSync('ci/mock.js', 'utf8');
+if (!mock.includes('api.genScript = async') || mock.includes('generativelanguage.googleapis.com') || mock.includes('Voice.speak')) {
+  throw new Error('El mock de CI debe sustituir generación y voz sin llamar a Gemini ni Piper.');
+}
 const sender = fs.readFileSync('ci/send.sh', 'utf8');
 if (!sender.includes('ffprobe') || !sender.includes('codec_type') || !sender.includes('9 / 16') || !sender.includes('sendVideo') || !sender.includes('sendMessage')) {
   throw new Error('Faltan las validaciones del MP4 o la confirmación de los envíos Telegram.');
