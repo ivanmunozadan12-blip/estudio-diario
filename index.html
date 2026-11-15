@@ -1469,7 +1469,7 @@ const Voice = {
   },
   async speak(text, S, progress){
     if (S.engine === 'natural') {
-      if (this.failed) throw new Error('El motor de voz neuronal ya ha fallado en esta sesión.');
+      if (this.failed) return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
       try { return await this.natural(text, progress); }
       catch (e) {
         this.failed = true;
