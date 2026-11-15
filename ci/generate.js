@@ -37,7 +37,7 @@ const toB64 = async blob => {
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (url, options = {}) => {
-      const timeout = AbortSignal.timeout(90000);
+      const timeout = AbortSignal.timeout(240000);
       const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
       return originalFetch(url, { ...options, signal });
     };
