@@ -19,12 +19,43 @@ async function run() {
   process.env.GITHUB_HISTORY_TOKEN = 'test-token-not-used';
   assert.equal((await history({ httpMethod: 'POST', headers, body: '{' })).statusCode, 400);
   assert.equal((await history({ httpMethod: 'POST', headers, body: JSON.stringify({ tema: 'Tema de prueba suficientemente largo', titulo: 'Prueba', slot: 9 }) })).statusCode, 400);
-  delete process.env.GITHUB_HISTORY_TOKEN;
+  let existingHistory = [];
+  let historyFetches = 0;
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options = {}) => {
+    historyFetches++;
+    if (options.method === 'PUT') {
+      const payload = JSON.parse(options.body);
+      existingHistory = JSON.parse(Buffer.from(payload.content, 'base64').toString('utf8'));
+      return new Response(JSON.stringify({ content: { sha: 'updated' } }), { status: 200 });
+    }
+    return new Response(JSON.stringify({
+      sha: 'current',
+      content: Buffer.from(JSON.stringify(existingHistory), 'utf8').toString('base64')
+    }), { status: 200 });
+  };
+  try {
+    const saved = await history({ httpMethod: 'POST', headers, body: validBody });
+    assert.equal(saved.statusCode, 200);
+    assert.equal(JSON.parse(saved.body).duplicate, false);
+    assert.equal(existingHistory.length, 1);
+    assert.equal(existingHistory[0].slot, 0);
+    assert.equal(historyFetches, 2);
+    existingHistory[0].tema = 'Téma de prueba suficientemente largo';
+    historyFetches = 0;
+    const duplicate = await history({ httpMethod: 'POST', headers, body: validBody });
+    assert.equal(duplicate.statusCode, 200);
+    assert.equal(JSON.parse(duplicate.body).duplicate, true);
+    assert.equal(historyFetches, 1);
+  } finally {
+    global.fetch = originalFetch;
+    delete process.env.GITHUB_HISTORY_TOKEN;
+  }
 
   delete process.env.YOUTUBE_CLIENT_ID;
   delete process.env.YOUTUBE_CLIENT_SECRET;
   assert.equal((await youtubeAuth({ rawUrl: origin + '/.netlify/functions/youtube-auth' })).statusCode, 500);
   assert.equal((await youtubeCallback({ headers: {}, queryStringParameters: { state: 'invalid' }, rawUrl: origin + '/.netlify/functions/youtube-callback' })).statusCode, 400);
-  console.log('Security tests OK: origen, método, tipo de contenido, tamaño, token ausente, JSON/slot inválidos y OAuth inválido.');
+  console.log('Security tests OK: origen, método, tipo de contenido, tamaño, token ausente, JSON/slot inválidos, sincronización/duplicados y OAuth inválido.');
 }
 run().catch(error => { console.error(error); process.exit(1); });
