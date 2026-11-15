@@ -34,6 +34,13 @@ const toB64 = async blob => {
   const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
   const page = await ctx.newPage();
+  // El código de las escenas lo escribe la IA: la página solo puede hablar con los servicios que necesita.
+  const okHost = h => h === 'localhost' || /(^|\.)(googleapis\.com|gstatic\.com|wikipedia\.org|jsdelivr\.net|esm\.sh|huggingface\.co|hf\.co)$/.test(h);
+  await page.route('**/*', route => {
+    let h = ''; try { h = new URL(route.request().url()).hostname; } catch (_) {}
+    if (!h || okHost(h)) return route.fallback();
+    console.log('[red bloqueada]', h); return route.abort();
+  });
   if (process.env.CI_MOCK) await require(path.resolve(process.env.CI_MOCK))(page);
   const pageErrors = [];
   page.on('pageerror', e => { pageErrors.push(e.message); console.error('[pageerror]', e.message); });
@@ -45,21 +52,23 @@ const toB64 = async blob => {
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (url, options = {}) => {
-      // Evita que un único endpoint de Gemini bloquee toda la rotación.
+      // Evita que un único endpoint de Gemini bloquee toda la rotación (150 s: el código de escenas es una respuesta larga).
       const isGemini = typeof url === 'string' && url.includes('generativelanguage.googleapis.com');
-      const timeout = AbortSignal.timeout(isGemini ? 30000 : 60000);
+      const timeout = AbortSignal.timeout(isGemini ? 150000 : 60000);
       const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
       return originalFetch(url, { ...options, signal });
     };
   });
-  await page.addInitScript(({ keys, cfg, topics }) => {
+  await page.addInitScript(() => { window.__strictFacts = true; });
+  await page.addInitScript(({ keys, cfg, topics, sigs, voice }) => {
     const set = (k, v) => localStorage.setItem('set:' + k, JSON.stringify(v));
     set('provider', 'gemini');
     set('apiKey', keys[0]);
     set('extraApiKeys', keys.slice(1).join('\n'));
     set('niche', cfg.nicho);
     set('target', String(cfg.duracion));
-    set('voiceEngine', 'natural');
+    set('voiceEngine', voice || 'natural');
+    set('codeScenes', cfg.escenasUnicas !== false);
     set('voiceId', cfg.voiceId || 'es_ES-davefx-medium');
     set('research', !!cfg.investigar);
     set('verify', !!cfg.verificar);
@@ -68,7 +77,8 @@ const toB64 = async blob => {
     }
 
     localStorage.setItem('hist', JSON.stringify(topics));
-  }, { keys, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean) });
+    localStorage.setItem('sigs', JSON.stringify(sigs));
+  }, { keys, cfg, topics: hist.slice(-40).map(h => h.tema).filter(Boolean), sigs: hist.slice(-30).map(h => h.firma).filter(Boolean), voice: process.env.CI_VOICE || '' });
   await page.goto('http://localhost:8099/index.html');
   await page.waitForFunction(() => window.__studio && window.__studio.Voice, null, { timeout: 30000 });
   if (pageErrors.length) throw new Error('La web ha producido errores antes de generar: ' + pageErrors.join(' | '));
@@ -87,8 +97,10 @@ const toB64 = async blob => {
     console.log(`Archivo fuente verificado: ${rawName} (${videoBuffer.length} bytes)`);
     const m = item.meta;
     const tags = (m.hashtags || []).map(h => '#' + h).join(' ');
-    fs.writeFileSync(captionName, `${m.titulo}\n\n${m.descripcion}\n\n${tags} #Shorts\n\nFuentes: ${(m.fuentes || []).map(f => f.url || f).join(' · ') || 'n/d'}`);
-    hist.push({ dia: day, slot: i, tema: m.tema, titulo: m.titulo });
+    const aviso = m.conPlantilla ? `\n\n[Aviso interno: ${m.conPlantilla} escena(s) usan plantilla porque la IA no pudo dibujarlas a medida]` : '';
+    fs.writeFileSync(captionName, `${m.titulo}\n\n${m.descripcion}\n\n${tags} #Shorts\n\nFuentes: ${(m.fuentes || []).map(f => f.u || f.url || f).join(' · ') || 'n/d'}${aviso}`);
+    hist.push({ dia: day, slot: i, tema: m.tema, titulo: m.titulo, firma: m.firma || undefined });
+    console.log(`Escenas a medida: ${m.programadas}, con plantilla: ${m.conPlantilla}`);
     console.log(`Vídeo ${i + 1} guardado: ${m.titulo} | ${item.voice}`);
   };
 
@@ -104,7 +116,7 @@ const toB64 = async blob => {
         i,
         ready: !!(s.blob && s.url && s.script),
         topic: s.topic,
-        meta: s.script ? { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] } : null,
+        meta: s.script ? { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [], firma: s.script.firma || null, programadas: s.script.programadas || 0, conPlantilla: s.script.conPlantilla || 0 } : null,
         ext: s.ext,
         b64: s.blob ? await (async blob => { const b = new Uint8Array(await blob.arrayBuffer()); let x = ''; for (let k = 0; k < b.length; k += 0x8000) x += String.fromCharCode.apply(null, b.subarray(k, k + 0x8000)); return btoa(x); })(s.blob) : '',
         error: s.err || ''
@@ -129,7 +141,7 @@ const toB64 = async blob => {
     }, slot);
     if (!generation.ok) throw new Error('Gemini no pudo generar el guion: ' + generation.error);
     if (pageErrors.length) throw new Error('La web produjo errores JavaScript al generar el guion: ' + pageErrors.join(' | '));
-    const meta = await page.evaluate(i => { const s = window.__studio.slots[i]; return { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }; }, slot);
+    const meta = await page.evaluate(i => { const s = window.__studio.slots[i]; return { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [], firma: s.script.firma || null, programadas: s.script.programadas || 0, conPlantilla: s.script.conPlantilla || 0 }; }, slot);
     await page.evaluate(i => { const b = document.querySelector(`button[data-a="rec"][data-i="${i}"]`); if (b) b.disabled = false; }, slot);
     await page.click(`button[data-a=rec][data-i="${slot}"]`);
     await page.waitForSelector(`#slot${slot} video.out`, { timeout: 900000 });
@@ -138,7 +150,7 @@ const toB64 = async blob => {
       const s = window.__studio.slots[i];
       const buf = new Uint8Array(await s.blob.arrayBuffer()); let bin = '';
       for (let k = 0; k < buf.length; k += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(k, k + 0x8000));
-      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [] }, voice: voice || (window.__studio.Voice.failed ? 'Voz sintética de respaldo' : 'Piper neuronal') };
+      return { ext: s.ext, b64: btoa(bin), meta: { tema: s.topic, titulo: s.script.titulo, descripcion: s.script.descripcion, hashtags: s.script.hashtags, fuentes: s.script.fuentes || [], firma: s.script.firma || null, programadas: s.script.programadas || 0, conPlantilla: s.script.conPlantilla || 0 }, voice: voice || (window.__studio.Voice.failed ? 'Voz sintética de respaldo' : 'Piper neuronal') };
     }, { i: slot, voice: voiceLabel });
     await saveMeta(slot, item, 0);
   }

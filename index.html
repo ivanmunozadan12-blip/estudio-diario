@@ -1977,6 +1977,7 @@ async function buildScript(request, S, progress, sig){
     progress('Planificando la investigación…');
     try { plan = await aiJson(planPrompt(request), { signal: sig, temperature: .2 }); } catch (e) { if (['cancelled', 'bad_key', 'rate_limited', 'network'].includes(e.code)) throw e; plan = null; }
     const r = await research(request, plan, sig, progress); dossier = r.text; sources = r.sources;
+    if (!dossier && window.__strictFacts) throw Object.assign(new Error('No se pudo investigar el tema en Wikipedia.'), { code: 'research_failed' });
   }
   progress('Escribiendo el guion…');
   const dir = pickDirection(request, store.get('sigs', []));
@@ -1984,7 +1985,7 @@ async function buildScript(request, S, progress, sig){
   let changes = [];
   if (S.verify && dossier) {
     progress('Verificando datos contra las fuentes…');
-    try { const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 }); if (v && Array.isArray(v.escenas) && v.escenas.length >= Math.ceil(raw.escenas.length * .7)) { changes = Array.isArray(v.cambios) ? v.cambios : []; raw = Object.assign({}, raw, v); } } catch (e) { if (e.code === 'cancelled') throw e; }
+    try { const v = await aiJson(verifyPrompt(raw, dossier), { signal: sig, temperature: .1 }); if (v && Array.isArray(v.escenas) && v.escenas.length >= Math.ceil(raw.escenas.length * .7)) { changes = Array.isArray(v.cambios) ? v.cambios : []; raw = Object.assign({}, raw, v); } else if (window.__strictFacts) throw Object.assign(new Error('La verificación no devolvió un guion válido.'), { code: 'verification_failed' }); } catch (e) { if (e.code === 'cancelled' || e.code === 'verification_failed') throw e; if (window.__strictFacts) throw Object.assign(new Error('Falló la verificación de datos: ' + (e.message || e)), { code: 'verification_failed' }); }
   }
   const sc = sanitizeScript(raw, request, dir);
   if (S.codeScenes) await buildPrograms(sc, S, progress, sig);
