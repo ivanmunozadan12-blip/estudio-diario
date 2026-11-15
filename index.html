@@ -868,7 +868,7 @@ function scriptPrompt(topic, S, dossier, plan){
 
 FORMATO DE ESTE VÍDEO: ${format}
 ENCARGO DEL USUARIO: ${topic}
-NICHO DEL CANAL: ${S.niche || 'ciencia, curiosidades y explicaciones de cómo funciona el mundo'}${hypothetical ? '\\nESCENARIO HIPOTÉTICO: no presentes la premisa como un hecho ocurrido. Explora consecuencias paso a paso, separando las leyes científicas conocidas de las partes especulativas. Si la premisa es físicamente imposible, dilo claramente y explica qué ocurriría si imagináramos que esa regla pudiera romperse.' : dossierBlock(dossier)}${hypothetical ? '' : sensitiveBlock(topic, plan)}
+NICHO DEL CANAL: ${S.niche || 'ciencia, curiosidades y explicaciones de cómo funciona el mundo'}${hypothetical ? '\nESCENARIO HIPOTÉTICO: no presentes la premisa como un hecho ocurrido. Explora consecuencias paso a paso, separando las leyes científicas conocidas de las partes especulativas. Si la premisa es físicamente imposible, dilo claramente y explica qué ocurriría si imagináramos que esa regla pudiera romperse.' : dossierBlock(dossier)}${hypothetical ? '' : sensitiveBlock(topic, plan)}
 
 REQUISITOS DE GUION
 - Duración objetivo ${S.target} s: unas ${nWords} palabras de narración repartidas en ${nScenes} escenas (entre ${nScenes - 2} y ${nScenes + 3}).
