@@ -1399,6 +1399,7 @@ function parsePrograms(text){
 }
 /* ===== Modo ChatGPT/otra IA: copias un prompt, pegas la respuesta y el motor hace el resto ===== */
 const pendingDir = {};
+const CHAT_FMT = '\n\nFORMATO DE ENTREGA (OBLIGATORIO, para que pueda copiarlo de una vez con UN solo botón):\n- Toda tu respuesta va dentro de UN ÚNICO bloque de código (un solo ```text … ```). Nada de texto, títulos ni explicaciones fuera de ese bloque.\n- Dentro del bloque NO uses más bloques de código ni comillas triples.\n- Para cada escena escribe una línea «### ESCENA n» (n = su número) y justo debajo el código de esa escena, sin ``` y sin comentarios largos.\n- Entrega TODO de una vez, sin pararte, sin preguntar y sin resumir; no uses «…» ni «igual que antes».';
 function masterPrompt(i, S, mode){
   const sl = slots[i], topic = (sl.topic || '').trim() || 'TEMA LIBRE: elige tú un tema sorprendente de ciencia, tecnología o curiosidades';
   const dir = pickDirection(topic, store.get('sigs', [])); pendingDir[i] = dir;
@@ -1409,24 +1410,23 @@ function masterPrompt(i, S, mode){
 No tienes fuentes pegadas: usa solo datos que conozcas con total seguridad (si puedes buscar en internet, hazlo) y no inventes cifras.
 
 ════ PARTE 1: EL GUION ════
-Responde primero con UN bloque \`\`\`json con esta forma exacta (sin comentarios):
+Empieza el bloque único con el JSON del guion, con esta forma exacta (sin comentarios):
 {"titulo":"","descripcion":"","hashtags":[""],"musica":"tension","concepto":"","protagonista":null,"escenas":[{"texto":"","visual":"","fondo":"cielo","tono":"noche","items":[],"camara":"zoomin","rotulo":"","tipo":"normal"}]}
 
 ════ PARTE 2: EL CÓDIGO DE CADA ESCENA ════
-Después del bloque json, escribe el código de TODAS las escenas con "tipo":"normal", en el orden del guion.
-${code}${progExamples()}${progFormat}
-Usa un bloque \`\`\`js por escena justo debajo de su línea «### ESCENA n». No escribas nada más.`;
-  if (mode === 'guion') return part1.replace(/\n════ PARTE 2[\s\S]*$/, '\nResponde SOLO con ese bloque json (sin código de escenas: se pedirá después).');
+Después del JSON, dentro del mismo bloque, escribe el código de TODAS las escenas con "tipo":"normal", en el orden del guion.
+${code}${progExamples()}${CHAT_FMT}`;
+  if (mode === 'guion') return part1.replace(/\n════ PARTE 2[\s\S]*$/, '\nResponde SOLO con el JSON del guion dentro de UN único bloque de código (sin código de escenas: se pedirá después). Nada fuera del bloque.');
   return part1;
 }
 function nextBatchPrompt(i){
   const sl = slots[i]; if (!sl.script) return '';
   const todo = sl.script.escenas.map((e, k) => ({ e, i: k })).filter(x => (x.e.tipo || 'normal') === 'normal' && !x.e.codigo).slice(0, 4);
-  return todo.length ? progPrompt(sl.script, todo) : '';
+  return todo.length ? progPrompt(sl.script, todo).replace(progFormat, CHAT_FMT) : '';
 }
 function reviewPrompt(i){
   const sl = slots[i]; if (!sl.script) return '';
-  return `Revisa críticamente TUS escenas de este vídeo («${sl.script.titulo}») con esta lista y reescribe SOLO las que incumplan alguna regla (mismo formato «### ESCENA n» + bloque js; no repitas las que estén bien):
+  return `Revisa críticamente TUS escenas de este vídeo («${sl.script.titulo}») con esta lista y reescribe SOLO las que incumplan alguna regla (no repitas las que estén bien):
 1. ¿Rellena TODO el lienzo con un fondo opaco y tiene al menos 3 capas de profundidad (fondo, plano medio, primer plano)?
 2. ¿Hay movimiento continuo en cada instante y entradas escalonadas sincronizadas con la narración?
 3. ¿Representa literalmente lo que dice la narración y «QUÉ SE VE», con objetos concretos y reconocibles (no formas genéricas)?
@@ -1435,7 +1435,7 @@ function reviewPrompt(i){
 6. ¿Está lo importante entre el 10% y el 66% de la altura y nada en la franja de subtítulos (70-84%)?
 7. ¿Usa las piezas K.* disponibles (paloma, caballo, torres, ciudad, multitud…) en vez de dibujarlas peor a mano?
 Escenas del vídeo:
-${sl.script.escenas.map((e, k) => `ESCENA ${k + 1}: ${e.texto.replace(/\*/g, '')} | QUÉ SE VE: ${e.visual || '-'}`).join('\n')}`;
+${sl.script.escenas.map((e, k) => `ESCENA ${k + 1}: ${e.texto.replace(/\*/g, '')} | QUÉ SE VE: ${e.visual || '-'}`).join('\n')}${CHAT_FMT}`;
 }
 function importPackage(text, i){
   const sl0 = slots[i], hasScriptJson = /"escenas"\s*:/.test(text), firstMissing = sl0.script && !hasScriptJson ? (sl0.script.escenas.findIndex(e => (e.tipo || 'normal') === 'normal' && !e.codigo) + 1) || 1 : 1;
