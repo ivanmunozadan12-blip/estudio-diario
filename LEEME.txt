@@ -13,7 +13,7 @@ B) GENERACIÓN AUTOMÁTICA (GitHub Actions)
 - Los MP4 se convierten y se validan con FFprobe: deben tener imagen, audio, formato vertical 9:16, duración válida y pistas sincronizadas.
 - Si los secretos de YouTube están configurados, los vídeos se publican automáticamente como públicos. Telegram recibe los vídeos y sus textos.
 - El historial se guarda en GitHub antes de los envíos externos. Ese commit usa [skip netlify] para no consumir despliegues por un cambio que solo afecta al historial.
-- La validación del repositorio se ejecuta en cada push y pull request. Comprueba sintaxis, JSON, YAML, shell y slots; prueba la seguridad de las funciones Netlify, simula el preflight y la subida reanudable de YouTube, abre la web en Chromium y genera un vídeo sintético completo para validar MP4, audio, duración y formato 9:16. No llama a Gemini, Piper, Telegram ni YouTube reales ni publica contenido.
+- La validación del repositorio se ejecuta en cada cambio de código y pull request (omite commits que solo cambian history.json). Comprueba sintaxis, JSON, YAML, shell y slots; prueba la seguridad de las funciones Netlify, simula el preflight y la subida reanudable de YouTube, abre la web en Chromium y genera un vídeo sintético completo para validar MP4, audio, duración y formato 9:16. No llama a Gemini, Piper, Telegram ni YouTube reales ni publica contenido.
 - Si repites una ejecución existente (rerun), se omite todo el flujo: no vuelve a gastar cuota Gemini ni a generar, enviar o publicar. Para reintentar, inicia una ejecución nueva después de comprobar el resultado anterior y el historial.
 
 C) SECRETOS DE GITHUB
