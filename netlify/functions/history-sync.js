@@ -21,7 +21,7 @@ exports.handler = async event => {
   const origin = event.headers?.origin || event.headers?.Origin || '';
   const host = event.headers?.host || event.headers?.Host || '';
   let originHost = '';
-  const allowedOrigin = (process.env.SITE_ORIGIN || DEFAULT_ORIGIN).replace(/\\/$/, '');
+  const allowedOrigin = process.env.SITE_ORIGIN || DEFAULT_ORIGIN;
   try { originHost = new URL(origin).host; } catch (_) {}
   const allowedOrigin = process.env.SITE_ORIGIN || DEFAULT_ORIGIN;
   if (event.httpMethod !== 'POST') return response(405, { ok: false, error: 'Método no permitido.' }, origin);
