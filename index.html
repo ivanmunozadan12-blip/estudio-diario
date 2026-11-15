@@ -1367,14 +1367,33 @@ function progPrompt(script, batch){
 function repairPrompt(script, failed){
   return progHeader(script) + '\nEstas escenas fallaron la prueba automática. Reescribe cada una corrigiendo el error indicado (manteniendo la idea visual).\n\n' + failed.map(f => `### ESCENA ${f.i + 1} (dura ${estSceneDur(f.e).toFixed(1)} s)\nQUÉ SE VE: ${f.e.visual || f.e.texto.replace(/\*/g, '')}\nERROR: ${f.err}\nCÓDIGO ANTERIOR:\n${String(f.code || '(vacío)').slice(0, 6000)}`).join('\n\n') + progFormat;
 }
+const SCENE_HEAD = /^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*|__)?[ \t]*(?:ESCENA|Escena|escena|SCENE|Scene)[ \t]+(\d+)\b[^\n]*$/gm;
+function codeFromBlock(raw){
+  let code = String(raw || '').replace(/```[a-zA-Z]*[ \t]*\n?/g, '').replace(/```/g, '').trim();
+  if (/^[\[{]/.test(code)) {
+    try {
+      let j = JSON.parse(code); if (Array.isArray(j)) j = j[0];
+      if (j && typeof j === 'object') { const k = Object.keys(j).find(x => /^(codigo|código|code|js|javascript|escena_codigo|script)$/i.test(x) && typeof j[x] === 'string') || Object.keys(j).find(x => typeof j[x] === 'string' && /K\./.test(j[x])); if (k) code = j[k].trim(); }
+    } catch (e) { const m = /"(?:codigo|código|code|js)"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/i.exec(code); if (m) { try { code = JSON.parse('"' + m[1] + '"').trim(); } catch (e2) {} } }
+  }
+  const w = /^(?:function\s*\w*\s*\(\s*c\s*,\s*t\s*,\s*u\s*,\s*K\s*\)\s*\{|\(\s*c\s*,\s*t\s*,\s*u\s*,\s*K\s*\)\s*=>\s*\{)/.exec(code);
+  if (w && /\}\s*;?\s*$/.test(code)) code = code.slice(w[0].length).replace(/\}\s*;?\s*$/, '').trim();
+  return code;
+}
+/* Acepta respuestas "sucias": títulos distintos, bloques ```json con el código, o bloques sin título (por orden). */
+function normalizeAnswer(text){
+  text = String(text || '').replace(/\r\n?/g, '\n');
+  if (/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+\d+/im.test(text)) return text;
+  const hasHead = new RegExp(SCENE_HEAD.source, 'm').test(text);
+  if (hasHead) return text.replace(SCENE_HEAD, '### ESCENA $1');
+  const fences = [...text.matchAll(/```[a-zA-Z]*[ \t]*\n([\s\S]*?)```/g)].map(m => m[1]);
+  if (fences.length < 2) return text;
+  const si = fences.findIndex(f => /"escenas"\s*:/.test(f)); const rest = fences.filter((f, k) => k !== si);
+  return (si >= 0 ? '```json\n' + fences[si] + '\n```\n' : '') + rest.map((f, k) => `### ESCENA ${k + 1}\n${f}`).join('\n');
+}
 function parsePrograms(text){
   const out = {}, parts = String(text || '').split(/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+(\d+)[^\n]*$/im);
-  for (let k = 1; k < parts.length; k += 2) {
-    let code = parts[k + 1].replace(/```[a-z]*\s*/gi, '').replace(/```/g, '').trim();
-    const w = /^(?:function\s*\w*\s*\(\s*c\s*,\s*t\s*,\s*u\s*,\s*K\s*\)\s*\{|\(\s*c\s*,\s*t\s*,\s*u\s*,\s*K\s*\)\s*=>\s*\{)/.exec(code);
-    if (w && /\}\s*;?\s*$/.test(code)) code = code.slice(w[0].length).replace(/\}\s*;?\s*$/, '').trim();
-    out[+parts[k]] = code;
-  }
+  for (let k = 1; k < parts.length; k += 2) out[+parts[k]] = codeFromBlock(parts[k + 1]);
   return out;
 }
 /* ===== Modo ChatGPT/otra IA: copias un prompt, pegas la respuesta y el motor hace el resto ===== */
@@ -1418,6 +1437,7 @@ Escenas del vídeo:
 ${sl.script.escenas.map((e, k) => `ESCENA ${k + 1}: ${e.texto.replace(/\*/g, '')} | QUÉ SE VE: ${e.visual || '-'}`).join('\n')}`;
 }
 function importPackage(text, i){
+  text = normalizeAnswer(text);
   const sl = slots[i], at = text.search(/^[ \t]*#{2,4}[ \t]*ESCENA[ \t]+\d+/im), head = at < 0 ? text : text.slice(0, at);
   if (sl.script && at >= 0 && !/\{[\s\S]*"escenas"/.test(head)) {
     const progs = parsePrograms(text.slice(at)), errs = []; let ok = 0, n = 0;
