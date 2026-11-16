@@ -587,7 +587,7 @@ function drawOverlays(c, sc, u, tm){
 function drawSubs(c, group, tm){
   if (!group) return;
   c.save(); c.textBaseline = 'middle'; c.textAlign = 'left'; c.lineJoin = 'round';
-  const pop = ease(clamp((tm - group.t0) / .09,0,1)); const sc = .86 + .14*pop;
+  const pop = ease(clamp((tm - group.t0) / .09,0,1)); const sc = 1; c.globalAlpha = pop;
   let size = 58; c.font = `800 ${size}px Poppins, sans-serif`;
   const words = group.words.map(w => w.t.toUpperCase());
   const spaceW = c.measureText(' ').width, widths = words.map(w => c.measureText(w).width);
@@ -1568,6 +1568,8 @@ HILO VISUAL RECURRENTE: ${d.motivo}
 PALETA (K.P): ${d.paletaNombre} → ${JSON.stringify(d.paleta)}  [0 fondo oscuro, 1 primario, 2 secundario, 3 acento claro, 4 acento cálido, 5 claro]
 PROTAGONISTA HUMANO (K.hero): ${d.protagonista ? JSON.stringify(d.protagonista) : 'ninguno: no dibujes personas salvo que la escena lo pida'}
 
+REGLA DE MOVIMIENTO: nada de «latidos» ni pulsos rítmicos de la pantalla entera. No escales, hagas zoom ni parpadees el lienzo completo de forma repetida (nada de K.pulse aplicado a todo el fondo ni a toda la escena). El movimiento va en elementos concretos y es suave y continuo; la cámara solo hace el plano indicado.
+
 CÓMO SE ESCRIBE UNA ESCENA
 Escribes el CUERPO de una función con parámetros (c, t, u, K): c = contexto Canvas 2D de 720×1280 (limpio, sin transformaciones), t = segundos desde que empieza la escena, u = progreso 0..1 de la escena, K = herramientas. Todo lo demás del navegador está bloqueado.
 K.W, K.H, K.P, K.hero, K.dur (segundos de la escena), K.n (nº de escena).
@@ -1820,10 +1822,8 @@ function drawFrame(proj, t){
   const c = sctx; c.setTransform(Q, 0, 0, Q, 0, 0); c.fillStyle = '#000'; c.fillRect(0,0,W,H);
   let i = proj.scenes.findIndex(s => t >= s.t0 && t < s.t0 + s.dur); if (i < 0) i = t < 0 ? 0 : proj.scenes.length - 1;
   const sc = proj.scenes[i], local = clamp(t - sc.t0, 0, sc.dur + 5);
-  // golpe de cámara (punch-in) al decir la palabra clave
-  let kick = 0; for (const g of sc.groups) for (const w of g.words) if (w.hi && w.s != null && local >= w.s) kick = Math.max(kick, Math.exp(-(local - w.s) * 7));
   const TR = ['fade', 'slide', 'zoom', 'iris', 'flash', 'push'], tr = i > 0 ? TR[(i * 5 + Math.floor(hh(i + (sc._seed || 0)) * 7)) % TR.length] : 'fade', TD = tr === 'fade' ? .3 : .42;
-  const scene = (cc) => { cc.save(); if (kick > .02) { const z = 1 + .035 * kick; cc.translate(W / 2, H * .45); cc.scale(z, z); cc.translate(-W / 2, -H * .45); } drawScene(cc, sc, i, clamp(local / sc.dur,0,1), local); cc.restore(); };
+  const scene = (cc) => { cc.save(); drawScene(cc, sc, i, clamp(local / sc.dur,0,1), local); cc.restore(); };
   if (i > 0 && local < TD) {
     const p = proj.scenes[i-1], k = ease(local / TD); drawScene(c, p, i-1, 1, p.dur);
     c.save();
