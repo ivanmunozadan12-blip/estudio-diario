@@ -32,6 +32,7 @@ const server = http.createServer((req, res) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
     const page = await context.newPage();
     const errors = [];
+    await page.addInitScript(() => { try { localStorage.setItem('simple', 'false'); } catch (e) {} });
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => {
       const url = new URL(route.request().url());
