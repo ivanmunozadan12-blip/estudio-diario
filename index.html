@@ -126,7 +126,6 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
     <select id="quality"><option value="720">720×1280 (rápida, recomendada en móvil)</option><option value="1080">1080×1920 (más nítida, tarda más y gasta más batería)</option></select></label>
   <label class="chk"><input type="checkbox" id="musicOn" checked> Música de fondo generada</label>
   <label class="chk"><input type="checkbox" id="sfxOn" checked> Efectos de sonido (swoosh en los cortes, «pop» en la palabra clave, sonido ambiente)</label>
-  <label class="chk"><input type="checkbox" id="teaserOn" checked> Avance del final en el primer segundo (para retener)</label>
   <label class="chk"><input type="checkbox" id="subsOn" checked> Subtítulos de 2-3 palabras con la clave en amarillo</label>
   <label class="f">Duración objetivo
     <select id="target"><option value="45">≈ 45 s</option><option value="60" selected>≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option></select></label>
@@ -1356,7 +1355,6 @@ const SFX = {
   },
   schedule(ctx, out, proj, t0){
     const bus = ctx.createGain(); bus.gain.value = proj.voice ? .55 : .8; bus.connect(out);
-    if (proj.lead) { this.whoosh(ctx, bus, t0 + .05, .5, .5); this.boom(ctx, bus, t0 + proj.lead - .05, .5); }
     if (proj.ambient !== false) proj.scenes.forEach(sc => { const k = this.ambKind(sc); if (k) this.ambient(ctx, bus, t0 + sc.t0, sc.dur, k, .09); });
     proj.scenes.forEach((sc, i) => {
       const base = t0 + sc.t0 + .12;
@@ -1421,10 +1419,10 @@ let aborter = null, current = null, running = false;
 const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: s.own, script: s.script })));
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
-const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, quality: ($('#quality') || {}).value || '720', music: $('#musicOn').checked, sfx: ($('#sfxOn') || {}).checked !== false, teaser: ($('#teaserOn') || {}).checked !== false, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, stVoice: ($('#stVoice') || {}).value || 'M1', humor: ($('#humor') || {}).value || 'auto' });
+const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, quality: ($('#quality') || {}).value || '720', music: $('#musicOn').checked, sfx: ($('#sfxOn') || {}).checked !== false, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, stVoice: ($('#stVoice') || {}).value || 'M1', humor: ($('#humor') || {}).value || 'auto' });
 try { if (store.get('set:niche', null) === "Historias reales increíbles de supervivencia, misterios resueltos y curiosidades de ciencia e historia, contadas como un thriller breve.") localStorage.removeItem('set:niche'); } catch (e) {}
 try { if (store.get('set:voiceEngine', null) === 'natural' && !store.get('stMig', false)) { store.set('set:voiceEngine', 'supertonic'); store.set('stMig', true); } } catch (e) {}
-['niche','humor','quality','voiceEngine','voiceId','stVoice','voiceRate','musicOn','sfxOn','teaserOn','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
+['niche','humor','quality','voiceEngine','voiceId','stVoice','voiceRate','musicOn','sfxOn','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
 
 try { const q = $('#quality'); if (q && store.get('set:quality', null) == null && !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) q.value = '1080'; } catch (e) {}
 /* --- guion --- */
@@ -1788,8 +1786,7 @@ function autoScenes(text, topic){
 /* --- preparar proyecto (voz, tiempos, subtítulos) --- */
 async function prepare(script, S, progress){
   setQ(S.quality === '1080' ? 1.5 : 1);
-  const lead = (S.teaser !== false && script.escenas.length >= 4) ? .9 : 0;
-  let t = 0.1 + lead; const scenes = [];
+  let t = 0.1; const scenes = [];
   for (let i = 0; i < script.escenas.length; i++) {
     const e = script.escenas[i];
     const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
@@ -1808,20 +1805,12 @@ async function prepare(script, S, progress){
     groups.forEach((gr, k) => { gr.t1 = k < groups.length - 1 ? groups[k+1].t0 : dur; gr.t1 = Math.min(gr.t1, gr.last + .6); });
     sc.t0 = t; sc.dur = dur; sc.audio = audio; sc.groups = groups; scenes.push(sc); t += dur;
   }
-  return { scenes, lead, total: t + .5, voice: S.voice, music: S.music, sfx: S.sfx !== false, musica: script.musica, subs: S.subs };
+  return { scenes, total: t + .5, voice: S.voice, music: S.music, sfx: S.sfx !== false, musica: script.musica, subs: S.subs };
 }
 
 /* --- reproductor y grabadora --- */
 function drawFrame(proj, t){
   const c = sctx; c.setTransform(Q, 0, 0, Q, 0, 0); c.fillStyle = '#000'; c.fillRect(0,0,W,H);
-  if (proj.lead && t < proj.scenes[0].t0 - .02) {
-    const n = proj.scenes.length, ti = n - 2, ts = proj.scenes[ti], p = clamp(t / (proj.scenes[0].t0 - .02), 0, 1), z = 1 + .1 * p;
-    c.save(); c.translate(W / 2, H * .45); c.scale(z, z); c.translate(-W / 2, -H * .45); drawScene(c, ts, ti, .6, ts.dur * .6 + p * .5); c.restore();
-    c.drawImage(vigCanvas, 0, 0);
-    if (proj.subs) { c.fillStyle = 'rgba(255,197,51,.95)'; c.font = '800 44px Poppins, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowColor = 'rgba(0,0,0,.8)'; c.shadowBlur = 10; c.fillText('Mira hasta el final…', W / 2, H * .82); c.shadowBlur = 0; }
-    const fl = Math.max(0, (p - .75) / .25); if (fl > 0) { c.fillStyle = `rgba(255,255,255,${fl})`; c.fillRect(0, 0, W, H); }
-    return 0;
-  }
   let i = proj.scenes.findIndex(s => t >= s.t0 && t < s.t0 + s.dur); if (i < 0) i = t < 0 ? 0 : proj.scenes.length - 1;
   const sc = proj.scenes[i], local = clamp(t - sc.t0, 0, sc.dur + 5);
   // golpe de cámara (punch-in) al decir la palabra clave
@@ -2417,20 +2406,22 @@ async function research(request, plan, sig, progress){
 const SENSITIVE = /hundimiento|naufragio|peste|epidemia|pandemia|accidente|incendio|bombardeo|atentad|terror|asesin|v[ií]ctim|genocid|violaci|suicid|masacre|holocaust|tiroteo|secuestr|guerra|11[ -]?m\b|11[ -]?s\b|9\/11/i;
 const planPrompt = req => `El usuario quiere un vídeo corto con este encargo: «${req}»\nPrepara la investigación. Responde SOLO con JSON: {"tema":"título claro del tema","consultas_es":["2 o 3 búsquedas para Wikipedia en español, con el título probable de los artículos (por ejemplo 'Atentados del 11 de marzo de 2004')"],"consultas_en":["1 o 2 búsquedas en inglés para Wikipedia"],"sensible":true o false (true si trata de muertes, víctimas, terrorismo, guerra, delitos o personas reales vivas)}`;
 const COMEDIA_BLOCK = `
-TONO: COMEDIA TOTAL. Este vídeo es un SKETCH DE HUMOR en formato monólogo hipotético, no una clase. El objetivo es que el espectador se ría en voz alta y lo comparta. Humor para público adulto, picante y gamberro, sarcástico, de bar entre amigos (se permiten alusiones a cerveza, vicios cotidianos, cuñados, suegras, trabajo, dinero, pareja, gimnasio, móvil, política cotidiana sin nombrar partidos ni personas reales).
-PASO 0 (obligatorio, antes de escribir): haz mentalmente una LISTA DE 12 REFERENCIAS HIPERESPECÍFICAS del tema y úsalas como munición. Si el tema nombra un lugar, una ciudad, un colectivo, un personaje o una saga: apunta sus tópicos reales y conocidos (gastronomía y platos típicos, productos y oficios famosos del sitio, fiestas y ferias, clima y distancias, geografía, acento y expresiones locales, rivalidades con ciudades vecinas, memes y bromas que la propia gente del lugar hace de sí misma, transporte, noticias y polémicas típicas) y, en los crossovers, las manías, frases genéricas, defectos y rasgos concretos de CADA personaje (no solo sus poderes). Si dudas de un dato, usa la búsqueda web o mantén la broma en lo que es notoriamente conocido; nada de inventar hechos reales sobre personas.
-REGLA DE ORO: prohibidas las bromas intercambiables. Si un chiste valdría igual para otra ciudad, otro grupo o otro personaje, está mal: cámbialo por uno que solo funcione AQUÍ. Cada escena debe llevar al menos 2 referencias concretas de la lista (un lugar, un plato, una expresión, un tópico…) y el humor nace del CHOQUE entre el mundo del tema y el otro mundo (p. ej. un superhéroe resolviendo problemas con la lógica del sitio: trámites, atascos, calor, tapas, vecinos, el bar de siempre). Humor con cariño: se ríe de los tópicos con complicidad, no desde el desprecio.
-RECETA DEL GUION:
-- Gancho (escena 1): la premisa soltada con total seriedad y una consecuencia absurda inmediata.
-- Cada escena: 1) una consecuencia lógica llevada al extremo, 2) una comparación cotidiana inesperada ("es como cuando…"), 3) un aparte del narrador con sorna, 4) cada dos escenas una referencia de cultura popular genérica (películas, series, videojuegos, tópicos españoles) sin citar frases literales protegidas.
-- Recursos: regla de tres con remate roto, exageración, falsa épica ("las autoridades piden calma… nadie la tiene"), titulares absurdos, diálogos breves con personajes tipo (el cuñado, el jefe, la suegra), listas con giro final.
-- Running gag: un personaje u objeto que reaparece al menos 3 veces escalando cada vez.
-- Ritmo rápido: frases cortas, remate al FINAL de cada frase (la palabra graciosa va al final y marcada con *asterisco*).
-- Cierre: remate final potente (callback al running gag) y una última frase corta que deje con la sonrisa.
-- Un fondo de realidad: las consecuencias deben partir de algo plausible (economía, hábitos, biología básica), sin inventar datos científicos falsos como si fueran reales; la exageración es evidente.
-- Si el tema usa marcas o personajes famosos, el DIBUJO es genérico: figuras estilizadas con un rasgo reconocible por color o accesorio (capa, martillo, escudo de cartón…), sin logos ni copiar diseños oficiales; el gag visual se apoya en rótulos, objetos y lugares del sitio (carteles, bares, monumentos, platos típicos).
-- En "visual" describe SIEMPRE el gag visual (caras de pánico, carteles absurdos, multitudes, objetos con reacción exagerada, rótulos graciosos) y usa "rotulo" con titulares cómicos. Música "alegre".
-PROHIBIDO: humor sobre muertes o víctimas reales, burlas a razas, religiones, orientación, discapacidad, países o grupos vulnerables, ataques a personas reales con nombre, explicar el chiste, relleno sin gracia. Si una broma depende de ofender a un colectivo, cámbiala por otra.`;
+TONO: COMEDIA TOTAL. Este vídeo es un SKETCH DE HUMOR en formato monólogo hipotético, no una clase. Público: gente de unos 20 años en España. Humor adulto.
+ESTILO DEL HUMOR (esto es lo más importante):
+- SECO Y DEADPAN: el narrador cuenta las cosas más absurdas con total calma, quitándole importancia, como quien lee un parte meteorológico. Nunca avisa de que algo es gracioso ni se ríe él.
+- LA ESPECIFICIDAD ES EL CHISTE: un detalle exacto y reconocible (una línea de Metro, un trámite, el nombre de una cadena, una costumbre, una escena concreta de la saga) vale más que cualquier exageración genérica.
+- ANTICLÍMAX Y GIRO FINAL: la frase promete algo épico y el remate lo baja a lo cotidiano o a lo burocrático (o al revés), con la palabra del giro AL FINAL y marcada con *asterisco*.
+- ESCALADA LÓGICA: parte de algo plausible y sigue cada paso con coherencia hasta un sitio absurdo.
+- LAS COMPARACIONES SON VÁLIDAS si tienen ese tono: seca, precisa y con un detalle concreto que solo encaje en este tema. Ejemplo de tono (NO lo copies): «Spider-Man cruza Madrid en veintidós minutos. En Cercanías habría tardado lo mismo, pero con una incidencia en Vallecas.» Otros dos: «Salva la ciudad. Jameson le paga lo de siempre: una foto borrosa y un contrato de prácticas.» / «El Tío Ben dijo que un gran poder conlleva una gran responsabilidad. Nadie le avisó de que también incluía la Línea 6.»
+- Una broma = una referencia concreta + un giro. Si no tiene referencia concreta, se tira.
+PASO 0 (obligatorio, antes de escribir las escenas): añade al JSON, justo antes de "escenas", un campo extra "referencias": [lista de 25 cadenas]. Cada una es un dato o tópico CONCRETO y comprobable del tema: del lugar (gastronomía, fiestas, transporte con nombres reales de líneas y estaciones, expresiones locales, rivalidades, polémicas típicas, costumbres, tiendas y marcas conocidas) y de la saga o personajes (su historia real, frases célebres, enemigos, relaciones, defectos, escenas famosas). Si puedes buscar en la web, hazlo para no inventarte nada; si dudas de un dato, no lo uses. Después usa AL MENOS 2 de esas referencias en cada escena y que los monumentos no sean la única referencia (un monumento solo es decorado, no un chiste).
+PROHIBIDO:
+- Al cuñado y a «el típico señor/vecino/jefe que opina de todo». Cualquier personaje fijo que se repite solo aparece si el chiste lo necesita; no fuerces un running gag con un secundario.
+- La estructura «el verdadero villano/enemigo/problema es X», «más X que Y» sin detalle concreto, y los juegos de palabras fáciles o chistes de padre.
+- Muletillas y palabras de internet o de jerga forzada: lol, omg, cringe, xd, random, literal, vibes, bro, mood, flipar, «tío/tía» como muletilla, «jajaja», emojis. Español normal, limpio y natural.
+- Explicar el chiste, rellenar sin gracia y el humor sobre muertes o víctimas reales, razas, religiones, orientación, discapacidad o grupos vulnerables. Ataques a personas reales con nombre: no.
+ESTRUCTURA: gancho serio en la escena 1 con consecuencia absurda inmediata; ritmo rápido (frases cortas, el remate al final de cada frase); un callback al final que cierre un chiste anterior; última frase corta que deje la sonrisa.
+EN "visual": describe SIEMPRE el gag visual (la reacción, el cartel, el objeto fuera de sitio) y usa "rotulo" con titulares secos, tipo parte oficial o aviso de megafonía. Si el tema usa marcas o personajes famosos, el DIBUJO es genérico: figuras estilizadas con un rasgo reconocible por color o accesorio (capa, martillo, escudo de cartón…), sin logos ni copiar diseños oficiales. Música "alegre".`;
 function humorBlock(topic, S, plan){
   const mode = (S && S.humor) || 'auto';
   const serio = (plan && plan.sensible) || SENSITIVE.test(topic);
