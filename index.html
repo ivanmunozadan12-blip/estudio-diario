@@ -84,6 +84,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
 </section>
 
 <section class="card" id="simple" hidden></section>
+<section class="card" id="simQueue" hidden></section>
 <section id="slots"></section>
 
 <details class="card" id="ia" open>
@@ -108,6 +109,10 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <label class="chk"><input type="checkbox" id="codeScenes" checked> Escenas únicas: la IA programa y dibuja cada escena (3-4 peticiones más por vídeo)</label>
 </details>
 
+<details class="card" id="slotsCfg">
+  <summary>Horarios y temáticas (4 vídeos al día)</summary>
+  <div id="slotsBody"></div>
+</details>
 <details class="card" id="ajustes">
   <summary>Ajustes del canal</summary>
   <label class="f">Nicho y estilo (lo usa la IA para elegir temas y escribir)
@@ -1581,6 +1586,7 @@ GUÍA DE ACABADO (lo que separa un dibujo plano de una animación de estudio)
 Herramientas extra de acabado: K.focus(c,x,y,radio,alfa) oscurece alrededor de un punto para dirigir la mirada; K.haze(c,y,alto,color,alfa) banda de bruma entre capas (da profundidad atmosférica); K.ground(c,y_horizonte,color) suelo con degradado y perspectiva; K.bokeh(c,t,n,color) luces desenfocadas en primer plano; K.rim(c,x,y,rx,ry,color,alfa,'left'|'right') luz de borde sobre un objeto; K.SAFE = {top,bottom,subTop,subBottom} zona útil y zona de subtítulos.
 - FOCO ÚNICO: cada escena tiene UN protagonista claro (30-60 % del ancho, o 25-40 % de la altura si es una figura) con el mayor contraste y el color más cálido/claro; todo lo demás es más apagado. Colócalo en un tercio, no siempre centrado.
 - PROFUNDIDAD: fondo lejano más claro, menos saturado y con K.haze encima; plano medio con el detalle; primer plano oscuro y desenfocado (bokeh, hojas, bordes) que enmarca. Las capas se mueven a velocidades distintas (más lenta la lejana).
+- DETALLE VIVO: además del protagonista, cada escena lleva al menos TRES acciones secundarias animadas y distintas (figuras o animales al fondo que reaccionan, objetos que se mueven o caen, partículas, humo, reflejos, banderines, sombras que cambian, un reloj o luz parpadeando) y UN detalle escondido que premia al que mira dos veces (un cartel absurdo, un objeto fuera de sitio, un personaje secundario con su propia mini-historia, una rótulo con segunda lectura). Las cosas empiezan a moverse escalonadas (no todas a la vez) y el movimiento cuenta la historia. Sin llenar de ruido: el protagonista sigue mandando.
 - LUZ: elige UNA dirección de luz y respétala: brillo en el lado de la luz (K.rim, glow), sombra de contacto (K.shadow) bajo CADA objeto apoyado, nada flotando sin sombra. Evita negro #000 y blanco #fff puros: usa K.shade de la paleta.
 - ESCALA: una persona (K.toon/K.person) mide 280-420 px; un coche ~300 px de largo; una casa ~350 px; no mezcles piezas con escalas incoherentes. El horizonte, si lo hay, entre el 55 % y el 66 % de la altura (K.H*.55-.66).
 - MOVIMIENTO CON INTENCIÓN: entrada con anticipación (K.pop o K.tween), movimiento secundario (balanceo, parpadeo, rebote al final) y NUNCA lineal (usa K.ease). Escalona las entradas 0,1-0,2 s entre sí. Primeros 20 % de u: entra lo principal; 20-80 %: desarrollo con UN cambio visible hacia u≈0,55 (aparece algo, cambia el plano, se revela el dato); último 20 %: la imagen sigue viva (empuje suave de cámara, pulso), nunca congelada.
@@ -1982,6 +1988,7 @@ async function prepAndPlay(i, record){
   finally { await keepAwake(false); sl.busy = ''; sl.pct = 0; $('#stopBtn').hidden = true; }
   if (record && res && res.blob && res.blob.size > 1000) {
     if (sl.url) URL.revokeObjectURL(sl.url); sl.blob = res.blob; sl.url = URL.createObjectURL(res.blob); sl.ext = /mp4/.test(res.blob.type) ? 'mp4' : 'webm'; setDone(i);
+    if (i === 0 && simpleOn() && sl.script && typeof queueAdd === 'function') queueAdd(sl).catch(() => {});
   } else if (record && res === null) sl.err = '';
   renderSlot(i); refreshUI(); idleFrame(record && sl.url ? 'Vídeo grabado' : 'Fin de la vista previa'); $('#stageInfo').textContent = record && sl.url ? `Vídeo ${i+1} grabado. Guárdalo abajo.` : 'Listo';
 }
@@ -2116,6 +2123,7 @@ const TOPIC_BANK = (() => {
 })();
 const COMEDY_TOPICS = ['¿QUÉ PASARÍA SI desapareciese la cerveza de un día para otro?','¿QUÉ PASARÍA SI todos los hombres tuvieran que pedir permiso para ver el fútbol?','¿QUÉ PASARÍA SI el wifi se cayera para siempre en todo el mundo?','¿QUÉ PASARÍA SI las suegras tuvieran superpoderes?','¿QUÉ PASARÍA SI los lunes fueran ilegales?','¿QUÉ PASARÍA SI el café desapareciera de las oficinas?','¿QUÉ PASARÍA SI todos dijeran siempre la verdad durante un día?','¿QUÉ PASARÍA SI los cuñados supieran de verdad de todo?','¿QUÉ PASARÍA SI el gimnasio fuera obligatorio en enero?','¿QUÉ PASARÍA SI las tortillas de patata tuvieran cebolla por ley?','¿QUÉ PASARÍA SI el aire acondicionado se prohibiera en agosto?','¿QUÉ PASARÍA SI los móviles se apagaran cada vez que mientes?','¿QUÉ PASARÍA SI el pan desapareciera de España?','¿QUÉ PASARÍA SI los gatos mandaran en el mundo?','¿QUÉ PASARÍA SI el despertador sonara también para tu jefe?','¿QUÉ PASARÍA SI las discusiones de pareja se resolvieran con un árbitro VAR?','¿QUÉ PASARÍA SI los domingos duraran tres días?','¿QUÉ PASARÍA SI el chándal fuera el traje oficial en todas las bodas?','¿QUÉ PASARÍA SI las listas de espera se pagaran con tu paciencia?','¿QUÉ PASARÍA SI el jamón se pudiera comprar en cajero automático?'];
 function pickSimpleTopic(){
+  { const cm = (($('#humor') || {}).value) === 'comedia'; const pool = (cm ? COMEDY_TOPICS : slotPool('curiosidades').concat(slotPool('hipotetico'))).filter(t => !isUsed(t)); if (pool.length) return pool[Math.floor(Math.random() * pool.length)]; }
   if ((($('#humor') || {}).value) === 'comedia') { const used = store.get('usedTopics', []), pool = COMEDY_TOPICS.filter(t => !used.includes(t)), src = pool.length ? pool : COMEDY_TOPICS; return src[Math.floor(Math.random() * src.length)]; }
   const used = store.get('usedTopics', []), rec = used.slice(-40), lastCat = store.get('lastTopicCat', '');
   let pool = TOPIC_BANK.filter(x => !rec.some(u => topicSim(u, x.t) >= .6));
@@ -2139,7 +2147,9 @@ function renderSimple(){
   const s = slots[0], busy = !!s.busy;
   if (!s.topic.trim() && !s.script && !busy) { s.topic = pickSimpleTopic(); persist(); }
   const sc = s.script, normal = sc ? sc.escenas.filter(e => (e.tipo || 'normal') === 'normal') : [], faltan = sc ? normal.filter(e => !e.codigo).length : 0;
-  let h = `<div class="top"><h2>Vídeo con ChatGPT</h2><span class="pill" id="simStatus">${esc(s.busy || (s.url ? 'Listo' : sc ? 'Guion cargado' : 'Paso 1'))}</span></div>`;
+  const cfgS = slotCfg(), todayD = ymd(new Date());
+  let strip = `<p class="meta"><b>Vídeo de hoy por horas</b> (un toque: elige el tema y copia el prompt)</p><div class="row">` + cfgS.map((c, k) => { const done = registry().some(r => r.d === todayD && r.slot === k); return `<button id="simSlot${k}"${s.slotIdx === k ? ' class="pri"' : ''}>${esc(c.h)} · ${esc(SLOT_TYPES[c.type].n)}${done ? ' ✓' : ''}</button>`; }).join('') + `</div>`;
+  let h = strip + `<div class="top"><h2>Vídeo con ChatGPT</h2><span class="pill" id="simStatus">${esc(s.busy || (s.url ? 'Listo' : sc ? 'Guion cargado' : 'Paso 1'))}</span></div>`;
   if (s.url) {
     h += `<p class="meta"><b>${esc(sc ? sc.titulo : '')}</b></p><video class="out" src="${s.url}#t=0.1" preload="metadata" controls playsinline></video>
     <div class="row"><button class="pri" data-a="share" data-i="0">Compartir</button><a class="btn" href="${s.url}" download="${fileName(0)}">Descargar (.${s.ext})</a><a class="btn" href="${s.url}" target="_blank" rel="noopener">Abrir</a></div>
@@ -2171,14 +2181,21 @@ async function simpleRecord(){
 }
 function simpleReset(pick){
   const s = slots[0]; if (s.url) { try { URL.revokeObjectURL(s.url); } catch (e) {} }
-  Object.assign(s, { topic: '', own: '', script: null, busy: '', pct: 0, url: '', blob: null, err: '' }); delete pendingDir[0]; simpleText = ''; simpleNote = ''; if (simpleSheetUrl) { try { URL.revokeObjectURL(simpleSheetUrl); } catch (e) {} } simpleSheetUrl = ''; simpleSheetBlob = null; persist();
+  Object.assign(s, { topic: '', own: '', script: null, busy: '', pct: 0, url: '', blob: null, err: '', slotIdx: -1 }); delete pendingDir[0]; simpleText = ''; simpleNote = ''; if (simpleSheetUrl) { try { URL.revokeObjectURL(simpleSheetUrl); } catch (e) {} } simpleSheetUrl = ''; simpleSheetBlob = null; persist();
   if (pick) s.topic = pickSimpleTopic(); persist(); renderSimple();
 }
 document.addEventListener('input', e => { if (e.target.id === 'simPaste') simpleText = e.target.value; if (e.target.id === 'simFixNums') simpleFixNums = e.target.value; if (e.target.id === 'simFixWhy') simpleFixWhy = e.target.value; if (e.target.id === 'simTopic') { slots[0].topic = e.target.value; persist(); } });
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('button'); if (!b || !b.id || !b.id.startsWith('sim') && b.id !== 'modeBtn') return;
   const S = settings(), s = slots[0];
-  if (b.id === 'modeBtn') { document.body.classList.toggle('simple'); store.set('simple', simpleOn()); b.textContent = simpleOn() ? 'Modo avanzado' : 'Modo simple'; renderSimple(); return; }
+  if (b.id === 'modeBtn') { document.body.classList.toggle('simple'); store.set('simple', simpleOn()); b.textContent = simpleOn() ? 'Modo avanzado' : 'Modo simple'; renderSimple(); renderQueue(); return; }
+  if (/^simSlot\d$/.test(b.id)) {
+    const k = +b.id.slice(7), c = slotCfg()[k]; if (s.busy) return; if ((s.script || s.url) && !confirm('¿Empezar un vídeo nuevo? Se descarta el actual (si ya lo grabaste, está en la cola).')) return;
+    simpleReset(false); const t = slotPick(k);
+    if (!t) { simpleNote = `Se acabaron los temas sin repetir de «${SLOT_TYPES[c.type].n}». Abre «Horarios y temáticas» y pulsa «Pedir temas nuevos».`; renderSimple(); return; }
+    const hs = $('#humor'); if (hs) { hs.value = c.humor; hs.dispatchEvent(new Event('change', { bubbles: true })); }
+    s.topic = t; s.slotIdx = k; persist(); await copyText(masterPrompt(0, settings()), b); simpleNote = `Prompt de las ${c.h} copiado (tema: ${t}). Pégalo en ChatGPT.`; renderSimple(); return;
+  }
   if (b.id === 'simDice') { s.topic = pickSimpleTopic(); persist(); renderSimple(); return; }
   if (b.id === 'simCopy') { if (!s.topic.trim()) s.topic = pickSimpleTopic(); persist(); return copyText(masterPrompt(0, S), b); }
   if (b.id === 'simNext') { const t = nextBatchPrompt(0); if (!t) { simpleNote = 'Todas las escenas ya tienen código.'; renderSimple(); return; } return copyText(t, b); }
@@ -2197,7 +2214,7 @@ document.addEventListener('click', async ev => {
     simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
     if (t.trim().length < 50) { simpleNote = 'Pega primero la respuesta de ChatGPT.'; renderSimple(); return; }
     const had = !!s.script; let r; try { r = importPackage(t, 0); } catch (e) { simpleNote = 'No pude leer la respuesta: ' + (e && e.message || e) + '. Pide a ChatGPT «Repite la respuesta completa con el bloque json y los bloques js».'; renderSimple(); return; }
-    simpleText = ''; const used = store.get('usedTopics', []); used.push(s.topic || (s.script && s.script.titulo) || ''); store.set('usedTopics', used.slice(-120));
+    simpleText = ''; const used = store.get('usedTopics', []); used.push(s.topic || (s.script && s.script.titulo) || ''); store.set('usedTopics', used.slice(-120)); regAdd(s.topic, s.script && s.script.titulo, s.slotIdx);
     const normal = s.script.escenas.filter(e => (e.tipo || 'normal') === 'normal'), faltan = normal.filter(e => !e.codigo).length;
     if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
     if (faltan || had) { renderSimple(); return; }
@@ -2207,8 +2224,97 @@ document.addEventListener('click', async ev => {
 (function(){
   const on = store.get('simple', true); if (on) document.body.classList.add('simple');
   const mb = $('#modeBtn'); if (mb) mb.textContent = on ? 'Modo avanzado' : 'Modo simple';
-  renderSimple();
 })();
+/* --- horarios y temáticas por hora + registro de vídeos (no repetir nunca) --- */
+var SLOT_TYPES = {
+  curiosidades: { n: 'Curiosidades', desc: 'cómo funcionan las cosas y por qué pasan (¿Por qué…? / ¿Cómo funciona…?)', ej: '¿Por qué los gatos ronronean?' },
+  hipotetico: { n: '¿Qué pasaría si…?', desc: 'hipotéticos científicos y curiosos', ej: '¿Qué pasaría si la Luna estuviera la mitad de lejos?' },
+  comedia: { n: 'Comedia', desc: 'sketches de humor absurdo con hipotéticos, crossovers y lugares reales de España', ej: '¿QUÉ PASARÍA SI Spider-Man protegiese Madrid?' },
+  historia: { n: 'Historia y misterios', desc: 'historias reales, hechos históricos y misterios', ej: 'La historia real de la biblioteca de Alejandría' }
+};
+var SLOT_DEF = [{ h: '07:30', type: 'curiosidades', humor: 'auto', own: '' }, { h: '12:30', type: 'hipotetico', humor: 'auto', own: '' }, { h: '15:00', type: 'comedia', humor: 'comedia', own: '' }, { h: '20:00', type: 'historia', humor: 'nunca', own: '' }];
+function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function slotCfg(){ let c = store.get('slotCfg', null); if (!Array.isArray(c) || c.length !== 4) c = SLOT_DEF.map(x => Object.assign({}, x)); return c.map((x, k) => Object.assign({}, SLOT_DEF[k], x, { type: x && SLOT_TYPES[x.type] ? x.type : SLOT_DEF[k].type })); }
+function registry(){ return store.get('registry', []); }
+function normT(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function isUsed(t){ const n = normT(t); if (!n) return true; return registry().some(r => [r.tema, r.titulo].some(u => { const m = normT(u); return m && (m === n || topicSim(u, t) >= .7); })); }
+function regAdd(tema, titulo, slot){ if (!(tema || titulo)) return; const r = registry(); r.push({ d: ymd(new Date()), slot: slot >= 0 ? slot : -1, tema: tema || '', titulo: titulo || '' }); store.set('registry', r.slice(-3000)); renderSlotsCfg(); }
+function slotPool(type){
+  if (type === 'comedia') return COMEDY_TOPICS.slice();
+  const cats = type === 'curiosidades' ? ['como', 'porque'] : type === 'hipotetico' ? ['si'] : ['hist'];
+  return TOPIC_BANK.filter(x => cats.includes(x.c)).map(x => x.t);
+}
+function slotPick(k){
+  const c = slotCfg()[k], own = String(c.own || '').split('\n').map(x => x.trim()).filter(x => x.length >= 8 && !isUsed(x));
+  if (own.length) return own[0];
+  const pool = slotPool(c.type).filter(t => !isUsed(t)); return pool.length ? pool[Math.floor(Math.random() * pool.length)] : '';
+}
+function topicsPrompt(k){
+  const c = slotCfg()[k], T = SLOT_TYPES[c.type], used = registry().slice(-80).map(r => r.tema || r.titulo).filter(Boolean);
+  return `Dame 30 ideas de temas para vídeos cortos (30-60 s) en español de la categoría «${T.n}»: ${T.desc}. Cada idea en UNA línea, sin numerar, sin comillas y con este formato de ejemplo: ${T.ej}${c.type === 'comedia' ? '\nMezcla: lugares y ciudades reales de España con personajes o sagas famosas, situaciones cotidianas llevadas al absurdo y hipotéticos con gancho. Que den juego para humor seco e irónico.' : '\nQue sean concretos, sorprendentes y con gancho, no los típicos.'}\nNO repitas ni te parezcas a estos, que ya se hicieron:\n${used.join('\n') || '(ninguno todavía)'}\nResponde SOLO con las 30 líneas, sin introducción ni explicación.`;
+}
+function renderSlotsCfg(){
+  const el = $('#slotsBody'); if (!el) return; if (el.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  const cfg = slotCfg(), hum = $('#humor') ? $('#humor').innerHTML : '', reg = registry();
+  el.innerHTML = `<p class="meta">Cada hora tiene su temática. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
+    <label class="f">Hora<input type="text" data-sc="${k}:h" value="${esc(c.h)}" inputmode="numeric" placeholder="12:30"></label>
+    <label class="f">Temática<select data-sc="${k}:type">${Object.keys(SLOT_TYPES).map(t => `<option value="${t}"${t === c.type ? ' selected' : ''}>${esc(SLOT_TYPES[t].n)}</option>`).join('')}</select></label>
+    <label class="f">Humor<select data-sc="${k}:humor">${hum}</select></label>
+    <label class="f">Mis temas (uno por línea; se usan primero y no se repiten)<textarea data-sc="${k}:own" rows="3" placeholder="Pega aquí la lista que te dé ChatGPT">${esc(c.own)}</textarea></label>
+    <div class="row"><button data-scb="topics:${k}">🧠 Pedir temas nuevos a ChatGPT</button></div></div>`).join('') + `<p class="meta"><b>Registro:</b> ${reg.length} vídeo${reg.length === 1 ? '' : 's'} hecho${reg.length === 1 ? '' : 's'}; no se repetirá ninguno parecido.</p><div class="row"><button data-scb="regcopy">Copiar registro</button><button data-scb="regclear">Borrar registro</button></div>`;
+  cfg.forEach((c, k) => { const sel = el.querySelector(`select[data-sc="${k}:humor"]`); if (sel) sel.value = c.humor; });
+}
+document.addEventListener('change', e => { const t = e.target.closest('[data-sc]'); if (!t) return; const [k, f] = t.dataset.sc.split(':'), c = slotCfg(); c[+k][f] = f === 'h' ? t.value.trim() : t.value; store.set('slotCfg', c); renderSimple(); });
+document.addEventListener('click', async e => { const b = e.target.closest('[data-scb]'); if (!b) return; const [a, k] = b.dataset.scb.split(':');
+  if (a === 'topics') return copyText(topicsPrompt(+k), b);
+  if (a === 'regcopy') return copyText(registry().map(r => `${r.d}\t${r.titulo || r.tema}`).join('\n') || '(vacío)', b);
+  if (a === 'regclear' && confirm('¿Borrar el registro? Los temas volverán a poder salir repetidos.')) { store.set('registry', []); renderSlotsCfg(); renderSimple(); } });
+renderSlotsCfg();
+
+/* --- cola del día: los vídeos grabados se guardan en el móvil (IndexedDB) con la hora a la que toca publicarlos --- */
+function slotHours(){ return slotCfg().map(c => { const m = /^(\d{1,2}):(\d{2})$/.exec(c.h || ''); return m ? [+m[1], +m[2]] : [12, 0]; }); }
+const queueMem = []; let queueDB = null, queueSeq = 1;
+function qOpen(){ return new Promise(res => { if (queueDB !== null) return res(queueDB); try { const r = indexedDB.open('estudio-cola', 1); r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id' }); r.onsuccess = () => { queueDB = r.result; res(queueDB); }; r.onerror = () => { queueDB = false; res(false); }; } catch (e) { queueDB = false; res(false); } }); }
+async function qAll(){ const db = await qOpen(); if (!db) return queueMem.slice(); return new Promise(res => { try { const rq = db.transaction('q').objectStore('q').getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => res([]); } catch (e) { res([]); } }); }
+async function qPut(it){ const db = await qOpen(); if (!db) { const k = queueMem.findIndex(x => x.id === it.id); if (k >= 0) queueMem[k] = it; else queueMem.push(it); return; } return new Promise(res => { try { const tx = db.transaction('q', 'readwrite'); tx.objectStore('q').put(it); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch (e) { res(); } }); }
+async function qDel(id){ const db = await qOpen(); if (!db) { const k = queueMem.findIndex(x => x.id === id); if (k >= 0) queueMem.splice(k, 1); return; } return new Promise(res => { try { const tx = db.transaction('q', 'readwrite'); tx.objectStore('q').delete(id); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch (e) { res(); } }); }
+function qSlots(items, n){ const used = new Set(items.filter(x => !x.done).map(x => x.when)), out = [], now = Date.now() + 10 * 60000, d = new Date(); d.setHours(0, 0, 0, 0);
+  for (let k = 0; k < 30 && out.length < n; k++) for (const [h, m] of slotHours().slice().sort((a, b) => a[0] * 60 + a[1] - b[0] * 60 - b[1])) { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, h, m).getTime(); if (t > now && !used.has(t)) out.push(t); if (out.length >= n) break; }
+  return out; }
+function qLabel(t){ const d = new Date(t), today = new Date(); today.setHours(0, 0, 0, 0); const dd = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - today) / 864e5), hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return (dd === 0 ? 'hoy' : dd === 1 ? 'mañana' : d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })) + ' ' + hm; }
+function qFile(it){ const d = new Date(it.when), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}_${it.slug}.${it.ext}`; }
+async function queueAdd(sl){
+  const items = await qAll(); let when = 0;
+  if (sl.slotIdx >= 0) { const [h, m] = slotHours()[sl.slotIdx] || [12, 0], used = new Set(items.filter(x => !x.done).map(x => x.when)), d = new Date(); d.setHours(0, 0, 0, 0); for (let k = 0; k < 30 && !when; k++) { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, h, m).getTime(); if (t > Date.now() + 10 * 60000 && !used.has(t)) when = t; } }
+  when = when || qSlots(items, 1)[0] || Date.now();
+  const slug = String(sl.script.titulo || 'video').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'video';
+  await qPut({ id: Date.now() * 10 + (queueSeq++ % 10), title: sl.script.titulo, slug, ext: sl.ext || 'webm', blob: sl.blob, yt: captions(sl.script, 'yt'), tt: captions(sl.script, 'tt'), when, done: false, created: Date.now() });
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  renderQueue();
+}
+async function renderQueue(){
+  const el = $('#simQueue'); if (!el) return; if (!simpleOn()) { el.hidden = true; return; }
+  let items = await qAll(); const old = Date.now() - 2 * 864e5; for (const x of items.filter(x => x.done && x.created < old)) await qDel(x.id); items = items.filter(x => !(x.done && x.created < old));
+  if (!items.length) { el.hidden = true; return; } el.hidden = false;
+  const pend = items.filter(x => !x.done).sort((a, b) => a.when - b.when), done = items.filter(x => x.done).sort((a, b) => b.when - a.when), free = qSlots(items, 8);
+  const row = x => { const opts = [x.when, ...free.filter(t => t !== x.when)].sort((a, b) => a - b).map(t => `<option value="${t}"${t === x.when ? ' selected' : ''}>${esc(qLabel(t))}</option>`).join('');
+    return `<div class="qi"${x.done ? ' style="opacity:.55"' : ''}><p class="meta"><b>${esc(x.title)}</b><br>${x.done ? 'Subido · ' + esc(qLabel(x.when)) : `Programar para: <select data-qsel="${x.id}">${opts}</select>`}</p>
+    <div class="row"><button class="pri" data-q="share" data-id="${x.id}">Compartir / guardar</button><button data-q="yt" data-id="${x.id}">Texto YouTube</button><button data-q="tt" data-id="${x.id}">Texto TikTok</button><button data-q="done" data-id="${x.id}">${x.done ? 'Desmarcar' : 'Marcar como subido'}</button><button data-q="del" data-id="${x.id}">Quitar</button></div></div>`; };
+  el.innerHTML = `<div class="top"><h2>📅 Cola de hoy</h2><span class="pill">${pend.length} pendiente${pend.length === 1 ? '' : 's'}</span></div>
+  <p class="meta">Cada vídeo grabado se guarda aquí con su hora. Súbelo a YouTube y elige «Programar» con esa hora: se publica solo. Las horas salen de «Horarios y temáticas».</p>${pend.map(row).join('')}${done.length ? '<p class="meta"><b>Ya subidos</b></p>' + done.map(row).join('') : ''}`;
+}
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-q]'); if (!b) return; const id = +b.dataset.id, items = await qAll(), it = items.find(x => x.id === id); if (!it) return;
+  if (b.dataset.q === 'share') return saveOrShare(it.blob, qFile(it));
+  if (b.dataset.q === 'yt') return copyText(it.yt, b);
+  if (b.dataset.q === 'tt') return copyText(it.tt, b);
+  if (b.dataset.q === 'done') { it.done = !it.done; await qPut(it); return renderQueue(); }
+  if (b.dataset.q === 'del') { if (confirm('¿Quitar este vídeo de la cola? Se borra del móvil.')) { await qDel(id); renderQueue(); } }
+});
+document.addEventListener('change', async ev => { const sel = ev.target.closest('select[data-qsel]'); if (!sel) return; const it = (await qAll()).find(x => x.id === +sel.dataset.qsel); if (!it) return; it.when = +sel.value; await qPut(it); renderQueue(); });
+renderQueue();
+
 refreshUI();
 window.__studio = { slots, prepare, sanitizeScript, autoScenes, TTS, drawFrame, playProject, settings, genScript, buildScript, geminiChain, aiJson };
 /* ===== IA gratuita externa + investigación en Wikipedia ===== */
@@ -2414,6 +2520,8 @@ ESTILO DEL HUMOR (esto es lo más importante):
 - ANTICLÍMAX Y GIRO FINAL: la frase promete algo épico y el remate lo baja a lo cotidiano o a lo burocrático (o al revés), con la palabra del giro AL FINAL y marcada con *asterisco*.
 - ESCALADA LÓGICA: parte de algo plausible y sigue cada paso con coherencia hasta un sitio absurdo.
 - LAS COMPARACIONES SON VÁLIDAS si tienen ese tono: seca, precisa y con un detalle concreto que solo encaje en este tema. Ejemplo de tono (NO lo copies): «Spider-Man cruza Madrid en veintidós minutos. En Cercanías habría tardado lo mismo, pero con una incidencia en Vallecas.» Otros dos: «Salva la ciudad. Jameson le paga lo de siempre: una foto borrosa y un contrato de prácticas.» / «El Tío Ben dijo que un gran poder conlleva una gran responsabilidad. Nadie le avisó de que también incluía la Línea 6.»
+- IRONÍA CONSTANTE: el narrador tiene una actitud fija y reconocible: cansado, resignado, con un punto condescendiente hacia el propio tema y hacia el espectador. Dice lo contrario de lo que piensa con cara seria («Un éxito rotundo.» justo después de un desastre), se corrige a sí mismo a mitad de frase («Fue una decisión brillante. Bueno, una decisión.»), finge neutralidad en lo ridículo y exagera la importancia de lo mínimo. Usa el eufemismo burocrático para el caos («incidencia», «ligero desajuste», «proceso en curso») y la falsa humildad («cualquiera habría hecho lo mismo, supongo»).
+- DOBLE CAPA: la mitad de los remates tienen una segunda lectura que el espectador completa solo; no lo expliques. Cierra con un segundo chiste DESPUÉS del remate (un «y encima…» o un giro más pequeño) en la última escena.
 - Una broma = una referencia concreta + un giro. Si no tiene referencia concreta, se tira.
 PASO 0 (obligatorio, antes de escribir las escenas): añade al JSON, justo antes de "escenas", un campo extra "referencias": [lista de 25 cadenas]. Cada una es un dato o tópico CONCRETO y comprobable del tema: del lugar (gastronomía, fiestas, transporte con nombres reales de líneas y estaciones, expresiones locales, rivalidades, polémicas típicas, costumbres, tiendas y marcas conocidas) y de la saga o personajes (su historia real, frases célebres, enemigos, relaciones, defectos, escenas famosas). Si puedes buscar en la web, hazlo para no inventarte nada; si dudas de un dato, no lo uses. Después usa AL MENOS 2 de esas referencias en cada escena y que los monumentos no sean la única referencia (un monumento solo es decorado, no un chiste).
 PROHIBIDO:
