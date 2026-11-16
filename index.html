@@ -113,7 +113,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <label class="f">Nicho y estilo (lo usa la IA para elegir temas y escribir)
     <textarea id="niche">Divulgación científica y curiosidades con humor: cómo funciona el mundo y escenarios hipotéticos («¿qué pasaría si…?»), contados de forma visual, rápida y divertida.</textarea></label>
   <label class="f">Humor en los vídeos
-    <select id="humor"><option value="auto" selected>Automático (recomendado): mucho en hipotéticos, un toque en explicaciones, nada en temas serios</option><option value="siempre">Siempre divertido (salvo temas sensibles)</option><option value="nunca">Nunca: tono serio</option></select></label>
+    <select id="humor"><option value="auto" selected>Automático (recomendado): mucho en hipotéticos, un toque en explicaciones, nada en temas serios</option><option value="comedia">🤣 Comedia total: vídeos de humor, hipotéticos disparatados, lleno de coñas (adultos)</option><option value="siempre">Siempre divertido (salvo temas sensibles)</option><option value="nunca">Nunca: tono serio</option></select></label>
   <label class="f">Voz
     <select id="voiceEngine"><option value="natural" selected>Natural (neuronal, gratis, va dentro del vídeo)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
   <label class="f">Voz concreta (se rellena al cargar la voz natural)
@@ -2129,7 +2129,9 @@ const TOPIC_BANK = (() => {
   hist.forEach(x => out.push({ t: `La historia real de ${x}`, c: 'hist' }));
   return out;
 })();
+const COMEDY_TOPICS = ['¿QUÉ PASARÍA SI desapareciese la cerveza de un día para otro?','¿QUÉ PASARÍA SI todos los hombres tuvieran que pedir permiso para ver el fútbol?','¿QUÉ PASARÍA SI el wifi se cayera para siempre en todo el mundo?','¿QUÉ PASARÍA SI las suegras tuvieran superpoderes?','¿QUÉ PASARÍA SI los lunes fueran ilegales?','¿QUÉ PASARÍA SI el café desapareciera de las oficinas?','¿QUÉ PASARÍA SI todos dijeran siempre la verdad durante un día?','¿QUÉ PASARÍA SI los cuñados supieran de verdad de todo?','¿QUÉ PASARÍA SI el gimnasio fuera obligatorio en enero?','¿QUÉ PASARÍA SI las tortillas de patata tuvieran cebolla por ley?','¿QUÉ PASARÍA SI el aire acondicionado se prohibiera en agosto?','¿QUÉ PASARÍA SI los móviles se apagaran cada vez que mientes?','¿QUÉ PASARÍA SI el pan desapareciera de España?','¿QUÉ PASARÍA SI los gatos mandaran en el mundo?','¿QUÉ PASARÍA SI el despertador sonara también para tu jefe?','¿QUÉ PASARÍA SI las discusiones de pareja se resolvieran con un árbitro VAR?','¿QUÉ PASARÍA SI los domingos duraran tres días?','¿QUÉ PASARÍA SI el chándal fuera el traje oficial en todas las bodas?','¿QUÉ PASARÍA SI las listas de espera se pagaran con tu paciencia?','¿QUÉ PASARÍA SI el jamón se pudiera comprar en cajero automático?'];
 function pickSimpleTopic(){
+  if ((($('#humor') || {}).value) === 'comedia') { const used = store.get('usedTopics', []), pool = COMEDY_TOPICS.filter(t => !used.includes(t)), src = pool.length ? pool : COMEDY_TOPICS; return src[Math.floor(Math.random() * src.length)]; }
   const used = store.get('usedTopics', []), rec = used.slice(-40), lastCat = store.get('lastTopicCat', '');
   let pool = TOPIC_BANK.filter(x => !rec.some(u => topicSim(u, x.t) >= .6));
   if (pool.length < 10) pool = TOPIC_BANK.slice();
@@ -2417,10 +2419,23 @@ async function research(request, plan, sig, progress){
 /* --- instrucciones --- */
 const SENSITIVE = /hundimiento|naufragio|peste|epidemia|pandemia|accidente|incendio|bombardeo|atentad|terror|asesin|v[ií]ctim|genocid|violaci|suicid|masacre|holocaust|tiroteo|secuestr|guerra|11[ -]?m\b|11[ -]?s\b|9\/11/i;
 const planPrompt = req => `El usuario quiere un vídeo corto con este encargo: «${req}»\nPrepara la investigación. Responde SOLO con JSON: {"tema":"título claro del tema","consultas_es":["2 o 3 búsquedas para Wikipedia en español, con el título probable de los artículos (por ejemplo 'Atentados del 11 de marzo de 2004')"],"consultas_en":["1 o 2 búsquedas en inglés para Wikipedia"],"sensible":true o false (true si trata de muertes, víctimas, terrorismo, guerra, delitos o personas reales vivas)}`;
+const COMEDIA_BLOCK = `
+TONO: COMEDIA TOTAL. Este vídeo es un SKETCH DE HUMOR en formato monólogo hipotético, no una clase. El objetivo es que el espectador se ría en voz alta y lo comparta. Humor para público adulto, picante y gamberro, sarcástico, de bar entre amigos (se permiten alusiones a cerveza, vicios cotidianos, cuñados, suegras, trabajo, dinero, pareja, gimnasio, móvil, política cotidiana sin nombrar partidos ni personas reales).
+RECETA DEL GUION:
+- Gancho (escena 1): la premisa soltada con total seriedad y una consecuencia absurda inmediata.
+- Cada escena: 1) una consecuencia lógica llevada al extremo, 2) una comparación cotidiana inesperada ("es como cuando…"), 3) un aparte del narrador con sorna, 4) cada dos escenas una referencia de cultura popular genérica (películas, series, videojuegos, tópicos españoles) sin citar frases literales protegidas.
+- Recursos: regla de tres con remate roto, exageración, falsa épica ("las autoridades piden calma… nadie la tiene"), titulares absurdos, diálogos breves con personajes tipo (el cuñado, el jefe, la suegra), listas con giro final.
+- Running gag: un personaje u objeto que reaparece al menos 3 veces escalando cada vez.
+- Ritmo rápido: frases cortas, remate al FINAL de cada frase (la palabra graciosa va al final y marcada con *asterisco*).
+- Cierre: remate final potente (callback al running gag) y una última frase corta que deje con la sonrisa.
+- Un fondo de realidad: las consecuencias deben partir de algo plausible (economía, hábitos, biología básica), sin inventar datos científicos falsos como si fueran reales; la exageración es evidente.
+- En "visual" describe SIEMPRE el gag visual (caras de pánico, carteles absurdos, multitudes, objetos con reacción exagerada, rótulos graciosos) y usa "rotulo" con titulares cómicos. Música "alegre".
+PROHIBIDO: humor sobre muertes o víctimas reales, burlas a razas, religiones, orientación, discapacidad, países o grupos vulnerables, ataques a personas reales con nombre, explicar el chiste, relleno sin gracia. Si una broma depende de ofender a un colectivo, cámbiala por otra.`;
 function humorBlock(topic, S, plan){
   const mode = (S && S.humor) || 'auto';
   const serio = (plan && plan.sensible) || SENSITIVE.test(topic);
   if (mode === 'nunca' || serio) return '\nTONO: serio y sobrio, SIN chistes ni bromas (tema delicado o humor desactivado). Sigue siendo ameno y claro, sin sensacionalismo.';
+  if (mode === 'comedia') return COMEDIA_BLOCK;
   const hyp = /¿QUÉ PASARÍA SI/i.test(topic), how = /¿CÓMO FUNCIONA|¿POR QUÉ/i.test(topic);
   const nivel = mode === 'siempre' ? (hyp ? 'alto' : 'medio') : hyp ? 'alto' : how ? 'medio' : 'ligero';
   const base = '\nTONO CON HUMOR (nivel ' + nivel.toUpperCase() + '): el humor nace de llevar la consecuencia lógica al absurdo, de comparaciones cotidianas inesperadas y de apartes del narrador con sorna cariñosa; NUNCA de inventar datos. Los hechos y la ciencia siguen siendo correctos y se entienden perfectamente aunque quites las bromas. Prohibido: humor negro, burlas a personas, grupos o países, chistes sobre muertes o víctimas reales, y explicar el chiste.';
