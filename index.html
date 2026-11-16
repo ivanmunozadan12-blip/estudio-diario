@@ -126,6 +126,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
     <select id="quality"><option value="720">720×1280 (rápida, recomendada en móvil)</option><option value="1080">1080×1920 (más nítida, tarda más y gasta más batería)</option></select></label>
   <label class="chk"><input type="checkbox" id="musicOn" checked> Música de fondo generada</label>
   <label class="chk"><input type="checkbox" id="sfxOn" checked> Efectos de sonido (swoosh en los cortes, «pop» en la palabra clave, sonido ambiente)</label>
+  <label class="chk"><input type="checkbox" id="tacos" checked> Permitir tacos suaves (joder, hostia…) en «Comedia total»</label>
   <label class="chk"><input type="checkbox" id="subsOn" checked> Subtítulos de 2-3 palabras con la clave en amarillo</label>
   <label class="f">Duración objetivo
     <select id="target"><option value="45">≈ 45 s</option><option value="60" selected>≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option></select></label>
@@ -1419,10 +1420,10 @@ let aborter = null, current = null, running = false;
 const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: s.own, script: s.script })));
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
-const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, quality: ($('#quality') || {}).value || '720', music: $('#musicOn').checked, sfx: ($('#sfxOn') || {}).checked !== false, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, stVoice: ($('#stVoice') || {}).value || 'M1', humor: ($('#humor') || {}).value || 'auto' });
+const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, quality: ($('#quality') || {}).value || '720', music: $('#musicOn').checked, sfx: ($('#sfxOn') || {}).checked !== false, tacos: ($('#tacos') || {}).checked !== false, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, stVoice: ($('#stVoice') || {}).value || 'M1', humor: ($('#humor') || {}).value || 'auto' });
 try { if (store.get('set:niche', null) === "Historias reales increíbles de supervivencia, misterios resueltos y curiosidades de ciencia e historia, contadas como un thriller breve.") localStorage.removeItem('set:niche'); } catch (e) {}
 try { if (store.get('set:voiceEngine', null) === 'natural' && !store.get('stMig', false)) { store.set('set:voiceEngine', 'supertonic'); store.set('stMig', true); } } catch (e) {}
-['niche','humor','quality','voiceEngine','voiceId','stVoice','voiceRate','musicOn','sfxOn','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
+['niche','humor','quality','voiceEngine','voiceId','stVoice','voiceRate','musicOn','sfxOn','tacos','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
 
 try { const q = $('#quality'); if (q && store.get('set:quality', null) == null && !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) q.value = '1080'; } catch (e) {}
 /* --- guion --- */
@@ -2422,11 +2423,13 @@ PROHIBIDO:
 - Explicar el chiste, rellenar sin gracia y el humor sobre muertes o víctimas reales, razas, religiones, orientación, discapacidad o grupos vulnerables. Ataques a personas reales con nombre: no.
 ESTRUCTURA: gancho serio en la escena 1 con consecuencia absurda inmediata; ritmo rápido (frases cortas, el remate al final de cada frase); un callback al final que cierre un chiste anterior; última frase corta que deje la sonrisa.
 EN "visual": describe SIEMPRE el gag visual (la reacción, el cartel, el objeto fuera de sitio) y usa "rotulo" con titulares secos, tipo parte oficial o aviso de megafonía. Si el tema usa marcas o personajes famosos, el DIBUJO es genérico: figuras estilizadas con un rasgo reconocible por color o accesorio (capa, martillo, escudo de cartón…), sin logos ni copiar diseños oficiales. Música "alegre".`;
+const TACOS_BLOCK = `
+TACOS (permitidos, con puntería): el personaje y el narrador pueden soltar palabrotas cotidianas y suaves del español de España (joder, hostia, coño, mierda, «me cago en…», «qué puto frío», «vaya putada») como lo diría un chaval de 22 años de verdad: como REACCIÓN espontánea o remate (p. ej. «Joder, qué frío hace aquí.»). Reglas: máximo UNA palabrota cada dos o tres escenas (si se repiten pierden gracia); nunca en la escena 1 ni en la 2 (los primeros 7 segundos van limpios); nunca dirigidas como insulto a personas reales, colectivos o víctimas; sin tacos en el rótulo ni en el título, la descripción ni los hashtags. Escribe la palabra tal cual en el texto narrado para que se lea con naturalidad.`;
 function humorBlock(topic, S, plan){
   const mode = (S && S.humor) || 'auto';
   const serio = (plan && plan.sensible) || SENSITIVE.test(topic);
   if (mode === 'nunca' || serio) return '\nTONO: serio y sobrio, SIN chistes ni bromas (tema delicado o humor desactivado). Sigue siendo ameno y claro, sin sensacionalismo.';
-  if (mode === 'comedia') return COMEDIA_BLOCK;
+  if (mode === 'comedia') return COMEDIA_BLOCK + (S && S.tacos === false ? '\nNada de palabrotas: lenguaje limpio.' : TACOS_BLOCK);
   const hyp = /¿QUÉ PASARÍA SI/i.test(topic), how = /¿CÓMO FUNCIONA|¿POR QUÉ/i.test(topic);
   const nivel = mode === 'siempre' ? (hyp ? 'alto' : 'medio') : hyp ? 'alto' : how ? 'medio' : 'ligero';
   const base = '\nTONO CON HUMOR (nivel ' + nivel.toUpperCase() + '): el humor nace de llevar la consecuencia lógica al absurdo, de comparaciones cotidianas inesperadas y de apartes del narrador con sorna cariñosa; NUNCA de inventar datos. Los hechos y la ciencia siguen siendo correctos y se entienden perfectamente aunque quites las bromas. Prohibido: humor negro, burlas a personas, grupos o países, chistes sobre muertes o víctimas reales, y explicar el chiste.';
