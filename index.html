@@ -2501,20 +2501,53 @@ const Voice = {
     let stage = 'cargar el motor de voz';
     try { return await this._natural(text, progress, st => { stage = st; }); } catch (e) { const f = new Error('(' + stage + ') ' + (e && e.message || e)); f.stack = e && e.stack; throw f; }
   },
+  /* Prosodia: cada frase se sintetiza por separado (Piper reinicia la entonación en cada una) y se le aplica un contorno
+     de tono suave (declinación en afirmaciones, subida en preguntas, energía en exclamaciones) con pausas naturales. Misma voz siempre. */
+  splitSentences(clean){
+    const parts = clean.replace(/([.!?…]+["»”)]?)\s+(?=[¿¡"«“(]?[A-ZÁÉÍÓÚÑ0-9])/g, '$1\u0001').split('\u0001').map(x => x.trim()).filter(Boolean), out = [];
+    parts.forEach(x => { if (x.length <= 170) return out.push(x); const cs = x.replace(/,\s+/g, ',\u0002').split('\u0002'); let cur = ''; cs.forEach(c => { if (cur && (cur + ' ' + c).length > 110) { out.push(cur); cur = c; } else cur = cur ? cur + ' ' + c : c; }); if (cur) out.push(cur); });
+    return out;
+  },
+  shape(ch, kind, idx, last){
+    // kind: q pregunta, e exclamación, n normal. Devuelve muestras con tono variable (remuestreo con velocidad cambiante, ±6 %) y ganancia.
+    const wob = [0, .012, -.008, .016, -.012][idx % 5];
+    let r0, r1, gain = 1;
+    if (kind === 'q') { r0 = .985; r1 = 1.065; }
+    else if (kind === 'e') { r0 = 1.08; r1 = .985; gain = 1.12; }
+    else if (last) { r0 = 1.015; r1 = .955; }
+    else { r0 = 1.035; r1 = .975; }
+    r0 += wob; r1 += wob;
+    const n = ch.length, est = Math.round(n / ((r0 + r1) / 2)), out = new Float32Array(est + 4); let pos = 0, k = 0;
+    while (pos < n - 1 && k < out.length) { const i = Math.floor(pos), f = pos - i; out[k++] = (ch[i] * (1 - f) + ch[i + 1] * f) * gain; pos += r0 + (r1 - r0) * Math.min(1, k / est); }
+    const fade = Math.min(k >> 3, 90); for (let j = 0; j < fade; j++) { out[j] *= j / fade; out[k - 1 - j] *= j / fade; }
+    return out.subarray(0, k);
+  },
   async _natural(text, progress, setStage){
     const mod = await this.load(progress), voiceId = $('#voiceId').value || this.voices[0]; setStage('descargar o ejecutar el modelo «' + voiceId + '»');
     const clean = text.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim();
-    const blob = await mod.predict({ text: clean.replace(/\d+(?:[.,]\d+)*%?/g, m => TTS.expand(m)), voiceId }, p => { if (progress && p && p.total) progress(`Descargando la voz… ${Math.round(p.loaded / p.total * 100)}%`); });
-    const ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 22050, 22050);
-    const buf = await ac.decodeAudioData(await await_ab(blob));
-    let ch = buf.getChannelData(0); const th = .012; let a = 0, b = ch.length - 1; while (a < b && Math.abs(ch[a]) < th) a++; while (b > a && Math.abs(ch[b]) < th) b--;
-    a = Math.max(0, a - Math.floor(buf.sampleRate * .04)); b = Math.min(ch.length - 1, b + Math.floor(buf.sampleRate * .08));
-    const samples = Float32Array.from(ch.subarray(a, b + 1)), dur = samples.length / buf.sampleRate;
-    const toks = clean.split(' ').filter(w => /[\p{L}\p{N}]/u.test(w));
-    const wts = toks.map(w => Math.max(2, TTS.expand(w.replace(/[^\p{L}\p{N}.,%]/gu, '').replace(/[.,;:!?…]+$/, '')).length) + (/[.!?…]$/.test(w) ? 5 : /[,;:]$/.test(w) ? 2.5 : 0));
-    const tot = wts.reduce((x, y) => x + y, 0); let acc = 0;
-    const words = toks.map((w, i) => { const s = acc / tot * dur; acc += wts[i]; return { raw: w.replace(/[*_]/g, ''), s, e: acc / tot * dur }; });
-    return { samples, fs: buf.sampleRate, dur, words };
+    const sents = this.splitSentences(clean), ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 22050, 22050);
+    const segs = []; let fs = 22050;
+    for (let si = 0; si < sents.length; si++) {
+      const sent = sents[si];
+      const blob = await mod.predict({ text: sent.replace(/[¿¡]/g, '').replace(/\d+(?:[.,]\d+)*%?/g, m => TTS.expand(m)), voiceId }, p => { if (progress && p && p.total) progress(`Descargando la voz… ${Math.round(p.loaded / p.total * 100)}%`); });
+      const buf = await ac.decodeAudioData(await await_ab(blob)); fs = buf.sampleRate;
+      const ch = buf.getChannelData(0); const th = .012; let a = 0, b = ch.length - 1; while (a < b && Math.abs(ch[a]) < th) a++; while (b > a && Math.abs(ch[b]) < th) b--;
+      a = Math.max(0, a - Math.floor(fs * .03)); b = Math.min(ch.length - 1, b + Math.floor(fs * .06));
+      const kind = /[?]["»”)]?$/.test(sent) ? 'q' : /[!]["»”)]?$/.test(sent) ? 'e' : 'n';
+      segs.push({ sent, kind, pcm: this.shape(Float32Array.from(ch.subarray(a, b + 1)), kind, si, si === sents.length - 1) });
+    }
+    const gapOf = sg => /[…]$/.test(sg.sent) ? .34 : sg.kind === 'q' ? .26 : sg.kind === 'e' ? .2 : .24;
+    let total = 0; segs.forEach((sg, i) => { sg.off = total; total += sg.pcm.length + (i < segs.length - 1 ? Math.round(gapOf(sg) * fs) : 0); });
+    const samples = new Float32Array(total); let peak = 0; segs.forEach(sg => { samples.set(sg.pcm, sg.off); for (let j = 0; j < sg.pcm.length; j++) peak = Math.max(peak, Math.abs(sg.pcm[j])); });
+    if (peak > .97) for (let j = 0; j < samples.length; j++) samples[j] *= .97 / peak;
+    const dur = samples.length / fs, words = [];
+    segs.forEach(sg => {
+      const toks = sg.sent.split(' ').filter(w => /[\p{L}\p{N}]/u.test(w));
+      const wts = toks.map(w => Math.max(2, TTS.expand(w.replace(/[^\p{L}\p{N}.,%]/gu, '').replace(/[.,;:!?…]+$/, '')).length) + (/[.!?…]$/.test(w) ? 5 : /[,;:]$/.test(w) ? 2.5 : 0));
+      const tot = wts.reduce((x, y) => x + y, 0), s0 = sg.off / fs, sd = sg.pcm.length / fs; let acc = 0;
+      toks.forEach((w, i) => { const s = s0 + acc / tot * sd; acc += wts[i]; words.push({ raw: w.replace(/[*_]/g, ''), s, e: s0 + acc / tot * sd }); });
+    });
+    return { samples, fs, dur, words };
   },
   async speak(text, S, progress){
     if (S.engine === 'natural') {
