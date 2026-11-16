@@ -67,6 +67,7 @@ const toB64 = async blob => {
     set('extraApiKeys', keys.slice(1).join('\n'));
     set('niche', cfg.nicho);
     set('target', String(cfg.duracion));
+    set('quality', String(cfg.resolucion || 720));
     set('voiceEngine', voice || 'natural');
     set('codeScenes', cfg.escenasUnicas !== false);
     set('voiceId', cfg.voiceId || 'es_ES-davefx-medium');
