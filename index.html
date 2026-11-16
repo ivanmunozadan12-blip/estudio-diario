@@ -1638,8 +1638,8 @@ function importPackage(text, i){
     sl.script.programadas = done; sl.script.conPlantilla = tot.length - done; persist();
     return { ok: done, errs, total: tot.length, merged: true };
   }
-  const raw = parseJSON(head);
-  const dir = pendingDir[i] || pickDirection(sl.topic || raw.titulo || '', store.get('sigs', []));
+  const raw = parseJSON(head), old = sl.script, keep = !!(old && at < 0 && Array.isArray(raw.escenas) && raw.escenas.length === old.escenas.length);
+  const dir = keep ? old.direccion : (pendingDir[i] || pickDirection(sl.topic || raw.titulo || '', store.get('sigs', [])));
   const script = sanitizeScript(raw, sl.topic || raw.titulo || 'Vídeo', dir);
   const progs = parsePrograms(at < 0 ? '' : text.slice(at)), errs = []; let ok = 0;
   script.escenas.forEach((e, k) => {
@@ -1649,7 +1649,8 @@ function importPackage(text, i){
     const r = code ? SceneProg.smoke(code, script.direccion, { dur: estSceneDur(e), n: k, total: script.escenas.length }) : { ok: false, err: 'falta el código' };
     if (r.ok) { e.codigo = code; ok++; } else errs.push(`ESCENA ${k + 1}: ${r.err}`);
   });
-  script.programadas = ok; script.conPlantilla = at < 0 ? script.escenas.length : errs.length; script.sinFuentes = true;
+  if (keep) script.escenas.forEach((e, k) => { if ((e.tipo || 'normal') === 'normal' && old.escenas[k].codigo) { e.codigo = old.escenas[k].codigo; ok++; } });
+  script.programadas = ok; script.conPlantilla = at < 0 && !keep ? script.escenas.length : script.escenas.filter(e => (e.tipo || 'normal') === 'normal').length - ok; script.sinFuentes = true;
   if (!sl.topic) sl.topic = script.titulo;
   sl.script = script; sl.err = ''; persist();
   return { ok, errs, total: script.escenas.length };
@@ -1796,7 +1797,11 @@ function playProject(proj, { record = false, onTick } = {}){
       const dest = ctx.createMediaStreamDestination(), out = ctx.createGain(); out.gain.value = 1; out.connect(ctx.destination); out.connect(dest);
       const t0 = ctx.currentTime + .2;
       if (proj.voice) proj.scenes.forEach(sc => { if (!sc.audio) return; const buf = ctx.createBuffer(1, sc.audio.samples.length, sc.audio.fs); buf.copyToChannel(sc.audio.samples, 0); const src = ctx.createBufferSource(); src.buffer = buf; const g = ctx.createGain(); g.gain.value = .95; src.connect(g); g.connect(out); src.start(t0 + sc.t0 + .12); });
-      if (proj.music) Music.start(ctx, out, proj.musica, t0, proj.total, proj.voice ? .5 : .85);
+      if (proj.music) {
+        let mbus = out;
+        if (proj.voice) { mbus = ctx.createGain(); mbus.gain.value = 1; mbus.connect(out); proj.scenes.forEach(sc => { if (!sc.audio) return; const a = t0 + sc.t0 + .12, b = a + sc.audio.samples.length / sc.audio.fs; mbus.gain.setTargetAtTime(.45, Math.max(a - .08, 0), .06); mbus.gain.setTargetAtTime(1, b + .05, .3); }); }
+        Music.start(ctx, mbus, proj.musica, t0, proj.total, proj.voice ? .62 : .85);
+      }
       if (proj.sfx) SFX.schedule(ctx, out, proj, t0);
       let rec = null; const chunks = []; let mime = '';
       if (record) {
@@ -2026,6 +2031,28 @@ Responde SOLO con las escenas que mejoraría (las que estén bien NO las repitas
 ` + reviewPrompt(i);
 }
 async function sheetBlob(i){ const cv = contactSheet(i); if (!cv) return null; return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', .86)); }
+function factsPrompt(i){
+  const sl = slots[i]; if (!sl.script) return '';
+  return `Verifica los DATOS de la narración de mi vídeo usando búsqueda web (fuentes fiables: Wikipedia, NASA, universidades, organismos oficiales). Para cada escena responde en una línea: ✔ si es correcta, ✖ si hay error o es dudosa, con la corrección y la fuente. Cuidado con cifras, fechas, nombres y afirmaciones absolutas («siempre», «nunca», «todos»).
+${sl.script.escenas.map((e, k) => `ESCENA ${k + 1}: ${e.texto.replace(/\*/g, '')}`).join('\n')}
+Si TODO es correcto, responde solo «TODO CORRECTO» y no entregues JSON. Si hay algo que corregir, termina con el guion JSON completo y corregido (mismo formato, mismo número de escenas y mismo orden; cambia solo lo necesario y mantén el humor y los *asteriscos* de palabra clave) dentro de UN único bloque de código, sin código de escenas.`;
+}
+async function coverBlob(i){
+  const sl = slots[i]; if (!sl.script) return null; const e0 = sl.script.escenas[0], dur = estSceneDur(e0);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+  const sc = Object.assign({}, e0, { _seed: 3, _dir: sl.script.direccion || null, _n: 0, _total: sl.script.escenas.length, dur });
+  try { drawScene(c, sc, 0, .5, dur * .5); } catch (err) { c.fillStyle = '#111'; c.fillRect(0, 0, W, H); }
+  const g = c.createLinearGradient(0, H * .2, 0, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.78)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round'; c.font = '900 84px Poppins, sans-serif';
+  const lines = wrapText(c, String(sl.script.titulo || '').toUpperCase(), W * .86).slice(0, 4), y0 = H * .66 - (lines.length - 1) * 52;
+  lines.forEach((ln, k) => { const y = y0 + k * 104; c.lineWidth = 20; c.strokeStyle = 'rgba(0,0,0,.95)'; c.strokeText(ln, W / 2, y); c.fillStyle = k === lines.length - 1 ? '#ffd400' : '#fff'; c.fillText(ln, W / 2, y); });
+  return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', .9));
+}
+async function saveOrShare(blob, name){
+  const f = new File([blob], name, { type: blob.type || 'image/jpeg' });
+  try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+}
 /* ===== MODO SIMPLE (ChatGPT): un vídeo cada vez, sin límite; la web elige el tema ===== */
 const TOPIC_BANK = (() => {
   const nunca = ['las palomas','las abejas','los mosquitos','las nubes','los gatos','las hormigas','los árboles','los relojes','la Luna','las tormentas','los murciélagos','el dinero','los espejos','los semáforos','las ballenas','el fuego','las arañas','los hongos','los pulpos','los cuervos','las cebras','los puentes','las cucarachas','los volcanes','los idiomas','las estaciones del año','el sueño','los ríos','los dinosaurios','la gravedad en la Luna','los colores','las matemáticas','los aviones','el hierro','la sal','las estrellas fugaces','los perros','las lombrices','los océanos','las fronteras'];
@@ -2062,7 +2089,7 @@ function renderSimple(){
     h += `<p class="meta"><b>${esc(sc ? sc.titulo : '')}</b></p><video class="out" src="${s.url}#t=0.1" preload="metadata" controls playsinline></video>
     <div class="row"><button class="pri" data-a="share" data-i="0">Compartir</button><a class="btn" href="${s.url}" download="${fileName(0)}">Descargar (.${s.ext})</a><a class="btn" href="${s.url}" target="_blank" rel="noopener">Abrir</a></div>
     ${sc ? `<div class="row"><button data-a="copy" data-i="0" data-k="yt">Texto YouTube</button><button data-a="copy" data-i="0" data-k="tt">Texto TikTok</button><button data-a="copy" data-i="0" data-k="ig">Texto Reels</button></div>` : ''}
-    <div class="row"><button class="pri" id="simNew">➕ Nuevo vídeo (otro tema)</button></div>`;
+    <div class="row"><button id="simCover">Portada (.jpg)</button><button class="pri" id="simNew">➕ Nuevo vídeo (otro tema)</button></div>`;
   } else if (busy) {
     h += `<div class="bar"><i data-bar="0" style="width:${s.pct}%"></i></div><p class="meta">Deja la pantalla encendida mientras se graba.</p>`;
   } else {
@@ -2075,7 +2102,7 @@ function renderSimple(){
       if (faltan) h += `<div class="row"><button class="pri" id="simNext">Copiar siguiente tanda de escenas</button></div><p class="meta">Pégalo en el MISMO chat de ChatGPT y pega abajo la respuesta. Repite hasta que no falte ninguna (o graba ya: las que falten usarán el diseño de plantilla).</p>`;
     }
     h += `<label class="f">${sc ? 'Pega aquí la nueva respuesta de ChatGPT' : '2 · Pega aquí la respuesta de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí todo lo que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
-    <div class="row">${sc && !faltan ? '' : `<button class="pri" id="simImp">${sc ? 'Cargar respuesta' : '3 · Crear vídeo'}</button>`}${sc ? `<button class="${faltan ? '' : 'pri'}" id="simRec">● ${faltan ? 'Grabar ya' : 'Grabar vídeo'}</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>${sc && simpleSheetUrl ? `<img src="${simpleSheetUrl}" alt="Fotogramas de las escenas" style="width:100%;border-radius:10px;margin-top:8px"><div class="row"><button class="pri" id="simSheetSave">Guardar / compartir imagen</button><button id="simFix">Copiar prompt de corrección</button></div><p class="meta">1) Guarda la imagen. 2) En el MISMO chat de ChatGPT pulsa «+», adjunta la imagen y pega el prompt. 3) Pega aquí lo que te devuelva y pulsa «Cargar respuesta».</p>` : ''}`;
+    <div class="row"><button class="${sc && !faltan ? '' : 'pri'}" id="simImp">${sc ? 'Cargar respuesta' : '3 · Crear vídeo'}</button>${sc ? `<button class="${faltan ? '' : 'pri'}" id="simRec">● ${faltan ? 'Grabar ya' : 'Grabar vídeo'}</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simFacts">✔ Verificar datos</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>${sc && simpleSheetUrl ? `<img src="${simpleSheetUrl}" alt="Fotogramas de las escenas" style="width:100%;border-radius:10px;margin-top:8px"><div class="row"><button class="pri" id="simSheetSave">Guardar / compartir imagen</button><button id="simFix">Copiar prompt de corrección</button></div><p class="meta">1) Guarda la imagen. 2) En el MISMO chat de ChatGPT pulsa «+», adjunta la imagen y pega el prompt. 3) Pega aquí lo que te devuelva y pulsa «Cargar respuesta».</p>` : ''}`;
   }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
   if (s.err) h += `<p class="meta" style="color:var(--red)">${esc(s.err)}</p>`;
@@ -2100,6 +2127,8 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simNext') { const t = nextBatchPrompt(0); if (!t) { simpleNote = 'Todas las escenas ya tienen código.'; renderSimple(); return; } return copyText(t, b); }
   if (b.id === 'simSheet') { try { if (simpleSheetUrl) URL.revokeObjectURL(simpleSheetUrl); simpleSheetBlob = await sheetBlob(0); simpleSheetUrl = simpleSheetBlob ? URL.createObjectURL(simpleSheetBlob) : ''; } catch (e) { simpleNote = 'No pude generar la imagen: ' + (e && e.message || e); } renderSimple(); return; }
   if (b.id === 'simFix') return copyText(fixPrompt(0), b);
+  if (b.id === 'simFacts') return copyText(factsPrompt(0), b);
+  if (b.id === 'simCover') { const bl = await coverBlob(0); if (bl) await saveOrShare(bl, 'portada-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg'); return; }
   if (b.id === 'simSheetSave') { if (!simpleSheetBlob) return; const f = new File([simpleSheetBlob], 'escenas-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg', { type: 'image/jpeg' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } const a = document.createElement('a'); a.href = simpleSheetUrl; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); return; }
   if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
   if (b.id === 'simNew') { simpleReset(true); return; }
@@ -2107,11 +2136,11 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simImp') {
     simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
     if (t.trim().length < 50) { simpleNote = 'Pega primero la respuesta de ChatGPT.'; renderSimple(); return; }
-    let r; try { r = importPackage(t, 0); } catch (e) { simpleNote = 'No pude leer la respuesta: ' + (e && e.message || e) + '. Pide a ChatGPT «Repite la respuesta completa con el bloque json y los bloques js».'; renderSimple(); return; }
+    const had = !!s.script; let r; try { r = importPackage(t, 0); } catch (e) { simpleNote = 'No pude leer la respuesta: ' + (e && e.message || e) + '. Pide a ChatGPT «Repite la respuesta completa con el bloque json y los bloques js».'; renderSimple(); return; }
     simpleText = ''; const used = store.get('usedTopics', []); used.push(s.topic || (s.script && s.script.titulo) || ''); store.set('usedTopics', used.slice(-120));
     const normal = s.script.escenas.filter(e => (e.tipo || 'normal') === 'normal'), faltan = normal.filter(e => !e.codigo).length;
     if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
-    if (faltan) { renderSimple(); return; }
+    if (faltan || had) { renderSimple(); return; }
     renderSimple(); return simpleRecord();
   }
 });
@@ -2459,6 +2488,6 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferr
 $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $('#installBtn').hidden = true; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 if (!AIcfg().keys.length && !PROV[AIcfg().p].nokey) msg('Primero pega tu clave gratuita en «Ajustes de IA».');
-Object.assign(window.__studio, { contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
+Object.assign(window.__studio, { factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
 </script>
 </body></html>
