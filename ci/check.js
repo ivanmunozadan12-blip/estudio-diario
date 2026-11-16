@@ -22,7 +22,7 @@ const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
 if (!scripts.length) throw new Error('No se encontró JavaScript inline en index.html.');
 scripts.forEach((match, i) => new vm.Script(match[1], { filename: 'index.html:inline-' + (i + 1) }));
 
-const sourceFiles = ['ci', 'netlify/functions'].flatMap(walk).concat(['sw.js'])
+const sourceFiles = ['ci'].flatMap(walk).concat(['sw.js'])
   .filter(file => ['.js', '.mjs', '.cjs'].some(ext => file.endsWith(ext)));
 for (const file of sourceFiles) run(process.execPath, ['--check', file], 'Sintaxis incorrecta en ' + file);
 
@@ -88,13 +88,7 @@ if (generate.includes('2026-11-15') || generate.includes('forceTopics:')) {
   throw new Error('Queda una selección de temas de prueba fechada y forzada en producción.');
 }
 const sw = fs.readFileSync('sw.js', 'utf8');
-if (!sw.includes("u.pathname.startsWith('/.netlify/functions/')") || !sw.includes('r.ok')) {
-  throw new Error('El service worker debe excluir funciones Netlify y cachear solo respuestas correctas.');
-}
-for (const file of ['netlify/functions/youtube-auth.js', 'netlify/functions/youtube-callback.js']) {
-  if (!fs.existsSync(file)) throw new Error('Falta el endpoint Netlify activo: ' + file);
-}
-if (fs.existsSync('netlify/functions/youtube-auth.mjs') || fs.existsSync('netlify/functions/youtube-callback.mjs')) {
-  throw new Error('Persisten entrypoints Netlify duplicados.');
+if (!sw.includes('r.ok')) {
+  throw new Error('El service worker debe cachear solo respuestas correctas.');
 }
 console.log('OK: ' + scripts.length + ' scripts inline, ' + sourceFiles.length + ' archivos JS, JSON, YAML, shell, slots válidos e inválidos y service worker.');

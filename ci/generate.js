@@ -17,9 +17,6 @@ console.log('Claves Gemini configuradas:', keys.length, '(los valores nunca se m
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 const srv = http.createServer((q, r) => {
   const requestedPath = decodeURIComponent((q.url || '/').split('?')[0]);
-  if (process.env.CI_MOCK && requestedPath === '/.netlify/functions/history-sync') {
-    r.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); r.end(JSON.stringify({ ok: true, duplicate: false })); return;
-  }
   const f = path.join('site', requestedPath === '/' ? 'index.html' : requestedPath);
   fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); } else { r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); r.end(d); } });
 }).listen(8099);
