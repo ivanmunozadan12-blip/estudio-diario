@@ -2124,6 +2124,7 @@ function renderSimple(){
   }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
   if (s.err) h += `<p class="meta" style="color:var(--red)">${esc(s.err)}</p>`;
+  if (s.err && /voz neuronal/i.test(s.err) && !busy) h += `<div class="row"><button id="simRetry">Reintentar voz natural</button><button class="pri" id="simRobot">Grabar con voz sintética (sin descargas)</button></div>`;
   const keep = document.activeElement && document.activeElement.id; el.innerHTML = h;
   if (keep) { const k = document.getElementById(keep); if (k && k.focus) { try { k.focus(); } catch (e) {} } }
 }
@@ -2151,6 +2152,8 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
   if (b.id === 'simNew') { simpleReset(true); return; }
   if (b.id === 'simRec') { simpleNote = ''; return simpleRecord(); }
+  if (b.id === 'simRetry') { Voice.failed = false; s.err = ''; return simpleRecord(); }
+  if (b.id === 'simRobot') { const en = $('#voiceEngine'); if (en) { en.value = 'robot'; en.dispatchEvent(new Event('change')); } Voice.failed = false; s.err = ''; return simpleRecord(); }
   if (b.id === 'simImp') {
     simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
     if (t.trim().length < 50) { simpleNote = 'Pega primero la respuesta de ChatGPT.'; renderSimple(); return; }
@@ -2430,7 +2433,11 @@ const Voice = {
     return this.mod;
   },
   async natural(text, progress){
-    const mod = await this.load(progress), voiceId = $('#voiceId').value || this.voices[0];
+    let stage = 'cargar el motor de voz';
+    try { return await this._natural(text, progress, st => { stage = st; }); } catch (e) { const f = new Error('(' + stage + ') ' + (e && e.message || e)); f.stack = e && e.stack; throw f; }
+  },
+  async _natural(text, progress, setStage){
+    const mod = await this.load(progress), voiceId = $('#voiceId').value || this.voices[0]; setStage('descargar o ejecutar el modelo «' + voiceId + '»');
     const clean = text.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim();
     const blob = await mod.predict({ text: clean.replace(/\d+(?:[.,]\d+)*%?/g, m => TTS.expand(m)), voiceId }, p => { if (progress && p && p.total) progress(`Descargando la voz… ${Math.round(p.loaded / p.total * 100)}%`); });
     const ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 22050, 22050);
@@ -2453,7 +2460,8 @@ const Voice = {
         const detail = e && (e.message || e.toString()) || 'Error desconocido';
         msg('Error de voz neuronal: ' + detail);
         console.error('[Piper neuronal]', detail, e && e.stack || '');
-        throw new Error('No se pudo generar la voz neuronal: ' + detail);
+        const local = location.protocol === 'file:' ? ' Estás abriendo la web como archivo local (file://): muchos móviles bloquean la descarga de la voz desde ahí.' : '';
+        throw new Error('No se pudo generar la voz neuronal: ' + detail + '.' + local);
       }
     }
     return TTS.speak(text.replace(/[*_#]/g, ''), { rate: S.rate });
