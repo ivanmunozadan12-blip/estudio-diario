@@ -2074,6 +2074,18 @@ Mira la imagen y evalúa cada escena como un director de arte exigente: ¿se ve 
 Responde SOLO con las escenas que mejoraría (las que estén bien NO las repitas), reescribiéndolas completas con el mismo formato de entrega. Usa las piezas K.* disponibles.
 ` + reviewPrompt(i);
 }
+function textFixPrompt(i, numsRaw, why){
+  const sl = slots[i]; if (!sl.script) return '';
+  const total = sl.script.escenas.length, nums = [...new Set(String(numsRaw || '').split(/[^0-9]+/).map(Number).filter(n => n >= 1 && n <= total))];
+  const list = nums.length ? nums : sl.script.escenas.map((e, k) => k + 1);
+  const problema = String(why || '').trim() || 'Se ve mal: composición pobre, vacía o poco clara. Mejórala.';
+  return progHeader(sl.script) + `
+Ya me entregaste las escenas de este vídeo («${sl.script.titulo}»), pero ${list.length === 1 ? 'una escena no queda bien' : 'algunas escenas no quedan bien'} al verlas animadas. NO tienes la imagen: confía en esta descripción del fallo, que he visto yo en pantalla.
+PROBLEMA (en mis palabras): ${problema}
+Reescribe ${list.length === 1 ? 'la escena' : 'las escenas'} ${list.join(', ')} corrigiendo ese problema de raíz (cambia la composición o el código que lo causa, no solo retoques mínimos), manteniendo la idea de la narración y del «QUÉ SE VE». Antes de escribir cada escena, razona mentalmente qué parte del código produce el fallo descrito y evítala: coordenadas fuera de la franja útil (lo importante entre 10 % y 66 % de la altura, nada en 70-84 %), tamaños demasiado pequeños o enormes, objetos que se solapan, fondos sin rellenar, colores sosos o sin contraste, falta de movimiento o de profundidad. Responde SOLO con ${list.length === 1 ? 'esa escena' : 'esas escenas'}, completa${list.length === 1 ? '' : 's'}.
+
+` + list.map(n => { const e = sl.script.escenas[n - 1]; return `### ESCENA ${n} (dura ${estSceneDur(e).toFixed(1)} s; plano: ${e.camara})\nNARRACIÓN: ${String(e.texto || '').replace(/\*/g, '')}\nQUÉ SE VE: ${e.visual || String(e.texto || '').replace(/\*/g, '')}\nCÓDIGO ACTUAL (el que falla):\n${e.codigo ? String(e.codigo).slice(0, 6000) : '(sin código: usaba la plantilla; escríbelo desde cero)'}`; }).join('\n\n') + CHAT_FMT;
+}
 async function sheetBlob(i){ const cv = contactSheet(i); if (!cv) return null; return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', .86)); }
 function factsPrompt(i){
   const sl = slots[i]; if (!sl.script) return '';
@@ -2122,6 +2134,7 @@ function pickSimpleTopic(){
   const pick = pool[Math.floor(Math.random() * pool.length)];
   store.set('lastTopicCat', pick.c); return pick.t;
 }
+let simpleFixNums = '', simpleFixWhy = '';
 let simpleText = '', simpleNote = '', simpleSheetUrl = '', simpleSheetBlob = null;
 const simpleOn = () => document.body.classList.contains('simple');
 function pacingReport(script){
@@ -2154,7 +2167,7 @@ function renderSimple(){
       if (faltan) h += `<div class="row"><button class="pri" id="simNext">Copiar siguiente tanda de escenas</button></div><p class="meta">Pégalo en el MISMO chat de ChatGPT y pega abajo la respuesta. Repite hasta que no falte ninguna (o graba ya: las que falten usarán el diseño de plantilla).</p>`;
     }
     h += `<label class="f">${sc ? 'Pega aquí la nueva respuesta de ChatGPT' : '2 · Pega aquí la respuesta de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí todo lo que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
-    <div class="row"><button class="${sc && !faltan ? '' : 'pri'}" id="simImp">${sc ? 'Cargar respuesta' : '3 · Crear vídeo'}</button>${sc ? `<button class="${faltan ? '' : 'pri'}" id="simRec">● ${faltan ? 'Grabar ya' : 'Grabar vídeo'}</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simFacts">✔ Verificar datos</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>${sc && simpleSheetUrl ? `<img src="${simpleSheetUrl}" alt="Fotogramas de las escenas" style="width:100%;border-radius:10px;margin-top:8px"><div class="row"><button class="pri" id="simSheetSave">Guardar / compartir imagen</button><button id="simFix">Copiar prompt de corrección</button></div><p class="meta">1) Guarda la imagen. 2) En el MISMO chat de ChatGPT pulsa «+», adjunta la imagen y pega el prompt. 3) Pega aquí lo que te devuelva y pulsa «Cargar respuesta».</p>` : ''}`;
+    <div class="row"><button class="${sc && !faltan ? '' : 'pri'}" id="simImp">${sc ? 'Cargar respuesta' : '3 · Crear vídeo'}</button>${sc ? `<button class="${faltan ? '' : 'pri'}" id="simRec">● ${faltan ? 'Grabar ya' : 'Grabar vídeo'}</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simFacts">✔ Verificar datos</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>${sc ? `<details${simpleFixNums || simpleFixWhy ? ' open' : ''} style="margin-top:8px"><summary><b>🛠 Una escena se ve mal (sin imagen)</b></summary><label class="f">Número de escena(s), por ejemplo 3 o 3, 5<input type="text" id="simFixNums" inputmode="numeric" autocomplete="off" value="${esc(simpleFixNums)}"></label><label class="f">Qué falla (con tus palabras)<textarea id="simFixWhy" placeholder="Ej.: el personaje sale cortado por abajo y el fondo está vacío; los textos se pisan; no se entiende qué es el objeto…">${esc(simpleFixWhy)}</textarea></label><div class="row"><button class="pri" id="simFixText">Copiar prompt de corrección</button></div><p class="meta">Pégalo en ChatGPT (no hace falta imagen: lleva el código actual y tu descripción), pega aquí la respuesta y pulsa «Cargar respuesta».</p></details>` : ''}${sc && simpleSheetUrl ? `<img src="${simpleSheetUrl}" alt="Fotogramas de las escenas" style="width:100%;border-radius:10px;margin-top:8px"><div class="row"><button class="pri" id="simSheetSave">Guardar / compartir imagen</button><button id="simFix">Copiar prompt de corrección</button></div><p class="meta">1) Guarda la imagen. 2) En el MISMO chat de ChatGPT pulsa «+», adjunta la imagen y pega el prompt. 3) Pega aquí lo que te devuelva y pulsa «Cargar respuesta».</p>` : ''}`;
   }
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
@@ -2171,7 +2184,7 @@ function simpleReset(pick){
   Object.assign(s, { topic: '', own: '', script: null, busy: '', pct: 0, url: '', blob: null, err: '' }); delete pendingDir[0]; simpleText = ''; simpleNote = ''; if (simpleSheetUrl) { try { URL.revokeObjectURL(simpleSheetUrl); } catch (e) {} } simpleSheetUrl = ''; simpleSheetBlob = null; persist();
   if (pick) s.topic = pickSimpleTopic(); persist(); renderSimple();
 }
-document.addEventListener('input', e => { if (e.target.id === 'simPaste') simpleText = e.target.value; if (e.target.id === 'simTopic') { slots[0].topic = e.target.value; persist(); } });
+document.addEventListener('input', e => { if (e.target.id === 'simPaste') simpleText = e.target.value; if (e.target.id === 'simFixNums') simpleFixNums = e.target.value; if (e.target.id === 'simFixWhy') simpleFixWhy = e.target.value; if (e.target.id === 'simTopic') { slots[0].topic = e.target.value; persist(); } });
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('button'); if (!b || !b.id || !b.id.startsWith('sim') && b.id !== 'modeBtn') return;
   const S = settings(), s = slots[0];
@@ -2181,6 +2194,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simNext') { const t = nextBatchPrompt(0); if (!t) { simpleNote = 'Todas las escenas ya tienen código.'; renderSimple(); return; } return copyText(t, b); }
   if (b.id === 'simSheet') { try { if (simpleSheetUrl) URL.revokeObjectURL(simpleSheetUrl); simpleSheetBlob = await sheetBlob(0); simpleSheetUrl = simpleSheetBlob ? URL.createObjectURL(simpleSheetBlob) : ''; } catch (e) { simpleNote = 'No pude generar la imagen: ' + (e && e.message || e); } renderSimple(); return; }
   if (b.id === 'simFix') return copyText(fixPrompt(0), b);
+  if (b.id === 'simFixText') return copyText(textFixPrompt(0, simpleFixNums || ($('#simFixNums') || {}).value, simpleFixWhy || ($('#simFixWhy') || {}).value), b);
   if (b.id === 'simFacts') return copyText(factsPrompt(0), b);
   if (b.id === 'simCover') { const bl = await coverBlob(0); if (bl) await saveOrShare(bl, 'portada-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg'); return; }
   if (b.id === 'simSheetSave') { if (!simpleSheetBlob) return; const f = new File([simpleSheetBlob], 'escenas-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg', { type: 'image/jpeg' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } const a = document.createElement('a'); a.href = simpleSheetUrl; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); return; }
@@ -2707,6 +2721,6 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferr
 $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $('#installBtn').hidden = true; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 if (!AIcfg().keys.length && !PROV[AIcfg().p].nokey) msg('Primero pega tu clave gratuita en «Ajustes de IA».');
-Object.assign(window.__studio, { Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
+Object.assign(window.__studio, { textFixPrompt, Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
 </script>
 </body></html>
