@@ -67,13 +67,14 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
 #msg{font-size:12px;color:var(--muted);text-align:center;margin:0 0 8px;min-height:16px}
 .note{font-size:12px;color:var(--muted);margin:0 0 12px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#slot1,#slot2{display:none!important}
 body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,body.simple #auto,body.simple label.chk:has(#auto),body.simple #autoHint{display:none!important}
 </style>
 </head>
 <body>
 
 <header>
-  <div><h1>Estudio Diario</h1><small>Piso 3ºB · serie de comedia · 9:16 para Shorts, Reels y TikTok</small></div>
+  <div><h1>Estudio Diario</h1><small>Piso 3ºB · 1 capítulo al día a las 21:00 · 9:16 para Shorts, Reels y TikTok</small></div>
   <span class="pill" id="counter">Hoy 0/3</span><button id="modeBtn" style="margin-left:8px;padding:6px 10px;font-size:13px">Modo avanzado</button>
 </header>
 
@@ -122,6 +123,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <label class="f">Voz
     <select id="voiceEngine"><option value="natural" selected>Natural (neuronal, gratis, va dentro del vídeo)</option><option value="supertonic">Supertonic (muy natural, sin claves; ~250 MB la primera vez)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
   <div class="hint" id="stStatus" style="font-size:.85em;opacity:.85"></div>
+  <p class="meta">En Piso 3ºB cada personaje tiene su propia voz (Dani M2, Marta F4, casero M3, vecina F1, madre F5). La voz que elijas aquí es la del narrador (recomendado M4 o M5).</p>
   <label class="f">Voz de Supertonic
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4">M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
@@ -135,9 +137,9 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <label class="chk"><input type="checkbox" id="tacos" checked> Permitir tacos suaves (joder, hostia…) en «Comedia total»</label>
   <label class="chk"><input type="checkbox" id="subsOn" checked> Subtítulos de 2-3 palabras con la clave en amarillo</label>
   <label class="f">Duración objetivo
-    <select id="target"><option value="45">≈ 45 s</option><option value="60" selected>≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option></select></label>
+    <select id="target"><option value="45">≈ 45 s</option><option value="60">≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option><option value="120" selected>≈ 120 s</option></select></label>
   <label class="chk"><input type="checkbox" id="auto"> Piloto automático (solo funciona con esta página abierta y la pantalla encendida)</label>
-  <div class="row"><label class="f">Hora 1<input type="time" id="t0" value="09:30"></label><label class="f">Hora 2<input type="time" id="t1" value="14:30"></label><label class="f">Hora 3<input type="time" id="t2" value="20:30"></label></div>
+  <div class="row"><label class="f">Hora 1<input type="time" id="t0" value="21:00"></label><label class="f">Hora 2<input type="time" id="t1" value="14:30"></label><label class="f">Hora 3<input type="time" id="t2" value="20:30"></label></div>
   <p class="hint" id="autoHint">Para que se haga sin abrir nada, usa la automatización en GitHub (mira el LEEME).</p>
   <button id="installBtn" hidden style="margin-top:12px">Instalar como app en este móvil</button>
 </details>
@@ -1229,7 +1231,7 @@ Object.assign(KITX, {
 /* ===== Figuras genéricas (lote 3): comedia de situación — personajes de primer plano, decorados domésticos y rótulos de pantalla ===== */
 Object.assign(KITX, {
   busto(c, x, y, r, t, o){ o = o || {}; const q = o.quien || 'yo', mood = o.mood || 'neutro';
-    const P = { yo: { hair: null, shirt: '#f08a24', skin: '#f2b890' }, ella: { hair: '#7a4a2a', shirt: '#8b4fd0', skin: '#f2b890', bob: true }, abuelo: { hair: '#d8d8dc', shirt: '#5b8fd0', skin: '#f0c9a8', bald: true }, abuela: { hair: '#dcdce0', shirt: '#e0708c', skin: '#f0c9a8', bob: true }, jefe: { hair: '#2a2a30', shirt: '#2f3a52', skin: '#e8b08a' }, amigo: { hair: '#3a2a20', shirt: '#2f9a58', skin: '#e0a47c' }, amiga: { hair: '#e0b040', shirt: '#2fa6a0', skin: '#f2b890', bob: true }, madre: { hair: '#5a3a2a', shirt: '#d8506a', skin: '#efb48a', bob: true } }[q] || { hair: null, shirt: '#f08a24', skin: '#f2b890' };
+    const P = { yo: { hair: '#9a6a3a', shirt: '#f08a24', skin: '#f2b890' }, ella: { hair: '#7a4a2a', shirt: '#8b4fd0', skin: '#f2b890', bob: true }, abuelo: { hair: '#d8d8dc', shirt: '#5b8fd0', skin: '#f0c9a8', bald: true }, abuela: { hair: '#dcdce0', shirt: '#e0708c', skin: '#f0c9a8', bob: true }, jefe: { hair: '#2a2a30', shirt: '#2f3a52', skin: '#e8b08a' }, amigo: { hair: '#3a2a20', shirt: '#2f9a58', skin: '#e0a47c' }, amiga: { hair: '#e0b040', shirt: '#2fa6a0', skin: '#f2b890', bob: true }, madre: { hair: '#5a3a2a', shirt: '#d8506a', skin: '#efb48a', bob: true } }[q] || { hair: null, shirt: '#f08a24', skin: '#f2b890' };
     const skin = o.skin || P.skin, shirt = o.shirt || P.shirt, hair = o.hair !== undefined ? o.hair : P.hair, look = o.look || 0, bob = o.bob != null ? o.bob : P.bob;
     const br = Math.sin(t * 1.3) * r * .012; c.save(); c.translate(x, y + br);
     /* torso */
@@ -1308,7 +1310,7 @@ Object.assign(KITX, {
   puerta(c, x, y, h, t, o){ o = o || {}; c.save(); c.translate(x, y); const w = h * .42; R(c, -w / 2 - w * .06, -h - w * .05, w * 1.12, h + w * .05, '#d8d2c4'); R(c, -w / 2, -h, w, h, lg(c, -w / 2, 0, w / 2, 0, [[0, '#a8683a'], [1, '#8a5226']]), 3); R(c, -w * .36, -h * .88, w * .72, h * .36, 'rgba(0,0,0,.12)', 3); R(c, -w * .36, -h * .42, w * .72, h * .36, 'rgba(0,0,0,.12)', 3); E(c, w * .3, -h * .5, w * .045, w * .045, '#e8c85a'); c.restore(); },
   whatsapp(c, x, y, w, t, o){ o = o || {}; const msgs = o.msgs || [{ txt: 'Hola', yo: false }, { txt: 'Ok', yo: true }]; c.save(); c.translate(x, y); const h = w * 1.55; R(c, -w / 2, -h / 2, w, h, '#101820', w * .09); R(c, -w / 2 + w * .03, -h / 2 + w * .03, w * .94, h - w * .06, '#e5ddd5', w * .07); R(c, -w / 2 + w * .03, -h / 2 + w * .03, w * .94, w * .15, '#0f7a6b', w * .07); E(c, -w * .36, -h / 2 + w * .11, w * .045, w * .045, '#cfe8e2'); c.fillStyle = '#fff'; c.font = `700 ${Math.round(w * .06)}px Poppins, sans-serif`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(o.nombre || 'Ella ❤', -w * .29, -h / 2 + w * .11);
     let yy = -h / 2 + w * .26; const n = Math.min(msgs.length, Math.floor(t / (o.cada || 1.2)) + 1); c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`;
-    for (let i = 0; i < n; i++) { const m = msgs[i], tw = Math.min(w * .72, c.measureText(m.txt).width + w * .12), bx = m.yo ? w / 2 - w * .05 - tw : -w / 2 + w * .05; R(c, bx, yy, tw, w * .13, m.yo ? '#d9fdd3' : '#fff', w * .035); c.fillStyle = '#1b1f23'; c.textAlign = 'left'; c.fillText(m.txt, bx + w * .05, yy + w * .065); if (m.yo) { c.fillStyle = '#4aa8e0'; c.font = `700 ${Math.round(w * .045)}px sans-serif`; c.textAlign = 'right'; c.fillText('✓✓', bx + tw - w * .02, yy + w * .105); c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`; } yy += w * .17; }
+    for (let i = 0; i < n; i++) { const m = msgs[i]; let fs = Math.round(w * .065); c.font = `600 ${fs}px Poppins, sans-serif`; while (fs > 14 && c.measureText(m.txt).width > w * .6) { fs--; c.font = `600 ${fs}px Poppins, sans-serif`; } const tw = Math.min(w * .72, c.measureText(m.txt).width + w * .12), bx = m.yo ? w / 2 - w * .05 - tw : -w / 2 + w * .05; R(c, bx, yy, tw, w * .13, m.yo ? '#d9fdd3' : '#fff', w * .035); c.fillStyle = '#1b1f23'; c.textAlign = 'left'; c.fillText(m.txt, bx + w * .05, yy + w * .065); if (m.yo) { c.fillStyle = '#4aa8e0'; c.font = `700 ${Math.round(w * .045)}px sans-serif`; c.textAlign = 'right'; c.fillText('✓✓', bx + tw - w * .02, yy + w * .105); c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`; } yy += w * .17; c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`; }
     if (n >= msgs.length && o.escribiendo) { R(c, -w / 2 + w * .05, yy, w * .22, w * .1, '#fff', w * .04); for (let i = 0; i < 3; i++) E(c, -w / 2 + w * .1 + i * w * .055, yy + w * .05 + Math.sin(t * 6 + i) * w * .012, w * .014, w * .014, '#8a929e'); } c.restore(); },
   torre(c, x, y, h, t, o){ c.save(); c.translate(x, y); const w = h * .22; Pg(c, [[-w * .28, 0], [w * .28, 0], [w * .18, -h * .62], [-w * .18, -h * .62]], lg(c, -w, 0, w, 0, [[0, '#8a8f98'], [.5, '#b9bec6'], [1, '#7c818a']])); Pg(c, [[-w * .7, -h * .62], [w * .7, -h * .62], [w * .55, -h * .78], [-w * .55, -h * .78]], '#d9c88a'); R(c, -w * .55, -h * .75, w * 1.1, h * .08, '#4a78a8', 3); R(c, -w * .1, -h * .94, w * .02, h * .16, '#8a8f98'); E(c, -w * .09, -h * .95, w * .04, w * .04, Math.sin(t * 6) > 0 ? '#ff3a3a' : '#8a2a2a');
     for (let i = 0; i < 3; i++) { const u = (t * .8 + i * .33) % 1; c.strokeStyle = `rgba(255,200,80,${.8 * (1 - u)})`; c.lineWidth = h * .01; c.beginPath(); c.arc(-w * .09, -h * .94, h * (.05 + u * .22), Math.PI * 1.15, Math.PI * 1.85); c.stroke(); } c.restore(); },
@@ -1322,23 +1324,23 @@ Object.assign(KITX, {
   etiquetaTiempo(c, texto, x, y, t, o){ c.save(); c.font = '800 34px Poppins, sans-serif'; const w = c.measureText(texto).width + 44; c.globalAlpha = Math.min(1, (t || 1) * 5); R(c, x - w / 2, y - 28, w, 56, '#0b0b0f', 10); c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(texto, x, y + 2); c.restore(); },
   escena(c, t, P){ P = P || {}; const set = P.set || 'salon', plano = P.plano || 'general', ps = (P.pers || (P.quien ? [{ quien: P.quien, mood: P.mood, look: P.look, arms: P.arms }] : [{ quien: 'yo' }])).slice(0, 3), n = ps.length, fy = H * .84;
     KITX.sala(c, set, t, { cuadro: set === 'salon' && plano === 'general', suelo: P.suelo });
-    const pj = (p, x, y, r, ab, extra) => KITX.busto(c, x, y, r, t, Object.assign({ quien: 'yo', mood: 'neutro', abajo: ab }, p, extra || {}));
+    const pj = (p, x, y, r, ab, extra) => { let dx = 0, dy = 0; const an = p && p.anim, k0 = Math.min(1, (t || 0) / .45); if (an === 'entra') dx = (1 - (1 - Math.pow(1 - k0, 3))) * W * .7 * (p.desde === 'der' ? 1 : -1); else if (an === 'tiembla') dx = Math.sin(t * 38) * r * .035; else if (an === 'salta') dy = -Math.abs(Math.sin(t * 7)) * r * .22; else if (an === 'asiente') dy = Math.sin(t * 5) * r * .05; KITX.busto(c, x + dx, y + dy, r, t, Object.assign({ quien: 'yo', mood: 'neutro', abajo: ab }, p, extra || {})); };
     if (plano === 'cerca') { const p = ps[0]; if (set === 'cocina') KITX.nevera(c, W * .9, fy, H * .62, t, { zumbido: false }); pj(p, W * .5, H * .44, 235, 900, { ph: p.ph || 0 }); }
-    else if (plano === 'objeto') { if (P.whatsapp) KITX.whatsapp(c, W * .5, H * .5, 540, t, P.whatsapp); }
-    else if (set === 'salon') { const w = W * 1.2, base = H * .86; if (P.ventana !== false) KITX.ventana(c, W * .84, H * .3, 150, 200, t, { noche: P.noche }); KITX.lampara(c, W * .08, H * .84, H * .4, t, {}); KITX.mesaCentro(c, W * .5, H * .97, W * .7, t); KITX.sofa(c, W * .5, base, w, t, {}); const xs = n === 1 ? [0] : n === 2 ? [-.2, .2] : [-.3, 0, .3]; ps.forEach((p, i) => pj(p, W * .5 + xs[i] * w, base - w * .42 * .6, w * .085, w * .2, { ph: i * 2 })); }
+    else if (plano === 'objeto') { if (P.whatsapp) KITX.whatsapp(c, W * .5, H * .44, 560, t, P.whatsapp); }
+    else if (set === 'salon') { const w = W * 1.2, base = H * .86; if (P.ventana !== false) KITX.ventana(c, W * .84, H * .3, 150, 200, t, { noche: P.noche }); KITX.lampara(c, W * .08, H * .84, H * .4, t, {}); KITX.mesaCentro(c, W * .5, H * .97, W * .7, t); KITX.sofa(c, W * .5, base, w, t, {}); const xs = n === 1 ? [0] : n === 2 ? [-.2, .2] : [-.3, 0, .3]; ps.forEach((p, i) => pj(p, W * .5 + xs[i] * w, base - w * .42 * .6 - w * .02, w * .11, w * .22, { ph: i * 2 })); }
     else if (set === 'dormitorio') { KITX.cama(c, W * .5, H * .97, W * .98, t, { ella: ps[0], yo: ps[1] || { quien: 'yo', mood: 'dormido' } }); }
-    else { const xs = n === 1 ? [.62] : n === 2 ? [.52, .78] : [.45, .65, .85], r = n === 3 ? 78 : 92; if (set === 'cocina') KITX.nevera(c, W * .15, fy + H * .02, H * .6, t, { zumbido: P.zumbido !== false }); if (set === 'bano') KITX.ducha(c, W * .75, fy + H * .02, H * .6, t, { temp: P.temp == null ? .5 : P.temp, vapor: true }); ps.forEach((p, i) => { const y = fy - r * 3.2; pj(p, W * xs[i], y, r, fy - y - r * 1.25 + 40, { ph: i * 2 }); }); }
+    else { const xs = n === 1 ? [.62] : n === 2 ? [.45, .8] : [.4, .64, .88], r = n === 3 ? 92 : n === 2 ? 108 : 122; if (set === 'cocina') KITX.nevera(c, W * .15, fy + H * .02, H * .6, t, { zumbido: P.zumbido === true }); if (set === 'bano') KITX.ducha(c, W * .75, fy + H * .02, H * .6, t, { temp: P.temp == null ? .5 : P.temp, vapor: true }); ps.forEach((p, i) => { const y = fy - r * 3.2; pj(p, W * xs[i], y, r, fy - y - r * 1.25 + 40, { ph: i * 2 }); }); }
     if (P.sello) KITX.sello(c, P.sello[0], W * .5, H * (P.sello[3] || .3), t, { col: P.sello[1], rot: P.sello[2] == null ? -.15 : P.sello[2] });
     if (P.noticia) KITX.noticia(c, P.noticia[0], P.noticia[1] || '', t, { y: H * .06 });
     if (P.hud) { const m = /^\s*(-?\d+)\s*(?:→|->)\s*(-?\d+)\s*(.*)$/.exec(String(P.hud[1])); if (m) { const a0 = +m[1], b0 = +m[2], k = Math.min(1, (t || 0) / 2.2); P.hud = [P.hud[0], Math.round(a0 + (b0 - a0) * k) + m[3], P.hud[2], P.hud[3] || 360]; } }
     if (P.hud) KITX.hud(c, W * .5, H * .13, P.hud[0], P.hud[1], t, { col: P.hud[2] || 'rojo', w: P.hud[3] || Math.min(460, Math.max(340, 130 + String(P.hud[1]).length * 20)) });
     if (P.etiqueta) KITX.etiquetaTiempo(c, P.etiqueta, W * .5, P.hud || P.noticia ? H * .24 : H * .1, t); },
   sala(c, kind, t, o){ o = o || {}; c.save(); const fy = H * (o.suelo || .78);
-    const wall = { salon: ['#2f63c8', '#25509f'], dormitorio: ['#3a8a9a', '#2c6e7c'], cocina: ['#f2e6c8', '#e0d1a8'], bano: ['#bfe3ee', '#9ccfdf'], oficina: ['#8a5fc8', '#6f4aa8'], bar: ['#6a3b22', '#4a2616'], ventanilla: ['#eceef2', '#d7dae2'], calle: ['#8fcdf4', '#d8effc'] }[kind] || ['#2f63c8', '#25509f'];
+    const wall = { salon: ['#2f63c8', '#25509f'], dormitorio: ['#3a8a9a', '#2c6e7c'], cocina: ['#f2e6c8', '#e0d1a8'], bano: ['#bfe3ee', '#9ccfdf'], oficina: ['#8a5fc8', '#6f4aa8'], bar: ['#6a3b22', '#4a2616'], ventanilla: ['#eceef2', '#d7dae2'], calle: ['#8fcdf4', '#d8effc'], pasillo: ['#e0d4bc', '#c9bb9e'], cuartoDani: ['#34465c', '#26364a'], cuartoMarta: ['#f0c8d8', '#e0a8c0'], portal: ['#c4beb0', '#a49e90'], terraza: ['#9fd4f2', '#dff1fb'] }[kind] || ['#2f63c8', '#25509f'];
     R(c, 0, 0, W, H, lg(c, 0, 0, 0, fy, [[0, wall[0]], [1, wall[1]]]));
-    const floor = { salon: ['#c8a374', '#a98558'], dormitorio: ['#b88c5a', '#9a7040'], cocina: ['#d8d8de', '#bcbcc6'], bano: ['#e8f2f6', '#c8dde6'], oficina: ['#b8b2c4', '#9a94aa'], bar: ['#3a2418', '#2a180e'], ventanilla: ['#e0e2e8', '#c4c7d0'], calle: ['#6a6e78', '#4a4e58'] }[kind] || ['#c8a374', '#a98558'];
+    const floor = { salon: ['#c8a374', '#a98558'], dormitorio: ['#b88c5a', '#9a7040'], cocina: ['#d8d8de', '#bcbcc6'], bano: ['#e8f2f6', '#c8dde6'], oficina: ['#b8b2c4', '#9a94aa'], bar: ['#3a2418', '#2a180e'], ventanilla: ['#e0e2e8', '#c4c7d0'], calle: ['#6a6e78', '#4a4e58'], pasillo: ['#b48a58', '#946c3c'], cuartoDani: ['#7a6a58', '#5e4e3c'], cuartoMarta: ['#c8a074', '#a8805a'], portal: ['#9a9588', '#7a7568'], terraza: ['#c0ad94', '#a08c72'] }[kind] || ['#c8a374', '#a98558'];
     R(c, 0, fy, W, H - fy, lg(c, 0, fy, 0, H, [[0, floor[0]], [1, floor[1]]])); R(c, 0, fy - 8, W, 14, shade(wall[1], -.2));
-    c.strokeStyle = 'rgba(0,0,0,.12)'; c.lineWidth = 2; if (kind === 'salon' || kind === 'dormitorio') { for (let i = 1; i < 7; i++) { c.beginPath(); c.moveTo(W / 2 + (i - 3.5) * 30, fy); c.lineTo(W / 2 + (i - 3.5) * 190, H); c.stroke(); } } else if (kind === 'cocina' || kind === 'bano') { for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(0, fy + i * 60); c.lineTo(W, fy + i * 60); c.stroke(); } for (let i = 0; i < 8; i++) { c.beginPath(); c.moveTo(i * 100, fy); c.lineTo(i * 100, H); c.stroke(); } }
+    c.strokeStyle = 'rgba(0,0,0,.12)'; c.lineWidth = 2; if (kind === 'salon' || kind === 'dormitorio' || kind === 'pasillo' || kind === 'cuartoDani' || kind === 'cuartoMarta') { for (let i = 1; i < 7; i++) { c.beginPath(); c.moveTo(W / 2 + (i - 3.5) * 30, fy); c.lineTo(W / 2 + (i - 3.5) * 190, H); c.stroke(); } } else if (kind === 'cocina' || kind === 'bano') { for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(0, fy + i * 60); c.lineTo(W, fy + i * 60); c.stroke(); } for (let i = 0; i < 8; i++) { c.beginPath(); c.moveTo(i * 100, fy); c.lineTo(i * 100, H); c.stroke(); } }
     if (kind === 'bano') { c.strokeStyle = 'rgba(80,140,170,.25)'; for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(i * 90, 0); c.lineTo(i * 90, fy); c.stroke(); } for (let j = 0; j < 12; j++) { c.beginPath(); c.moveTo(0, j * 90); c.lineTo(W, j * 90); c.stroke(); } }
     if (kind === 'cocina') { R(c, 0, H * .06, W, H * .2, 'rgba(0,0,0,.0)'); for (let i = 0; i < 5; i++) { R(c, W * (.02 + i * .196), H * .05, W * .18, H * .2, lg(c, 0, H * .05, 0, H * .25, [[0, '#d2a56e'], [1, '#b8864e']]), 8); R(c, W * (.02 + i * .196) + W * .13, H * .2, 8, H * .035, '#6a4a2a', 3); } R(c, 0, H * .25, W, 10, 'rgba(0,0,0,.18)'); c.strokeStyle = 'rgba(160,140,100,.35)'; c.lineWidth = 2; for (let i = 0; i < 12; i++) { c.beginPath(); c.moveTo(i * 64, H * .26); c.lineTo(i * 64, fy - H * .17); c.stroke(); } for (let j = 0; j < 6; j++) { c.beginPath(); c.moveTo(0, H * .26 + j * 64); c.lineTo(W, H * .26 + j * 64); c.stroke(); }
       R(c, 0, fy - H * .17, W, H * .17, lg(c, 0, fy - H * .17, 0, fy, [[0, '#b8864e'], [1, '#98683a']])); R(c, 0, fy - H * .185, W, 18, '#ecedf2', 4); for (let i = 0; i < 5; i++) R(c, W * (.02 + i * .196), fy - H * .15, W * .18, H * .14, 'rgba(0,0,0,.1)', 6);
@@ -1348,6 +1350,21 @@ Object.assign(KITX, {
     if (kind === 'oficina') { R(c, W * .05, H * .56, W * .9, 22, '#9a6a3a'); R(c, W * .1, H * .42, W * .3, H * .14, '#2a2e38', 8); R(c, W * .12, H * .435, W * .26, H * .11, '#4a90d8', 4); }
     if (kind === 'bar') { R(c, 0, H * .55, W, H * .08, '#8a5524'); R(c, 0, H * .63, W, H * .2, '#4a2a14'); for (let i = 0; i < 6; i++) { R(c, W * (.08 + i * .15), H * .4, 40, H * .15, ['#2f7a3a', '#8a3a2a', '#c8a02a', '#2a5a9a'][i % 4], 8); R(c, W * (.08 + i * .15) + 12, H * .35, 16, H * .06, '#d8d8de'); } }
     if (kind === 'calle') { for (let i = 0; i < 5; i++) { const bw = W * .22, bx = i * bw * .95, bh = H * (.3 + hh(i) * .25); R(c, bx, fy - bh, bw, bh, ['#c9b79a', '#a8b4c4', '#d8c0a0', '#98a8b8', '#c4a890'][i], 4); for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) R(c, bx + 14 + q * (bw / 3.2), fy - bh + 20 + r * (bh / 5.3), bw / 6, bh / 10, hh(i * 17 + r * 3 + q) > .5 ? '#ffe58a' : '#3a4a60', 3); } R(c, 0, fy + H * .1, W, 8, '#f4f4f8'); }
+    if (kind === 'pasillo') { for (let i = 0; i < 2; i++) { const dx = W * (.06 + i * .3); R(c, dx, H * .2, W * .22, fy - H * .2, lg(c, dx, 0, dx + W * .22, 0, [[0, '#8a5a2e'], [1, '#6e4520']]), 6); R(c, dx + W * .03, H * .24, W * .16, fy - H * .3, 'rgba(0,0,0,.1)', 4); E(c, dx + W * .19, fy - H * .34, 9, 9, '#e8d28a'); }
+      R(c, W * .66, H * .16, W * .31, fy - H * .16, lg(c, W * .66, 0, W * .97, 0, [[0, '#a8a090'], [1, '#8a8274']]), 6); R(c, W * .7, H * .2, W * .23, fy - H * .26, 'rgba(0,0,0,.12)', 4); E(c, W * .815, H * .3, 14, 14, '#2a2c34'); E(c, W * .815, H * .3, 6, 6, '#c8d4e0'); R(c, W * .9, fy - H * .34, 12, 28, '#e8d28a', 4); R(c, W * .7, fy - H * .09, W * .24, 12, '#c8c0b0', 3);
+      R(c, W * .02, H * .06, W * .3, 12, '#6a4a2a', 4); [.06, .14, .22].forEach((u, k) => { R(c, W * u, H * .06, 8, H * .05, '#3a3a3a'); R(c, W * u - 18, H * .1, 44, H * .09, ['#3a5a8a', '#8a3a3a', '#4a6a4a'][k], 8); });
+      R(c, W * .08, fy - H * .06, W * .3, 16, '#4a3a2a', 3); E(c, W * .14, fy - H * .07, 28, 12, '#e8e8ea'); E(c, W * .24, fy - H * .07, 28, 12, '#2a2a30'); E(c, W * .33, fy - H * .07, 28, 12, '#c84a3a'); }
+    if (kind === 'cuartoDani') { R(c, W * .06, H * .14, W * .34, H * .22, '#c8ccd6', 6); R(c, W * .075, H * .155, W * .31, H * .19, '#4a6a9a', 4); c.fillStyle = '#fff'; c.font = '900 44px Poppins, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('NO PAIN', W * .23, H * .25); R(c, W * .56, H * .12, W * .34, H * .5, 'rgba(180,210,240,.35)', 8); c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 4; c.strokeRect(W * .56, H * .12, W * .34, H * .5);
+      R(c, W * .05, fy - H * .09, W * .22, H * .07, '#2a2a30', 5); R(c, W * .02, fy - H * .13, W * .04, H * .15, '#3a3a40', 4); R(c, W * .26, fy - H * .13, W * .04, H * .15, '#3a3a40', 4); R(c, W * .4, H * .46, W * .14, H * .09, '#e8e8ee', 8); R(c, W * .405, H * .49, W * .13, H * .03, '#e0453f'); c.fillStyle = '#14161c'; c.font = '800 26px Poppins, sans-serif'; c.fillText('PROT', W * .47, H * .51); R(c, W * .36, H * .545, W * .22, 10, '#6a4a2a', 3); E(c, W * .85, fy - H * .03, 38, 12, '#1a1a20'); E(c, W * .75, fy - H * .03, 38, 12, '#1a1a20'); R(c, W * .74, fy - H * .045, W * .2, 8, '#8a8f9a', 3); }
+    if (kind === 'cuartoMarta') { R(c, W * .06, H * .12, W * .36, H * .24, '#c8a074', 6); R(c, W * .08, H * .14, W * .32, H * .2, '#f6efe0', 4); ['#ffd23a', '#7cc4f0', '#f08a9a', '#9ae0a0', '#f0a060', '#c0a0e8'].forEach((cl, i) => R(c, W * (.1 + (i % 3) * .1), H * (.16 + Math.floor(i / 3) * .08), W * .08, H * .06, cl, 3));
+      c.strokeStyle = '#6a4a3a'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, H * .05); c.quadraticCurveTo(W * .25, H * .12, W * .5, H * .06); c.quadraticCurveTo(W * .75, H * .0, W, H * .08); c.stroke(); for (let i = 0; i < 12; i++) { const u = i / 11; E(c, W * u, H * (.06 + Math.sin(u * 6) * .02) + 8, 7, 7, ['#ffe58a', '#ffb0c8'][i % 2]); }
+      R(c, W * .54, H * .46, W * .4, 18, '#8a5a2e', 4); R(c, W * .56, H * .46, 14, fy - H * .46, '#6a4a2a'); R(c, W * .9, H * .46, 14, fy - H * .46, '#6a4a2a'); R(c, W * .62, H * .4, W * .2, H * .06, '#2a2e38', 4); R(c, W * .66, H * .46 - 4, W * .12, 10, '#9aa0ac', 3); R(c, W * .86, H * .4, 34, H * .06, '#fff', 4); [.16, .52].forEach(u => { R(c, W * u, fy - H * .12, W * .08, H * .12, '#c8704a', 6); for (let i = 0; i < 5; i++) E(c, W * (u + .04) + Math.sin(i * 2.4 + t) * 26, fy - H * .16 - i * 22, 26, 14, '#3f9a40'); }); }
+    if (kind === 'dormitorio') { R(c, W * .04, H * .1, W * .3, fy - H * .1, lg(c, W * .04, 0, W * .34, 0, [[0, '#8a6038'], [1, '#6e4a28']]), 8); R(c, W * .185, H * .12, 6, fy - H * .14, 'rgba(0,0,0,.25)'); E(c, W * .16, H * .45, 7, 7, '#e8d28a'); E(c, W * .21, H * .45, 7, 7, '#e8d28a'); R(c, W * .54, H * .14, W * .36, H * .3, '#1c2a4a', 8); c.strokeStyle = '#e8e2d4'; c.lineWidth = 10; c.strokeRect(W * .54, H * .14, W * .36, H * .3); c.beginPath(); c.moveTo(W * .72, H * .14); c.lineTo(W * .72, H * .44); c.stroke(); E(c, W * .8, H * .22, 18, 18, '#f6f0c8'); for (let i = 0; i < 6; i++) E(c, W * (.58 + hh(i) * .28), H * (.17 + hh(i + 7) * .22), 3, 3, '#fff'); R(c, W * .42, H * .08, W * .08, H * .1, '#e0453f', 4); }
+    if (kind === 'portal') { R(c, W * .04, H * .22, W * .5, H * .3, '#7a7e88', 6); for (let r = 0; r < 3; r++) for (let q = 0; q < 4; q++) { const bx = W * (.06 + q * .12), by = H * (.24 + r * .09); R(c, bx, by, W * .1, H * .07, '#a8acb8', 3); R(c, bx + W * .02, by + H * .03, W * .06, 6, '#2a2c34'); R(c, bx + W * .03, by + 8, W * .04, 5, '#f6f3ea'); }
+      Pg(c, [[W * .62, fy], [W * 1.02, fy - H * .12], [W * 1.02, fy - H * .04], [W * .62, fy + H * .08]], '#aaa498'); for (let i = 0; i < 5; i++) Pg(c, [[W * (.62 + i * .08), fy - i * H * .024], [W * (.7 + i * .08), fy - i * H * .024 - H * .014], [W * (.7 + i * .08), fy - i * H * .024 - H * .004], [W * (.62 + i * .08), fy - i * H * .024 + H * .01]], '#c8c2b4'); R(c, W * .86, H * .16, 8, H * .3, '#4a4a52'); E(c, W * .5, H * .1, 56, 18, '#f2e6a0'); R(c, W * .498, H * .04, 6, H * .05, '#6a6e78'); }
+    if (kind === 'terraza') { for (let i = 0; i < 4; i++) { const bw = W * .3, bx = i * bw * .85 - 20, bh = H * (.28 + hh(i + 3) * .2); R(c, bx, fy - bh, bw, bh, ['#d8c0a0', '#b8c4d4', '#e0c8b0', '#a8b8c8'][i], 4); for (let r = 0; r < 4; r++) for (let q = 0; q < 2; q++) R(c, bx + 18 + q * (bw / 2.2), fy - bh + 22 + r * (bh / 4.6), bw / 4, bh / 8, 'rgba(90,120,160,.5)', 3); }
+      c.strokeStyle = '#8a8a92'; c.lineWidth = 8; c.beginPath(); c.moveTo(0, fy - H * .16); c.lineTo(W, fy - H * .16); c.stroke(); for (let i = 0; i < 14; i++) R(c, i * W / 13 - 3, fy - H * .16, 6, H * .16, '#8a8a92');
+      c.strokeStyle = '#3a3a40'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, H * .1); c.quadraticCurveTo(W * .5, H * .17, W, H * .1); c.stroke(); ['#f6f3ea', '#e0453f', '#4a78c8', '#f6f3ea', '#ffd23a', '#3f9a58'].forEach((cl, i) => { const u = (i + .5) / 6, yy = H * .1 + Math.sin(u * Math.PI) * H * .06 + Math.sin(t * 2 + i) * 4; R(c, W * u - 36, yy, 72, 120, cl, 8); R(c, W * u - 3, yy - 6, 6, 10, '#6a4a2a'); }); }
     if (kind === 'salon' && o.cuadro !== false) KITX.cuadro(c, W / 2, H * .2, W * .36, t); c.restore(); }
 });
 
@@ -1722,6 +1739,7 @@ const slots = (store.get('slots', null) || [{},{},{}]).map(s => ({ topic: s.topi
 const doneMap = store.get('done', {});
 let aborter = null, current = null, running = false;
 const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: s.own, script: s.script })));
+const DAILY = 1; /* vídeos al día: 1 (capítulo de Piso 3ºB a las 21:00) */
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
 const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, quality: ($('#quality') || {}).value || '720', music: $('#musicOn').checked, sfx: ($('#sfxOn') || {}).checked !== false, tacos: ($('#tacos') || {}).checked !== false, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, stVoice: ($('#stVoice') || {}).value || 'M1', humor: ($('#humor') || {}).value || 'auto' });
@@ -2022,40 +2040,47 @@ PERSONAJES FIJOS (siempre los mismos, con su carácter):
 - «madre» = mi MADRE cuando visita.
 («ella», «abuelo» existen pero no son del piso.)
 
-DECORADOS FIJOS (campo "set"): salon, cocina, dormitorio, bano, calle (portal/escalera), oficina, bar. En esta serie usa sobre todo salon, cocina, bano y dormitorio.
+LA CASA ENTERA (campo "set"; todo ocurre aquí, usa TODAS las estancias y cambia de una a otra a menudo): salon (sofá, tele, mesa), cocina (nevera, encimera, fregadero), bano (ducha), dormitorio (mi cuarto, la cama), pasillo (puertas de los cuartos, la puerta de entrada, zapatos, abrigos), cuartoDani (cuarto de Dani: pesas, banco, bote de proteína, póster), cuartoMarta (cuarto de Marta: plantas, escritorio, luces, corcho de notas), portal (buzones y escalera del edificio; para vecinos, casero y repartidor), terraza (tendedero con ropa y vistas a los edificios). Para el casero, la vecina y la madre usa pasillo, portal o salon.
 
 CADA ESCENA es un objeto con estos campos:
-{"texto":"frase que se dice","plano":{...},"camara":"zoomin"}
+{"texto":"frase que se dice","habla":"amigo","plano":{...},"camara":"zoomin"} ("habla" solo si en el texto hay algo entre «…»)
 y "plano" lleva SOLO estos campos posibles:
 - "set": uno de los decorados de arriba.
 - "plano": "general" (se ve la habitación con 1 a 3 personajes), "cerca" (primer plano enorme de UN personaje: úsalo para las reacciones y los remates) u "objeto" (solo el móvil con un chat de WhatsApp o un objeto).
-- "pers": lista de 1 a 3 personajes {"quien":"yo|amigo|amiga|jefe|abuela|madre","mood":"neutro|serio|enfado|duda|asombro|resignado|sonrisa|triste|hablar|dormido|panico|cansado|risa","look":-1 a 1 (hacia dónde mira: -1 izquierda, 1 derecha),"arms":"cruzados|reposo|arriba|barriga|cadera","sudor":true,"rubor":true}. El que habla en esa escena lleva "hablar".
+- "pers": lista de 1 a 3 personajes {"quien":"yo|amigo|amiga|jefe|abuela|madre","anim":"entra|tiembla|salta|asiente" (opcional: «entra» = aparece de golpe por un lado, con \"desde\":\"der\" si entra por la derecha; «tiembla» = rabia o frío; «salta» = sorpresa; «asiente» = se hace el tonto),"mood":"neutro|serio|enfado|duda|asombro|resignado|sonrisa|triste|hablar|dormido|panico|cansado|risa","look":-1 a 1 (hacia dónde mira: -1 izquierda, 1 derecha),"arms":"cruzados|reposo|arriba|barriga|cadera","sudor":true,"rubor":true}. El que habla en esa escena lleva "hablar".
 - "hud": ["etiqueta corta","valor corto","rojo|amarillo|verde|azul"] = contador tipo videojuego (ej: ["Yogures que me quedan","0","rojo"]). El valor puede animarse con «A→B» (ej: ["Memoria","8→0 %","amarillo"], ["Días acusando","1→3","amarillo"]).
 - "noticia": ["TITULAR EN MAYÚSCULAS","subtítulo"] = banner de última hora.
 - "sello": ["TEXTO CORTO","#c9182c",-0.15,0.3] = sello grande (texto, color, giro, altura 0.2-0.7). Ej: «CULPABLE», «NO TOCAR».
 - "etiqueta": texto corto de tiempo o lugar («Anoche 03:12», «Dos minutos después»).
 - "whatsapp": {"nombre":"Piso 3ºB","msgs":[{"txt":"…","yo":false},{"txt":"…","yo":true}],"escribiendo":true} solo con plano "objeto" (máx. 6 mensajes, textos cortos; yo:true = mensaje mío).
 
+VOCES (cada personaje tiene su propia voz en el vídeo): el narrador (yo) lee todo el texto de la escena MENOS lo que va entre comillas angulares «así», que lo lee el personaje indicado en el campo "habla" de esa escena ("amigo", "amiga", "jefe", "abuela" o "madre"). Por eso: (1) los diálogos de los demás personajes van SIEMPRE entre «…» con comillas angulares y el campo "habla" con quien los dice; (2) una escena solo puede tener UN personaje hablando (si hablan dos, sepáralas en dos escenas); (3) mete mucho diálogo: al menos la mitad de las escenas llevan una frase dicha por Dani, Marta, el casero, la vecina o mi madre, con el tono de cada uno; (4) lo que diga el narrador dentro de «…» lo lee su propia voz, no pongas "habla" para eso; (5) en la escena donde habla un personaje, muéstralo con su "mood":"hablar" en el plano.
+
 REGLAS DE DIRECCIÓN:
-- 14 a 18 escenas, vídeo de 35 a 55 segundos. Cada escena 1 o 2 frases de 3 a 12 palabras. Estilo de la cuenta: segunda persona o primera persona, frases entrecortadas, golpes secos.
+- DURACIÓN OBLIGATORIA: el vídeo dura MÍNIMO 90 segundos (objetivo 100 a 120). Eso son de 28 a 34 escenas (cada una dura unos 3 a 4 segundos). Un vídeo con menos de 26 escenas se rechaza. Cada escena 1 o 2 frases de 3 a 12 palabras.
+- Estructura en 4 actos: (1) gancho y problema, escenas 1-5; (2) investigación o escalada con 3 o 4 giros cada vez más incómodos, escenas 6-20; (3) el giro que lo cambia todo, escenas 21-27; (4) remate seco y vuelta al gancho, últimas 3 escenas. Cada acto con situaciones DISTINTAS (no repitas el mismo chiste). Estilo de la cuenta: segunda persona o primera persona, frases entrecortadas, golpes secos.
 - Alterna plano general y plano «cerca» (reacciones enormes). Máximo 2 escenas seguidas con el mismo set y el mismo plano. Cambia "mood" en cada escena según lo que se cuenta.
 - Mete 1 o 2 «hud», 1 «noticia» o 1 «sello» y 1 o 2 «etiqueta» en todo el vídeo (no en todas las escenas).
 - El humor viene de lo reconocible: frases que dice la gente DE VERDAD en un piso, coloquiales, con algún taco natural, dichas sin gracia por un narrador resignado. Final con giro seco que conecta con el primer gancho.
 - GANCHO: la escena 1 mete al espectador en el problema sin presentar nada, 6 a 14 palabras.
 - Pon entre asteriscos *así* UNA palabra clave por frase para resaltarla.
 - Sin moraleja ni explicar el chiste.`;
+const PISO_TACOS = `LENGUAJE (IMPORTANTE, es parte del humor): aquí se habla como habla gente de 22 años de verdad en un piso compartido: con PALABROTAS de andar por casa, dichas como reacción, con resignación y sin gritar. Tiene que haber una palabrota al menos cada dos escenas a partir de la escena 3, y los remates y las reacciones fuertes llevan una. Vocabulario: joder, coño, hostia, mierda, «me cago en la hostia», «me cago en la puta», «me cago en todo», «me cago en la leche», «qué puta manía», «qué puto asco», «vaya putada», «la hostia», «de puta madre», «hostia puta», «la madre que me parió», «joder, qué asco». Ejemplos de tono: «Joder, mi yogur.», «Me cago en la puta, la luz otra vez.», «Hostia, Dani, otra vez no.», «Coño, qué frío hace en este piso.», «Mierda, se me ha quemado.». Son exclamaciones y reacciones ante lo que pasa, NO insultos a las personas: nada de insultar a los compañeros, ni a colectivos, razas, religión, orientación, discapacidad ni personas reales. Las escenas 1 y 2 van sin palabrotas (los primeros 7 segundos limpios); sin palabrotas en el título, la descripción ni los hashtags. Escribe la palabra tal cual en el texto narrado para que se lea con naturalidad.`;
 function pisoPrompt(topic){
   return `Eres guionista de una serie de comedia de vídeos cortos verticales llamada «Piso 3ºB» (tres compañeros de piso: yo, Dani y Marta). Escribe el capítulo con este tema: «${topic}»
 
 ${PISO_BLOCK}
-${TACOS_BLOCK}
+${PISO_TACOS}
 
 FORMATO DE ENTREGA (OBLIGATORIO): responde SOLO con UN bloque de código (\`\`\`json … \`\`\`) que contenga un único objeto JSON válido, sin comentarios, sin texto fuera y sin más bloques de código. NO escribas código de escenas ni «### ESCENA». Forma exacta:
-{"titulo":"","descripcion":"","hashtags":["pisocompartido","humor"],"musica":"alegre","concepto":"","protagonista":null,"escenas":[{"texto":"","plano":{"set":"cocina","plano":"general","pers":[{"quien":"yo","mood":"asombro","look":-1}]},"camara":"zoomin"}]}
-Entrega TODAS las escenas de una vez, sin pararte, sin preguntar y sin resumir.`;
+{"titulo":"","descripcion":"","hashtags":["pisocompartido","humor"],"musica":"alegre","concepto":"","protagonista":null,"escenas":[{"texto":"","habla":"","plano":{"set":"cocina","plano":"general","pers":[{"quien":"yo","mood":"asombro","look":-1}]},"camara":"zoomin"}]}
+Recuerda: mínimo 28 escenas (90 s). Entrega TODAS las escenas de una vez, sin pararte, sin preguntar y sin resumir.`;
 }
 function masterPrompt(i, S, mode){
-  const sl = slots[i], topic = (sl.topic || '').trim() || 'TEMA LIBRE: elige tú un tema sorprendente de ciencia, tecnología o curiosidades';
+  const sl = slots[i]; let topic = (sl.topic || '').trim();
+  if (!topic) topic = PISO_TOPICS[Math.floor(Math.random() * PISO_TOPICS.length)];
+  else if (!/^\s*PISO\b/i.test(topic)) topic = 'PISO 3ºB: ' + topic.replace(/^\s*(HISTORIA|POV|REGLAS|DOCUMENTAL|CRONOLOG[ÍI]A|CUENTAS)[^:]*:\s*/i, '');
+  sl.topic = topic;
   const dir = pickDirection(topic, store.get('sigs', []), comediaOn(S, topic) || /^\s*PISO\b/i.test(topic)); pendingDir[i] = dir;
   if (/^\s*PISO\b/i.test(topic)) return pisoPrompt(topic);
   const base = scriptPrompt(topic, S, '', null, dir).replace(/Responde SOLO con un objeto JSON válido con esta forma:[\s\S]*$/, '');
@@ -2118,6 +2143,7 @@ function importPackage(text, i){
   if (keep) script.escenas.forEach((e, k) => { if ((e.tipo || 'normal') === 'normal' && old.escenas[k].codigo) { e.codigo = old.escenas[k].codigo; ok++; } });
   script.programadas = ok; script.conPlantilla = at < 0 && !keep ? script.escenas.filter(e => (e.tipo || 'normal') === 'normal').length - ok : script.escenas.filter(e => (e.tipo || 'normal') === 'normal').length - ok; script.sinFuentes = true;
   if (!sl.topic) sl.topic = script.titulo;
+  { const dur = script.escenas.reduce((a, e) => a + estSceneDur(e), 0); script.durEst = dur; if (dur < 90) errs.push(`AVISO: el vídeo dura unos ${Math.round(dur)} s y tiene que durar mínimo 90 s. Pídele a ChatGPT más escenas (28 o más) con: «Faltan escenas: el vídeo debe durar mínimo 90 s. Entrégalo de nuevo con 30 escenas.»`); }
   sl.script = script; sl.err = ''; persist();
   return { ok, errs, total: script.escenas.length };
 }
@@ -2156,14 +2182,14 @@ function fixUno(t){
     return pre + (prevw || '') + (fem ? 'una' : 'un') + sp + next;
   });
 }
-const PISO_SETS = ['salon','cocina','dormitorio','bano','oficina','bar','ventanilla','calle'], PISO_QUIEN = ['yo','ella','abuelo','abuela','jefe','amigo','amiga','madre'], PISO_MOOD = ['neutro','serio','enfado','duda','asombro','resignado','sonrisa','triste','hablar','dormido','panico','cansado','risa'], PISO_ARMS = ['cruzados','reposo','arriba','barriga','cadera'];
+const PISO_SETS = ['salon','cocina','dormitorio','bano','pasillo','cuartoDani','cuartoMarta','portal','terraza','oficina','bar','ventanilla','calle'], PISO_QUIEN = ['yo','ella','abuelo','abuela','jefe','amigo','amiga','madre'], PISO_MOOD = ['neutro','serio','enfado','duda','asombro','resignado','sonrisa','triste','hablar','dormido','panico','cansado','risa'], PISO_ARMS = ['cruzados','reposo','arriba','barriga','cadera'];
 const PISO_NOMBRES = { yo: 'yo', dani: 'amigo', marta: 'amiga', madre: 'madre', casero: 'jefe', vecino: 'abuelo', vecina: 'abuela' };
 function sanitizePlano(p){
   if (!p || typeof p !== 'object') return null;
   const T = (x, n) => String(x == null ? '' : x).slice(0, n), o = {};
   o.set = PISO_SETS.includes(p.set) ? p.set : 'salon'; o.plano = ['general','cerca','objeto'].includes(p.plano) ? p.plano : 'general';
   const raw = Array.isArray(p.pers) ? p.pers : p.quien ? [p] : [];
-  o.pers = raw.slice(0, 3).map(q => { q = q || {}; const k = String(q.quien || 'yo').toLowerCase(), quien = PISO_QUIEN.includes(k) ? k : (PISO_NOMBRES[k] || 'yo'); const r = { quien, mood: PISO_MOOD.includes(q.mood) ? q.mood : 'neutro' }; if (q.look != null) r.look = Math.round(Math.max(-1, Math.min(1, +q.look || 0)) * 100) / 100; if (PISO_ARMS.includes(q.arms)) r.arms = q.arms; if (q.sudor) r.sudor = true; if (q.rubor) r.rubor = true; return r; });
+  o.pers = raw.slice(0, 3).map(q => { q = q || {}; const k = String(q.quien || 'yo').toLowerCase(), quien = PISO_QUIEN.includes(k) ? k : (PISO_NOMBRES[k] || 'yo'); const r = { quien, mood: PISO_MOOD.includes(q.mood) ? q.mood : 'neutro' }; if (q.look != null) r.look = Math.round(Math.max(-1, Math.min(1, +q.look || 0)) * 100) / 100; if (PISO_ARMS.includes(q.arms)) r.arms = q.arms; if (['entra','tiembla','salta','asiente'].includes(q.anim)) r.anim = q.anim; if (q.desde === 'der') r.desde = 'der'; if (q.sudor) r.sudor = true; if (q.rubor) r.rubor = true; return r; });
   if (!o.pers.length && o.plano !== 'objeto') o.pers = [{ quien: 'yo', mood: 'neutro' }];
   if (Array.isArray(p.hud) && p.hud.length >= 2) { o.hud = [T(p.hud[0], 22), T(p.hud[1], 18), ['rojo','amarillo','verde','azul'].includes(p.hud[2]) ? p.hud[2] : 'rojo']; if (+p.hud[3] >= 300 && +p.hud[3] <= 640) o.hud.push(+p.hud[3]); }
   if (Array.isArray(p.noticia) && p.noticia[0]) o.noticia = [T(p.noticia[0], 70), T(p.noticia[1], 70)];
@@ -2182,6 +2208,7 @@ function sanitizeScript(raw, topic, dir){
   const scenes = raw.escenas.slice(0, 40).map((e, i) => {
     const texto = fixUno(String(e.texto || '').trim()); if (!texto) return null;
     const sc = { texto, fondo: BG[e.fondo] ? e.fondo : guessBg(texto), tono: VALID_TONO.includes(e.tono) ? e.tono : 'dia', camara: VALID_CAM.includes(e.camara) ? e.camara : VALID_CAM[i % 5], efectos: (Array.isArray(e.efectos) ? e.efectos : []).filter(x => VALID_FX.includes(x)).slice(0,3), tipo: VALID_TIPO.includes(e.tipo) ? e.tipo : 'normal', dato: e.dato && typeof e.dato === 'object' ? e.dato : null };
+    if (PISO_QUIEN.includes(e.habla) && e.habla !== 'yo') sc.habla = e.habla;
     { const pl = sanitizePlano(e.plano); if (pl && (e.tipo || 'normal') === 'normal') { sc.plano = pl; sc.codigo = planoCode(pl); } }
     if (e.visual) sc.visual = String(e.visual).slice(0, 500);
     if (e.rotulo) sc.rotulo = String(e.rotulo).slice(0, 40);
@@ -2235,7 +2262,7 @@ async function prepare(script, S, progress){
     const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
     const clean = e.texto.replace(/\s+/g,' ').trim();
     let words, dur, audio = null; nw += clean.split(' ').filter(Boolean).length;
-    if (S.voice) { progress && progress(`Voz: escena ${i + 1}/${script.escenas.length}`, i / script.escenas.length); audio = await Voice.speak(clean, S, m => progress && progress(m, i / script.escenas.length)); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
+    if (S.voice) { progress && progress(`Voz: escena ${i + 1}/${script.escenas.length}`, i / script.escenas.length); audio = await Voice.speakCast(clean, S, m => progress && progress(m, i / script.escenas.length), e.habla); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
     else {
       const toks = clean.split(' '), tot = toks.reduce((a, w) => a + w.length + 2, 0), span = Math.max(2.4, toks.length / 2.6 + .5); let acc = .15;
       words = toks.map(w => { const d = (w.length + 2) / tot * (span - .4); const o = { w: w.replace(/[*_]/g,''), s: acc, e: acc + d, hi: false }; acc += d; return o; }); dur = span;
@@ -2385,7 +2412,7 @@ function renderSlot(i){
 }
 function paintStatus(i){ const p = document.querySelector(`[data-st="${i}"]`); if (p) p.textContent = slots[i].busy; const b = document.querySelector(`[data-bar="${i}"]`); if (b) b.style.width = slots[i].pct + '%'; if (i === 0) { const q = document.getElementById('simStatus'); if (q) q.textContent = slots[0].busy; } }
 function refreshUI(){
-  const d = doneToday().filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/3`; $('#counter').classList.toggle('ok', d >= 3);
+  const d = doneToday().slice(0, DAILY).filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/${DAILY}`; $('#counter').classList.toggle('ok', d >= DAILY);
   [0,1,2].forEach(renderSlot); renderSimple(); $('#allBtn').disabled = running; $('#stopBtn').hidden = !running && !current;
 }
 function toMarkdownScript(s){ return s.escenas.map(e => e.texto.replace(/\*/g,'')).join('\n'); }
@@ -2475,7 +2502,7 @@ async function runSlotAuto(i){
 let autoBusy = false;
 async function autoTick(){
   if (autoBusy || running || !$('#auto').checked) return; const now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
-  for (let i = 0; i < 3; i++) { const v = ($('#t' + i).value || '').split(':'); if (v.length < 2) continue; if (cur >= (+v[0]) * 60 + (+v[1]) && cur < (+v[0]) * 60 + (+v[1]) + 180 && !doneToday()[i] && !slots[i].url && !slots[i].err) { autoBusy = true; try { await runSlotAuto(i); } finally { autoBusy = false; } return; } }
+  for (let i = 0; i < DAILY; i++) { const v = ($('#t' + i).value || '').split(':'); if (v.length < 2) continue; if (cur >= (+v[0]) * 60 + (+v[1]) && cur < (+v[0]) * 60 + (+v[1]) + 180 && !doneToday()[i] && !slots[i].url && !slots[i].err) { autoBusy = true; try { await runSlotAuto(i); } finally { autoBusy = false; } return; } }
 }
 setInterval(autoTick, 20000);
 $('#auto').addEventListener('change', async () => { if ($('#auto').checked) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} keepAwake(true); msg('Piloto automático activado: deja esta página abierta.'); autoTick(); } });
@@ -2558,7 +2585,7 @@ const TOPIC_BANK = (() => {
 })();
 const COMEDY_TOPICS = ['HISTORIA (yo): abro la ducha, el agua sale para asar pollos y mi novia dice que está templada','HISTORIA (yo): mi novia y yo llevamos cuarenta minutos decidiendo qué cenar y ninguno quiere decidir','HISTORIA (yo): mi novia pone el aire acondicionado a 24 grados y se tapa con una manta','HISTORIA (yo): mi novia me pide que le diga algo bonito y me quedo en blanco','HISTORIA (yo): me dice «no pasa nada» y pasa todo','HISTORIA (yo): voy con mi madre a un recado rápido y vuelvo cuatro horas después','HISTORIA (yo): mi abuela me sirve una ración pequeña y es para un regimiento','HISTORIA (yo): llego a casa de mis padres y el termostato es territorio ocupado','HISTORIA (yo): monto un mueble sin instrucciones con mi pareja y sobran seis tornillos','HISTORIA (yo): le digo a mi pareja que llego en cinco minutos y llego en cuarenta','HISTORIA (yo): mi pareja se ríe mirando el móvil y yo no sé de qué','HISTORIA (yo): mi madre me pregunta si he comido mientras tengo la boca llena','HISTORIA (yo): me quedo solo en casa de mi novia con su gato y el gato me juzga','HISTORIA (yo): le digo a mi novia que no hace falta que me regale nada por mi cumpleaños','HISTORIA (tú): tu novia te dice «no pasa nada» y llevas diez minutos mirando la pared','HISTORIA (tú): son las tres de la mañana y tu pareja te pregunta en qué piensas','HISTORIA (tú): ella dice «me da igual dónde cenemos» y rechaza todos tus planes','HISTORIA (tú): tu madre te llama y solo quería decirte que se le ha ido el WhatsApp','HISTORIA (tú): te dicen «luego hablamos» y llevas toda la tarde pensando en el luego','HISTORIA (tú): dices «quita, que lo hago yo» y ahora lo haces tú todo para siempre','HISTORIA (tú): tu pareja organiza un plan tranquilo con doce personas','HISTORIA (tú): son las diez y media de un domingo y ya empiezas a notar el lunes','HISTORIA (tú): el edredón es de los dos pero esta noche solo lo tiene uno','HISTORIA (tú): tu abuela te da dinero «para que te compres algo» y no puedes decir que no','POV OBJETO: soy el mando de la tele y llevo seis años perdido entre los cojines','POV OBJETO: soy el despertador y mañana tienes que madrugar','POV OBJETO: soy la nevera y son las tres de la mañana y vienes otra vez','POV OBJETO: soy el cargador del móvil y siempre estoy en la otra habitación','POV OBJETO: soy el wifi del piso y todos se quejan de mí sin saber qué pasa','POV OBJETO: soy el termostato de una casa donde nadie se pone de acuerdo','POV OBJETO: soy la sartén que nadie quiere fregar','POV OBJETO: soy el calcetín que queda solo después de la colada','REGLAS NO ESCRITAS: de un piso de cuatro compañeros','REGLAS NO ESCRITAS: del grupo de WhatsApp de la familia','REGLAS NO ESCRITAS: del bar de siempre','REGLAS NO ESCRITAS: de compartir cama con alguien','DOCUMENTAL: un supermercado un sábado a las doce','DOCUMENTAL: una familia decidiendo dónde cenar','DOCUMENTAL: una pareja en el sofá un domingo por la tarde','CRONOLOGÍA: de un «solo me tomo una caña»','CRONOLOGÍA: de un domingo por la noche','CRONOLOGÍA: de una dieta que empieza el lunes','CUENTAS: cuántas horas de tu vida has pasado buscando el cargador','CUENTAS: cuánto tiempo pierdes al año decidiendo qué cenar'];
 function pickSimpleTopic(){
-  { const cm = (($('#humor') || {}).value) === 'comedia'; const pool = (cm ? PISO_TOPICS.concat(COMEDY_TOPICS) : slotPool('curiosidades').concat(slotPool('hipotetico'))).filter(t => !isUsed(t)); if (pool.length) return pool[Math.floor(Math.random() * pool.length)]; }
+  { const cm = (($('#humor') || {}).value) === 'comedia'; const pool = (true ? PISO_TOPICS : slotPool('curiosidades').concat(slotPool('hipotetico'))).filter(t => !isUsed(t)); if (pool.length) return pool[Math.floor(Math.random() * pool.length)]; }
   if ((($('#humor') || {}).value) === 'comedia') { const used = store.get('usedTopics', []), pool = COMEDY_TOPICS.filter(t => !used.includes(t)), src = pool.length ? pool : COMEDY_TOPICS; return src[Math.floor(Math.random() * src.length)]; }
   const used = store.get('usedTopics', []), rec = used.slice(-40), lastCat = store.get('lastTopicCat', '');
   let pool = TOPIC_BANK.filter(x => !rec.some(u => topicSim(u, x.t) >= .6));
@@ -2583,7 +2610,7 @@ function renderSimple(){
   if (!s.topic.trim() && !s.script && !busy) { s.topic = pickSimpleTopic(); persist(); }
   const sc = s.script, normal = sc ? sc.escenas.filter(e => (e.tipo || 'normal') === 'normal') : [], faltan = sc ? normal.filter(e => !e.codigo).length : 0;
   const cfgS = slotCfg(), todayD = ymd(new Date());
-  let strip = `<p class="meta"><b>Vídeo de hoy por horas</b> (un toque: elige el tema y copia el prompt)</p><div class="row">` + cfgS.map((c, k) => { const done = registry().some(r => r.d === todayD && r.slot === k); return `<button id="simSlot${k}"${s.slotIdx === k ? ' class="pri"' : ''}>${esc(c.h)} · ${esc(SLOT_TYPES[c.type].n)}${done ? ' ✓' : ''}</button>`; }).join('') + `</div>`;
+  let strip = `<p class="meta"><b>Vídeo de hoy por horas</b> (un toque: elige el tema y copia el prompt)</p><div class="row">` + cfgS.slice(0, DAILY).map((c, k) => { const done = registry().some(r => r.d === todayD && r.slot === k); return `<button id="simSlot${k}"${s.slotIdx === k ? ' class="pri"' : ''}>${esc(c.h)} · ${esc(SLOT_TYPES[c.type].n)}${done ? ' ✓' : ''}</button>`; }).join('') + `</div>`;
   let h = strip + `<div class="top"><h2>Vídeo con ChatGPT</h2><span class="pill" id="simStatus">${esc(s.busy || (s.url ? 'Listo' : sc ? 'Guion cargado' : 'Paso 1'))}</span></div>`;
   if (s.url) {
     h += `<p class="meta"><b>${esc(sc ? sc.titulo : '')}</b></p><video class="out" src="${s.url}#t=0.1" preload="metadata" controls playsinline></video>
@@ -2670,8 +2697,8 @@ var SLOT_TYPES = {
   piso: { n: 'Piso 3ºB (serie)', desc: 'capítulos de la serie de comedia «Piso 3ºB»: tres compañeros de piso (yo, Dani y Marta) con decorados fijos; cada tema empieza por «PISO 3ºB:»', ej: 'PISO 3ºB: alguien se ha comido mi yogur y yo investigo' },
   historia: { n: 'Historia y misterios', desc: 'historias reales, hechos históricos y misterios', ej: 'La historia real de la biblioteca de Alejandría' }
 };
-var SLOT_DEF = [{ h: '09:00', type: 'piso', humor: 'comedia', own: '' }, { h: '13:00', type: 'piso', humor: 'comedia', own: '' }, { h: '18:00', type: 'piso', humor: 'comedia', own: '' }, { h: '21:00', type: 'piso', humor: 'comedia', own: '' }];
-var SLOT_HV = 3; /* versión de las horas por defecto: al subirla, las horas guardadas pasan a las nuevas una vez (temáticas y listas propias no se tocan) */
+var SLOT_DEF = [{ h: '21:00', type: 'piso', humor: 'comedia', own: '' }, { h: '13:00', type: 'piso', humor: 'comedia', own: '' }, { h: '18:00', type: 'piso', humor: 'comedia', own: '' }, { h: '21:00', type: 'piso', humor: 'comedia', own: '' }];
+var SLOT_HV = 5; /* versión de las horas por defecto: al subirla, las horas guardadas pasan a las nuevas una vez (temáticas y listas propias no se tocan) */
 function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function slotCfg(){ let c = store.get('slotCfg', null); if (!Array.isArray(c) || c.length !== 4) c = SLOT_DEF.map(x => Object.assign({}, x));
   if (store.get('slotHV', 0) !== SLOT_HV) { c = c.map((x, k) => Object.assign({}, x, { h: SLOT_DEF[k].h, type: SLOT_DEF[k].type, humor: SLOT_DEF[k].humor })); store.set('slotCfg', c); store.set('slotHV', SLOT_HV); } return c.map((x, k) => Object.assign({}, SLOT_DEF[k], x, { type: x && SLOT_TYPES[x.type] ? x.type : SLOT_DEF[k].type })); }
@@ -2680,7 +2707,7 @@ function normT(t){ return String(t || '').toLowerCase().normalize('NFD').replace
 function isUsed(t){ const n = normT(t); if (!n) return true; return registry().some(r => [r.tema, r.titulo].some(u => { const m = normT(u); return m && (m === n || topicSim(u, t) >= .7); })); }
 function regAdd(tema, titulo, slot){ if (!(tema || titulo)) return; const r = registry(); r.push({ d: ymd(new Date()), slot: slot >= 0 ? slot : -1, tema: tema || '', titulo: titulo || '' }); store.set('registry', r.slice(-3000)); renderSlotsCfg(); }
 function slotPool(type){
-  if (type === 'piso') return PISO_TOPICS.slice();
+  if (type === 'piso' || type === 'comedia') return PISO_TOPICS.slice();
   if (type === 'comedia') return COMEDY_TOPICS.slice();
   const cats = type === 'curiosidades' ? ['como', 'porque'] : type === 'hipotetico' ? ['si'] : ['hist'];
   return TOPIC_BANK.filter(x => cats.includes(x.c)).map(x => x.t);
@@ -2696,10 +2723,10 @@ function topicsPrompt(k){
 }
 function renderSlotsCfg(){
   const el = $('#slotsBody'); if (!el) return; if (el.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
-  const cfg = slotCfg(), hum = $('#humor') ? $('#humor').innerHTML : '', reg = registry();
-  el.innerHTML = `<p class="meta">Horas pensadas para España (hora de Madrid): 09:00 primer scroll de la mañana, 13:00 pausa de comer, 18:00 pico de TikTok al salir de clase o del trabajo, 21:00 prime time de la noche. Puedes cambiarlas. Cada hora tiene su temática. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
+  const cfg = slotCfg().slice(0, DAILY), hum = $('#humor') ? $('#humor').innerHTML : '', reg = registry();
+  el.innerHTML = `<p class="meta">Un capítulo de Piso 3ºB al día, por defecto a las 21:00 (prime time en España, hora de Madrid). Puedes cambiar la hora. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
     <label class="f">Hora<input type="text" data-sc="${k}:h" value="${esc(c.h)}" inputmode="numeric" placeholder="12:30"></label>
-    <label class="f">Temática<select data-sc="${k}:type">${Object.keys(SLOT_TYPES).map(t => `<option value="${t}"${t === c.type ? ' selected' : ''}>${esc(SLOT_TYPES[t].n)}</option>`).join('')}</select></label>
+    <label class="f">Temática<select data-sc="${k}:type">${['piso'].map(t => `<option value="${t}"${t === c.type ? ' selected' : ''}>${esc(SLOT_TYPES[t].n)}</option>`).join('')}</select></label>
     <label class="f">Humor<select data-sc="${k}:humor">${hum}</select></label>
     <label class="f">Mis temas (uno por línea; se usan primero y no se repiten)<textarea data-sc="${k}:own" rows="3" placeholder="Pega aquí la lista que te dé ChatGPT">${esc(c.own)}</textarea></label>
     <div class="row"><button data-scb="topics:${k}">🧠 Pedir temas nuevos a ChatGPT</button></div></div>`).join('') + `<p class="meta"><b>Registro:</b> ${reg.length} vídeo${reg.length === 1 ? '' : 's'} hecho${reg.length === 1 ? '' : 's'}; no se repetirá ninguno parecido.</p><div class="row"><button data-scb="regcopy">Copiar registro</button><button data-scb="regclear">Borrar registro</button></div>`;
@@ -2713,7 +2740,7 @@ document.addEventListener('click', async e => { const b = e.target.closest('[dat
 renderSlotsCfg();
 
 /* --- cola del día: los vídeos grabados se guardan en el móvil (IndexedDB) con la hora a la que toca publicarlos --- */
-function slotHours(){ return slotCfg().map(c => { const m = /^(\d{1,2}):(\d{2})$/.exec(c.h || ''); return m ? [+m[1], +m[2]] : [12, 0]; }); }
+function slotHours(){ return slotCfg().slice(0, DAILY).map(c => { const m = /^(\d{1,2}):(\d{2})$/.exec(c.h || ''); return m ? [+m[1], +m[2]] : [12, 0]; }); }
 const queueMem = []; let queueDB = null, queueSeq = 1;
 function qOpen(){ return new Promise(res => { if (queueDB !== null) return res(queueDB); try { const r = indexedDB.open('estudio-cola', 1); r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id' }); r.onsuccess = () => { queueDB = r.result; res(queueDB); }; r.onerror = () => { queueDB = false; res(false); }; } catch (e) { queueDB = false; res(false); } }); }
 async function qAll(){ const db = await qOpen(); if (!db) return queueMem.slice(); return new Promise(res => { try { const rq = db.transaction('q').objectStore('q').getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => res([]); } catch (e) { res([]); } }); }
@@ -3264,6 +3291,18 @@ const Voice = {
       toks.forEach((w, i) => { const s = s0 + acc / tot * sd; acc += wts[i]; words.push({ raw: w.replace(/[*_]/g, ''), s, e: s0 + acc / tot * sd }); });
     });
     return { samples, fs, dur, words };
+  },
+  VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5', ella: 'F2', abuelo: 'M5' },
+  voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ_PERSONAJE[who] || narr; if (v === narr) v = ['M2', 'F4', 'M3', 'F1', 'M5', 'F5'].find(x => x !== narr && x !== this.VOZ_PERSONAJE.amigo) || 'F4'; return v; },
+  async speakCast(text, S, progress, habla){
+    if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
+    const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
+    if (parts.length < 1) return this.speak(text, S, progress);
+    const narr = S.stVoice || 'M1', out = []; let fs = 44100;
+    for (const pt of parts) { const r = await this.speak(pt.t, Object.assign({}, S, { stVoice: this.voiceFor(pt.who, narr) }), progress); fs = r.fs; out.push(r); }
+    const gap = Math.round(.12 * fs); let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? gap : 0); });
+    const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
+    return { samples, fs, dur: total / fs, words };
   },
   async speak(text, S, progress){
     if (S.engine === 'supertonic' && !this.forcePiper) {
