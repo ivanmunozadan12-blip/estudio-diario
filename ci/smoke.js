@@ -40,7 +40,7 @@ const server = http.createServer((req, res) => {
       return route.abort();
     });
     await page.goto('http://127.0.0.1:8099/index.html', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#slot0 .top', { timeout: 15000 });
+    await page.waitForSelector('#slot0 .top', { state: 'attached', timeout: 15000 }); await page.waitForSelector('#simGo', { timeout: 15000 });
     const result = await page.evaluate(() => ({
       title: document.title,
       slots: [0, 1, 2].filter(i => document.querySelector('#slot' + i + ' .top')).length,

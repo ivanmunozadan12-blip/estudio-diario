@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Estudio Diario</title>
+<title>Piso 3ºB</title>
 <meta name="theme-color" content="#0e1311">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -68,19 +68,19 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
 .note{font-size:12px;color:var(--muted);margin:0 0 12px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 #slot1,#slot2{display:none!important}
-body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,body.simple #auto,body.simple label.chk:has(#auto),body.simple #autoHint{display:none!important}
+body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.simple #simQueue,body.simple #counter,body.simple .dock .in,body.simple #auto,body.simple label.chk:has(#auto),body.simple #autoHint{display:none!important}
 </style>
 </head>
-<body>
+<body class="simple">
 
 <header>
-  <div><h1>Estudio Diario</h1><small>Piso 3ºB · 1 capítulo al día a las 21:00 · 9:16 para Shorts, Reels y TikTok</small></div>
-  <span class="pill" id="counter">Hoy 0/3</span><button id="modeBtn" style="margin-left:8px;padding:6px 10px;font-size:13px">Modo avanzado</button>
+  <div><h1>Piso 3ºB</h1><small>Pega el capítulo de ChatGPT y crea el vídeo 9:16</small></div>
+  <span class="pill" id="counter">Hoy 0/3</span>
 </header>
 
 <section id="stageWrap" aria-label="Pantalla de vista previa">
   <canvas id="stage" width="720" height="1280"></canvas>
-  <div id="stageInfo">Escribe qué vídeo quieres y pulsa Guion</div>
+  <div id="stageInfo">Pega el capítulo de ChatGPT y pulsa «Crear vídeo»</div>
   <button id="stopBtn" hidden>Detener</button>
 </section>
 
@@ -115,32 +115,40 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <div id="slotsBody"></div>
 </details>
 <details class="card" id="ajustes">
-  <summary>Ajustes del canal</summary>
+  <summary>Ajustes del vídeo</summary>
+  <div hidden>
   <label class="f">Nicho y estilo (lo usa la IA para elegir temas y escribir)
-    <textarea id="niche">Divulgación científica y curiosidades con humor: cómo funciona el mundo y escenarios hipotéticos («¿qué pasaría si…?»), contados de forma visual, rápida y divertida.</textarea></label>
+    <textarea id="niche">Serie de comedia «Piso 3ºB»: tres compañeros de piso (yo, Dani y Marta), casero y vecina; humor de situaciones cotidianas con muletillas.</textarea></label>
   <label class="f">Humor en los vídeos
-    <select id="humor"><option value="auto" selected>Automático (recomendado): mucho en hipotéticos, un toque en explicaciones, nada en temas serios</option><option value="comedia">🤣 Comedia total: vídeos de humor, hipotéticos disparatados, lleno de coñas (adultos)</option><option value="siempre">Siempre divertido (salvo temas sensibles)</option><option value="nunca">Nunca: tono serio</option></select></label>
+    <select id="humor"><option value="auto">Automático (recomendado): mucho en hipotéticos, un toque en explicaciones, nada en temas serios</option><option value="comedia" selected>🤣 Comedia total: vídeos de humor, hipotéticos disparatados, lleno de coñas (adultos)</option><option value="siempre">Siempre divertido (salvo temas sensibles)</option><option value="nunca">Nunca: tono serio</option></select></label>
+  </div>
   <label class="f">Voz
-    <select id="voiceEngine"><option value="natural" selected>Natural (neuronal, gratis, va dentro del vídeo)</option><option value="supertonic">Supertonic (muy natural, sin claves; ~250 MB la primera vez)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
+    <select id="voiceEngine"><option value="natural">Natural (neuronal, gratis, va dentro del vídeo)</option><option value="supertonic" selected>Supertonic (muy natural, sin claves; ~250 MB la primera vez)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
   <div class="hint" id="stStatus" style="font-size:.85em;opacity:.85"></div>
   <p class="meta">En Piso 3ºB cada personaje tiene su propia voz (Dani M2, Marta F4, casero M3, vecina F1, madre F5). La voz que elijas aquí es la del narrador (recomendado M4 o M5).</p>
   <label class="f">Voz de Supertonic
-    <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4">M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
+    <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4" selected>M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
+  <div class="row"><button id="testVoice">Probar voz</button></div>
+  <div hidden>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
     <select id="voiceId"><option value="es_ES-davefx-medium">ES · davefx · medium</option></select></label>
-  <div class="row"><button id="testVoice">Probar voz</button></div>
   <label class="f">Velocidad de la voz sintética básica <input type="range" id="voiceRate" min="0.8" max="1.3" step="0.05" value="1.0"></label>
+  </div>
   <label class="f">Resolución del vídeo
     <select id="quality"><option value="720">720×1280 (rápida, recomendada en móvil)</option><option value="1080">1080×1920 (más nítida, tarda más y gasta más batería)</option></select></label>
   <label class="chk"><input type="checkbox" id="musicOn" checked> Música de fondo generada</label>
   <label class="chk"><input type="checkbox" id="sfxOn" checked> Efectos de sonido (swoosh en los cortes, «pop» en la palabra clave, sonido ambiente)</label>
+  <div hidden>
   <label class="chk"><input type="checkbox" id="tacos" checked> Permitir tacos suaves (joder, hostia…) en «Comedia total»</label>
+  </div>
   <label class="chk"><input type="checkbox" id="subsOn" checked> Subtítulos de 2-3 palabras con la clave en amarillo</label>
+  <div hidden>
   <label class="f">Duración objetivo
     <select id="target"><option value="45">≈ 45 s</option><option value="60">≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option><option value="120" selected>≈ 120 s</option></select></label>
   <label class="chk"><input type="checkbox" id="auto"> Piloto automático (solo funciona con esta página abierta y la pantalla encendida)</label>
   <div class="row"><label class="f">Hora 1<input type="time" id="t0" value="21:00"></label><label class="f">Hora 2<input type="time" id="t1" value="14:30"></label><label class="f">Hora 3<input type="time" id="t2" value="20:30"></label></div>
   <p class="hint" id="autoHint">Para que se haga sin abrir nada, usa la automatización en GitHub (mira el LEEME).</p>
+  </div>
   <button id="installBtn" hidden style="margin-top:12px">Instalar como app en este móvil</button>
 </details>
 
@@ -2264,7 +2272,7 @@ const pendingDir = {};
 const CHAT_FMT = '\n\nFORMATO DE ENTREGA (OBLIGATORIO, para que pueda copiarlo de una vez con UN solo botón):\n- Toda tu respuesta va dentro de UN ÚNICO bloque de código (un solo ```text … ```). Nada de texto, títulos ni explicaciones fuera de ese bloque.\n- Dentro del bloque NO uses más bloques de código ni comillas triples.\n- Para cada escena escribe una línea «### ESCENA n» (n = su número) y justo debajo el código de esa escena, sin ``` y sin comentarios largos.\n- Entrega TODO de una vez, sin pararte, sin preguntar y sin resumir; no uses «…» ni «igual que antes».';
 
 /* ===== PISO 3ºB: serie fija con decorados y personajes ya hechos; ChatGPT solo rellena un JSON ===== */
-const PISO_TOPICS = ['PISO 3ºB: alguien se ha comido mi yogur y yo investigo','PISO 3ºB: la nevera tiene cuatro baldas y ninguna es mía','PISO 3ºB: Dani se ha duchado con agua fría y ha gastado todo el gas','PISO 3ºB: Marta ha puesto una norma nueva en el grupo del piso','PISO 3ºB: llega la factura de la luz y nadie sabe por qué','PISO 3ºB: el wifi se cae justo cuando empieza mi serie','PISO 3ºB: hay platos sucios en el fregadero desde hace tres días','PISO 3ºB: Dani trae a su novia y se queda a vivir una semana','PISO 3ºB: Marta organiza una fiesta y yo me entero a las diez','PISO 3ºB: el casero viene a «echar un vistazo» sin avisar','PISO 3ºB: la vecina de arriba se queja de ruido a las tres de la tarde','PISO 3ºB: se acaba el papel higiénico y todos fingen no saberlo','PISO 3ºB: el cuadro de turnos de limpieza lleva un mes sin cumplirse','PISO 3ºB: Dani cocina para toda la semana y ocupa todas las fiambreras','PISO 3ºB: Marta riega la planta del salón y yo descubro que era de plástico','PISO 3ºB: el que se ducha primero se lleva el agua caliente','PISO 3ºB: alguien ha usado mi sartén y la ha dejado quemada','PISO 3ºB: la lavadora termina a las 2 de la madrugada y nadie la tiende','PISO 3ºB: Dani se queja de que hago ruido y él lleva dos horas con la pesa','PISO 3ºB: se rompe la persiana y hay que decidir quién llama al casero','PISO 3ºB: Marta dice que el piso huele raro y empieza la búsqueda','PISO 3ºB: la compra común: cada uno compra lo suyo y sobra la sal','PISO 3ºB: el dinero del bote común no cuadra','PISO 3ºB: Dani deja la caja de pizza en el salón con una sola porción dentro','PISO 3ºB: primera noche de calor y solo hay un ventilador','PISO 3ºB: Marta pone la calefacción a 26 grados en pleno octubre','PISO 3ºB: alguien ha cambiado la contraseña del wifi','PISO 3ºB: el paquete que llegó para mí lo abrió Dani «por error»','PISO 3ºB: me quedo sin llaves y toco el timbre a las tres de la mañana','PISO 3ºB: la reunión de piso que dura dos horas y no decide nada','PISO 3ºB: Dani y Marta se pelean por el mando de la tele','PISO 3ºB: la cafetera hace un ruido nuevo y nadie quiere tocarla','PISO 3ºB: el baño tiene un pelo que lleva ahí desde enero','PISO 3ºB: mi madre viene de visita y ordena todo el piso','PISO 3ºB: el casero sube el alquiler cincuenta euros «por la inflación»','PISO 3ºB: Marta lleva tres días sin salir de su cuarto','PISO 3ºB: se funde la bombilla del pasillo y llevamos un mes a oscuras','PISO 3ºB: Dani se come mi comida y me deja una nota de agradecimiento','PISO 3ºB: el domingo de limpieza general que acaba en discusión','PISO 3ºB: se cae el techo del baño y el casero dice que es «humedad normal»','PISO 3ºB: cumpleaños de Marta y la sorpresa sale mal','PISO 3ºB: a Dani le da por la cocina y ahora hay un olor permanente a ajo','PISO 3ºB: el timbre suena y nadie espera a nadie','PISO 3ºB: se va Dani y llega un compañero nuevo muy raro','PISO 3ºB: la basura rebosa y la bolsa se rompe en las escaleras','PISO 3ºB: el piso entero se viene abajo con una gotera de la vecina','PISO 3ºB: la nevera hace ruido de noche y yo no puedo dormir','PISO 3ºB: Marta deja mensajes pasivo-agresivos en la puerta de la nevera','PISO 3ºB: Dani cree que el microondas es suyo','PISO 3ºB: nos toca pagar la reparación y nadie fue','PISO 3ºB: el colchón del sofá cama de las visitas','PISO 3ºB: el día que nadie tenía nada que hacer y el piso se ve distinto','PISO 3ºB: el pasillo estrecho y dos personas con la compra','PISO 3ºB: la ducha tarda veinte minutos en calentar y nadie lo arregla','PISO 3ºB: el que abre la puerta al repartidor siempre soy yo','PISO 3ºB: mi cuarto es el más pequeño y pago lo mismo','PISO 3ºB: llegan las vacaciones y se queda el piso vacío','PISO 3ºB: la cena de Nochebuena de los tres que no se van a casa','PISO 3ºB: Dani da un consejo de vida a las 4 de la madrugada','PISO 3ºB: Marta convierte el salón en su despacho de teletrabajo','PISO 3ºB: alguien se ha llevado mi cargador y tiene dos hermanos gemelos','PISO 3ºB: el gato de la vecina entra por la ventana','PISO 3ºB: hay un pelo en la ducha y tres sospechosos'];
+const PISO_TOPICS = ['PISO 3ºB: alguien se ha comido mi yogur y yo investigo','PISO 3ºB: la nevera tiene cuatro baldas y ninguna es mía','PISO 3ºB: Dani se ha duchado con agua fría y ha gastado todo el gas','PISO 3ºB: Marta ha puesto una norma nueva en el grupo del piso','PISO 3ºB: llega la factura de la luz y nadie sabe por qué','PISO 3ºB: el wifi se cae justo cuando empieza mi serie','PISO 3ºB: hay platos sucios en el fregadero desde hace tres días','PISO 3ºB: Dani trae a su novia y se queda a vivir una semana','PISO 3ºB: Marta organiza una fiesta y yo me entero a las diez','PISO 3ºB: el casero viene a «echar un vistazo» sin avisar','PISO 3ºB: la vecina de arriba se queja de ruido a las tres de la tarde','PISO 3ºB: se acaba el papel higiénico y todos fingen no saberlo','PISO 3ºB: el cuadro de turnos de limpieza lleva un mes sin cumplirse','PISO 3ºB: Dani cocina para toda la semana y ocupa todas las fiambreras','PISO 3ºB: Marta riega la planta del salón y yo descubro que era de plástico','PISO 3ºB: el que se ducha primero se lleva el agua caliente','PISO 3ºB: alguien ha usado mi sartén y la ha dejado quemada','PISO 3ºB: la lavadora termina a las 2 de la madrugada y nadie la tiende','PISO 3ºB: Dani se queja de que hago ruido y él lleva dos horas con la pesa','PISO 3ºB: se rompe la persiana y hay que decidir quién llama al casero','PISO 3ºB: Marta dice que el piso huele raro y empieza la búsqueda','PISO 3ºB: la compra común: cada uno compra lo suyo y sobra la sal','PISO 3ºB: el dinero del bote común no cuadra','PISO 3ºB: Dani deja la caja de pizza en el salón con una sola porción dentro','PISO 3ºB: primera noche de calor y solo hay un ventilador','PISO 3ºB: Marta pone la calefacción a 26 grados en pleno octubre','PISO 3ºB: alguien ha cambiado la contraseña del wifi','PISO 3ºB: el paquete que llegó para mí lo abrió Dani «por error»','PISO 3ºB: me quedo sin llaves y toco el timbre a las tres de la mañana','PISO 3ºB: la reunión de piso que dura dos horas y no decide nada','PISO 3ºB: Dani y Marta se pelean por el mando de la tele','PISO 3ºB: la cafetera hace un ruido nuevo y nadie quiere tocarla','PISO 3ºB: el baño tiene un pelo que lleva ahí desde enero','PISO 3ºB: mi madre viene de visita y ordena todo el piso','PISO 3ºB: el casero sube el alquiler cincuenta euros «por la inflación»','PISO 3ºB: Marta lleva tres días sin salir de su cuarto','PISO 3ºB: se funde la bombilla del pasillo y llevamos un mes a oscuras','PISO 3ºB: Dani se come mi comida y me deja una nota de agradecimiento','PISO 3ºB: el domingo de limpieza general que acaba en discusión','PISO 3ºB: se cae el techo del baño y el casero dice que es «humedad normal»','PISO 3ºB: cumpleaños de Marta y la sorpresa sale mal','PISO 3ºB: a Dani le da por la cocina y ahora hay un olor permanente a ajo','PISO 3ºB: el timbre suena y nadie espera a nadie','PISO 3ºB: se va Dani y llega un compañero nuevo muy raro','PISO 3ºB: la basura rebosa y la bolsa se rompe en las escaleras','PISO 3ºB: el piso entero se viene abajo con una gotera de la vecina','PISO 3ºB: la nevera hace ruido de noche y yo no puedo dormir','PISO 3ºB: Marta deja mensajes pasivo-agresivos en la puerta de la nevera','PISO 3ºB: Dani cree que el microondas es suyo','PISO 3ºB: nos toca pagar la reparación y nadie fue','PISO 3ºB: el colchón del sofá cama de las visitas','PISO 3ºB: el día que nadie tenía nada que hacer y el piso se ve distinto','PISO 3ºB: el pasillo estrecho y dos personas con la compra','PISO 3ºB: la ducha tarda veinte minutos en calentar y nadie lo arregla','PISO 3ºB: el que abre la puerta al repartidor siempre soy yo','PISO 3ºB: mi cuarto es el más pequeño y pago lo mismo','PISO 3ºB: llegan las vacaciones y se queda el piso vacío','PISO 3ºB: la cena de Nochebuena de los tres que no se van a casa','PISO 3ºB: Dani da un consejo de vida a las 4 de la madrugada','PISO 3ºB: Marta convierte el salón en su despacho de teletrabajo','PISO 3ºB: alguien se ha llevado mi cargador y tiene dos hermanos gemelos','PISO 3ºB: el gato de la vecina entra por la ventana','PISO 3ºB: hay un pelo en la ducha y tres sospechosos', 'PISO 3ºB: los cojines del sofá desaparecen uno a uno', 'PISO 3ºB: el jabón del baño sale aguado y nadie se hace cargo', 'PISO 3ºB: llaves nuevas que aparecen en casa y nadie sabe de quién son', 'PISO 3ºB: el tendedero de la terraza se llena de ropa que no es de nadie', 'PISO 3ºB: un paquete enorme llega a nombre de alguien que no vive aquí', 'PISO 3ºB: se acaba el aceite justo cuando estoy a mitad de la tortilla', 'PISO 3ºB: Dani instala un saco de boxeo en el salón «por salud»', 'PISO 3ºB: Marta compra una planta nueva cada semana y ya no cabemos', 'PISO 3ºB: alguien deja la puerta de la nevera mal cerrada y se descongela todo', 'PISO 3ºB: suena una alarma a las 6 de la mañana y nadie reconoce de quién es', 'PISO 3ºB: el microondas se queda sin plato giratorio y todos juran no saber nada', 'PISO 3ºB: Dani se hace influencer de gimnasio y graba vídeos en el pasillo', 'PISO 3ºB: el casero propone «reformar» y lo único que cambia es el precio', 'PISO 3ºB: aparece una cucaracha y se monta un comité de crisis', 'PISO 3ºB: un vecino nuevo toca la batería a las diez de la noche', 'PISO 3ºB: Marta cuelga un calendario de turnos con colores y nadie lo entiende', 'PISO 3ºB: la caldera se apaga y el técnico dice que «es normal»', 'PISO 3ºB: la compra a medias: nadie sabe quién se llevó el último brik de leche', 'PISO 3ºB: Dani presta mi sudadera y vuelve con una mancha misteriosa', 'PISO 3ºB: hay una fuga en el grifo de la cocina y cada uno la arregla a su manera', 'PISO 3ºB: el wifi va lento y Dani culpa a la planta de Marta', 'PISO 3ºB: se rompe la escoba y compramos tres fregonas distintas', 'PISO 3ºB: alguien se lleva mi tupper de la nevera con mi nombre escrito', 'PISO 3ºB: una mancha de humedad con forma de cara aparece en el techo', 'PISO 3ºB: el ascensor está estropeado y subo la compra cinco pisos', 'PISO 3ºB: el cartero deja todo mi correo en el buzón de otro vecino', 'PISO 3ºB: Dani pone música a todo volumen mientras limpia «con motivación»', 'PISO 3ºB: mi móvil se queda sin batería y el único cargador es de Marta', 'PISO 3ºB: la cuenta de la cena con la calculadora: nadie ha pedido nada y todos deben algo', 'PISO 3ºB: la cerradura se atasca y la solución es una horquilla de Marta', 'PISO 3ºB: el termostato marca 18 y Dani insiste en que son 22', 'PISO 3ºB: el felpudo de la entrada desaparece y aparece uno nuevo con una frase rara', 'PISO 3ºB: la vecina trae un táper de croquetas y exige opinión sincera', 'PISO 3ºB: Dani confunde su gel con mi champú y huele a coco todo el piso', 'PISO 3ºB: el espejo del baño se empaña y alguien escribe un mensaje en él', 'PISO 3ºB: Marta decide que el piso necesita una mascota y vota todo el mundo', 'PISO 3ºB: el vaso favorito de alguien aparece roto y empieza el juicio', 'PISO 3ºB: la tostadora salta con un pum y nadie quiere tocarla', 'PISO 3ºB: Dani se queda dormido en el sofá y nadie se atreve a moverlo', 'PISO 3ºB: la noche de las palomitas: tres pelis, tres opiniones, cero acuerdos', 'PISO 3ºB: el bote de las propinas del piso aparece vacío', 'PISO 3ºB: un globo de cumpleaños de hace tres meses sigue pegado al techo', 'PISO 3ºB: nos regalan una lámpara horrible y nadie se atreve a quitarla', 'PISO 3ºB: la bañera pierde agua y el casero manda «un amigo» con un martillo', 'PISO 3ºB: Dani cuida mis plantas y todas se mueren a la vez', 'PISO 3ºB: el mando de la tele pierde las pilas y se forma una expedición', 'PISO 3ºB: Marta pone cartel de «prohibido» en cada rincón y yo las cuento', 'PISO 3ºB: la lista de la compra crece sola con cosas que nadie escribió', 'PISO 3ºB: sin gas para cocinar: cena improvisada con lo que haya en la nevera', 'PISO 3ºB: Dani aprende a cocinar con vídeos y la cocina parece una escena de crimen', 'PISO 3ºB: recibo del gas con una cifra que nadie se cree', 'PISO 3ºB: alguien usa mi toalla y la deja en el suelo del pasillo', 'PISO 3ºB: al abrir la ventana entra un viento que tira todo lo que Marta había ordenado', 'PISO 3ºB: la reunión de piso termina con un «lo hablamos mañana» que dura una semana', 'PISO 3ºB: Dani guarda un trozo de tarta «para después» durante cuatro días', 'PISO 3ºB: una gotera nueva que Dani tapa con una cuchara', 'PISO 3ºB: el despertador de Marta suena desde su cuarto vacío', 'PISO 3ºB: la pizza que pedimos en grupo llega sin la mitad de los ingredientes', 'PISO 3ºB: el casero deja un recado en el buzón y es ilegible', 'PISO 3ºB: mi mochila cambia de sitio cada noche', 'PISO 3ºB: hay una zapatilla suelta en el pasillo que nadie reconoce', 'PISO 3ºB: un vecino llama preguntando por «el piso de los ruidos»', 'PISO 3ºB: los vasos de la cocina bajan de diez a tres en una semana', 'PISO 3ºB: Marta se queda encerrada en el baño y el pomo tiene opinión propia', 'PISO 3ºB: la semana en que cada uno decide ser vegetariano a su manera', 'PISO 3ºB: la batalla del último plátano', 'PISO 3ºB: tres botellas de agua abiertas por el piso y ninguna es de nadie', 'PISO 3ºB: Dani descubre la fregona y la usa para todo menos para fregar', 'PISO 3ºB: el pan se pone duro y cada uno propone una receta distinta para salvarlo'];
 const PISO_BLOCK = `SERIE «PISO 3ºB»: comedia de piso compartido con decorados y personajes FIJOS, ya dibujados en mi aplicación. Tú NO escribes código: solo rellenas un JSON y mi aplicación dibuja cada escena.
 
 MULETILLAS (LO QUE MÁS ENGANCHA DE LA SERIE): cada personaje tiene una frase hecha que repite SIEMPRE con las mismas palabras, y el público las espera. Úsalas así: cada personaje que salga dice su muletilla al menos 2 veces en el capítulo; la del narrador (que es la del sufrimiento) al menos 3 veces, cada vez más cansada, y la última como remate.
@@ -2608,7 +2616,7 @@ function drawFrame(proj, t){
   if (proj.subs) drawSubs(c, sc.groups.find(g => local >= g.t0 && local < g.t1), local);
   return i;
 }
-function idleFrame(msg){ const c = sctx; c.setTransform(Q, 0, 0, Q, 0, 0); c.fillStyle = lg(c,0,0,0,H,[[0,'#14201b'],[1,'#07100c']]); c.fillRect(0,0,W,H); c.fillStyle = 'rgba(255,197,51,.9)'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '800 70px Poppins, sans-serif'; c.fillText('ESTUDIO',W/2,H*.44); c.fillText('DIARIO',W/2,H*.44 + 84); c.fillStyle = 'rgba(255,255,255,.6)'; c.font = '600 30px Poppins, sans-serif'; c.fillText(msg || '9:16 · 3 vídeos al día',W/2,H*.62); }
+function idleFrame(msg){ const c = sctx; c.setTransform(Q, 0, 0, Q, 0, 0); c.fillStyle = lg(c,0,0,0,H,[[0,'#14201b'],[1,'#07100c']]); c.fillRect(0,0,W,H); c.fillStyle = 'rgba(255,197,51,.9)'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '800 70px Poppins, sans-serif'; c.fillText('PISO',W/2,H*.44); c.fillText('3ºB',W/2,H*.44 + 84); c.fillStyle = 'rgba(255,255,255,.6)'; c.font = '600 30px Poppins, sans-serif'; c.fillText(msg || 'Piso 3ºB · 9:16',W/2,H*.62); }
 idleFrame();
 const MIMES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
 function pickMime(){ if (typeof MediaRecorder === 'undefined') return ''; return MIMES.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch (e) { return false; } }) || ''; }
@@ -2903,7 +2911,7 @@ const simpleOn = () => document.body.classList.contains('simple');
 function pacingReport(script){
   const es = (script && script.escenas) || [], out = [];
   es.forEach((e, i) => { const d = estSceneDur(e), w = String(e.texto || '').split(/\s+/).filter(Boolean).length; if (d > 8) out.push(`Escena ${i + 1}: ~${d.toFixed(0)} s (${w} palabras) es larga; divídela o recórtala`); else if (w < 4) out.push(`Escena ${i + 1}: solo ${w} palabras, quedará muy corta`); });
-  const tot = es.reduce((a, e) => a + estSceneDur(e), 0); if (tot > 62) out.push(`Duración total ~${tot.toFixed(0)} s: pasa del minuto, recórtalo para Shorts`); else if (es.length && tot < 20) out.push(`Duración total ~${tot.toFixed(0)} s: muy corto`);
+  const tot = es.reduce((a, e) => a + estSceneDur(e), 0); if (tot > 150) out.push(`Duración total ~${tot.toFixed(0)} s: es larga, recorta escenas`); else if (es.length && tot < 90) out.push(`Duración total ~${tot.toFixed(0)} s: menos de 90 s, pide más escenas`);
   return out;
 }
 function renderSimple(){
@@ -2912,27 +2920,23 @@ function renderSimple(){
   const s = slots[0], busy = !!s.busy;
   if (!s.topic.trim() && !s.script && !busy) { s.topic = pickSimpleTopic(); persist(); }
   const sc = s.script, normal = sc ? sc.escenas.filter(e => (e.tipo || 'normal') === 'normal') : [], faltan = sc ? normal.filter(e => !e.codigo).length : 0;
-  const cfgS = slotCfg(), todayD = ymd(new Date());
-  let strip = `<p class="meta"><b>Vídeo de hoy por horas</b> (un toque: elige el tema y copia el prompt)</p><div class="row">` + cfgS.slice(0, DAILY).map((c, k) => { const done = registry().some(r => r.d === todayD && r.slot === k); return `<button id="simSlot${k}"${s.slotIdx === k ? ' class="pri"' : ''}>${esc(c.h)} · ${esc(SLOT_TYPES[c.type].n)}${done ? ' ✓' : ''}</button>`; }).join('') + `</div>`;
-  let h = strip + `<div class="top"><h2>Vídeo con ChatGPT</h2><span class="pill" id="simStatus">${esc(s.busy || (s.url ? 'Listo' : sc ? 'Guion cargado' : 'Paso 1'))}</span></div>`;
+  let h = `<div class="top"><h2>Capítulo de hoy</h2><span class="pill" id="simStatus">${esc(s.busy || (s.url ? 'Listo' : sc ? 'Cargado' : 'Pega el capítulo'))}</span></div>`;
   if (s.url) {
     h += `<p class="meta"><b>${esc(sc ? sc.titulo : '')}</b></p><video class="out" src="${s.url}#t=0.1" preload="metadata" controls playsinline></video>
     <div class="row"><button class="pri" data-a="share" data-i="0">Compartir</button><a class="btn" href="${s.url}" download="${fileName(0)}">Descargar (.${s.ext})</a><a class="btn" href="${s.url}" target="_blank" rel="noopener">Abrir</a></div>
     ${sc ? `<div class="row"><button data-a="copy" data-i="0" data-k="yt">Texto YouTube</button><button data-a="copy" data-i="0" data-k="tt">Texto TikTok</button><button data-a="copy" data-i="0" data-k="ig">Texto Reels</button></div>` : ''}
-    <div class="row"><button id="simCover">Portada (.jpg)</button><button class="pri" id="simNew">➕ Nuevo vídeo (otro tema)</button></div>`;
+    <div class="row"><button id="simCover">Portada (.jpg)</button><button class="pri" id="simNew">➕ Nuevo capítulo</button></div>`;
   } else if (busy) {
     h += `<div class="bar"><i data-bar="0" style="width:${s.pct}%"></i></div><p class="meta">Deja la pantalla encendida mientras se graba.</p>`;
   } else {
     if (!sc) {
-      h += `<label class="f">Tema elegido por la web (puedes cambiarlo)<input type="text" id="simTopic" autocomplete="off" value="${esc(s.topic)}"></label>
-      <div class="row"><button id="simDice">🎲 Otro tema</button><button class="pri" id="simCopy">1 · Copiar prompt</button></div>
-      <p class="meta">Pega el prompt en ChatGPT (chat nuevo), espera a que termine y copia <b>toda</b> su respuesta.</p>`;
+      h += `<p class="meta">Pega aquí el capítulo que te dio ChatGPT (el bloque JSON) y pulsa «Crear vídeo»: se carga y se graba solo, con las voces de cada personaje.</p>`;
     } else {
-      h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ${normal.length - faltan} con código propio${faltan ? ` · <span style="color:var(--red)">faltan ${faltan}</span>` : ' · todas listas'}</p>`;
-      if (faltan) h += `<div class="row"><button class="pri" id="simNext">Copiar siguiente tanda de escenas</button></div><p class="meta">Pégalo en el MISMO chat de ChatGPT y pega abajo la respuesta. Repite hasta que no falte ninguna (o graba ya: las que falten usarán el diseño de plantilla).</p>`;
+      h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>`;
     }
-    h += `<label class="f">${sc ? 'Pega aquí la nueva respuesta de ChatGPT' : '2 · Pega aquí la respuesta de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí todo lo que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
-    <div class="row"><button class="${sc && !faltan ? '' : 'pri'}" id="simImp">${sc ? 'Cargar respuesta' : '3 · Cargar respuesta'}</button>${sc ? `<button class="${faltan ? '' : 'pri'}" id="simRec">● ${faltan ? 'Grabar ya' : 'Grabar vídeo'}</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simFacts">✔ Verificar datos</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>${sc ? `<details${simpleFixNums || simpleFixWhy ? ' open' : ''} style="margin-top:8px"><summary><b>🛠 Una escena se ve mal (sin imagen)</b></summary><label class="f">Número de escena(s), por ejemplo 3 o 3, 5<input type="text" id="simFixNums" inputmode="numeric" autocomplete="off" value="${esc(simpleFixNums)}"></label><label class="f">Qué falla (con tus palabras)<textarea id="simFixWhy" placeholder="Ej.: el personaje sale cortado por abajo y el fondo está vacío; los textos se pisan; no se entiende qué es el objeto…">${esc(simpleFixWhy)}</textarea></label><div class="row"><button class="pri" id="simFixText">Copiar prompt de corrección</button></div><p class="meta">Pégalo en ChatGPT (no hace falta imagen: lleva el código actual y tu descripción), pega aquí la respuesta y pulsa «Cargar respuesta».</p></details>` : ''}${sc && simpleSheetUrl ? `<img src="${simpleSheetUrl}" alt="Fotogramas de las escenas" style="width:100%;border-radius:10px;margin-top:8px"><div class="row"><button class="pri" id="simSheetSave">Guardar / compartir imagen</button><button id="simFix">Copiar prompt de corrección</button></div><p class="meta">1) Guarda la imagen. 2) En el MISMO chat de ChatGPT pulsa «+», adjunta la imagen y pega el prompt. 3) Pega aquí lo que te devuelva y pulsa «Cargar respuesta».</p>` : ''}`;
+    h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
+    <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
+    <details style="margin-top:8px"><summary>Prompt para ChatGPT</summary><div class="row"><button id="simCopyDia">Copiar prompt diario</button></div><p class="meta">Pégalo en ChatGPT: te devuelve el capítulo del día en JSON.</p></details>`;
   }
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
@@ -2976,22 +2980,20 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simRetry') { Voice.failed = false; Voice.forcePiper = false; Supertonic.failed = false; s.err = ''; return simpleRecord(); }
   if (b.id === 'simPiper') { Voice.failed = false; Voice.forcePiper = true; s.err = ''; try { return await simpleRecord(); } finally { Voice.forcePiper = false; } }
   if (b.id === 'simRobot') { const en = $('#voiceEngine'); if (en) { en.value = 'robot'; en.dispatchEvent(new Event('change')); } Voice.failed = false; s.err = ''; return simpleRecord(); }
-  if (b.id === 'simImp') {
+  if (b.id === 'simCopyDia') return copyText(pisoDiarioPrompt(), b);
+  if (b.id === 'simImp' || b.id === 'simGo') {
     simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
-    if (t.trim().length < 50) { simpleNote = 'Pega primero la respuesta de ChatGPT.'; renderSimple(); return; }
+    if (t.trim().length < 50) { simpleNote = 'Pega primero el capítulo de ChatGPT.'; renderSimple(); return; }
     const had = !!s.script; let r; try { r = importPackage(t, 0); } catch (e) { simpleNote = 'No pude leer la respuesta: ' + (e && e.message || e) + '. Pide a ChatGPT «Repite la respuesta completa con el bloque json y los bloques js».'; renderSimple(); return; }
     simpleText = ''; const used = store.get('usedTopics', []); used.push(s.topic || (s.script && s.script.titulo) || ''); store.set('usedTopics', used.slice(-120)); regAdd(s.topic, s.script && s.script.titulo, s.slotIdx);
     const normal = s.script.escenas.filter(e => (e.tipo || 'normal') === 'normal'), faltan = normal.filter(e => !e.codigo).length;
     if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
     { const h0 = String((s.script.escenas[0] || {}).texto || '').replace(/\*/g, '').trim(), nw0 = h0.split(/\s+/).filter(Boolean).length; if (!simpleNote && (nw0 < 5 || nw0 > 18 || /^(hoy|imagina|¿?sab[ií]as|bienvenid|hola|en este v[ií]deo)/i.test(h0))) simpleNote = `Ojo: el gancho («${h0}») parece flojo (${nw0 < 5 ? 'muy corto' : nw0 > 18 ? 'demasiado largo' : 'empieza como un saludo o una presentación'}). Pide a ChatGPT otra primera frase con el prompt de corrección de texto, indicando la escena 1.`; }
-    if (!simpleNote) simpleNote = faltan ? '' : 'Guion cargado. Revísalo si quieres (🖼 imagen, ✔ verificar datos o 🛠 corregir escenas) y pulsa «Grabar vídeo».';
-    renderSimple(); return;
+    if (!simpleNote && b.id !== 'simGo') simpleNote = 'Capítulo cargado. Pulsa «Grabar el cargado» para crear el vídeo.';
+    renderSimple(); if (b.id === 'simGo' && s.script && s.script.escenas.length) return simpleRecord(); return;
   }
 });
-(function(){
-  const on = store.get('simple', true); if (on) document.body.classList.add('simple');
-  const mb = $('#modeBtn'); if (mb) mb.textContent = on ? 'Modo avanzado' : 'Modo simple';
-})();
+(function(){ document.body.classList.add('simple'); })();
 /* --- horarios y temáticas por hora + registro de vídeos (no repetir nunca) --- */
 var SLOT_TYPES = {
   curiosidades: { n: 'Curiosidades', desc: 'cómo funcionan las cosas y por qué pasan (¿Por qué…? / ¿Cómo funciona…?)', ej: '¿Por qué los gatos ronronean?' },
@@ -3675,7 +3677,7 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('#installBtn').hidden = false; });
 $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $('#installBtn').hidden = true; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
-if (!AIcfg().keys.length && !PROV[AIcfg().p].nokey) msg('Primero pega tu clave gratuita en «Ajustes de IA».');
+
 Object.assign(window.__studio, { pisoDiarioPrompt, textFixPrompt, Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
 </script>
 </body></html>
