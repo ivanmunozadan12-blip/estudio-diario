@@ -3533,12 +3533,33 @@ const Azure = {
   VOZ: { amigo: 'es-ES-TeoNeural', amiga: 'es-ES-ElviraNeural', jefe: 'es-ES-SaulNeural', abuela: 'es-ES-LaiaNeural', madre: 'es-ES-IreneNeural', ella: 'es-ES-AbrilNeural', abuelo: 'es-ES-EliasNeural' },
   EMO: { cansado: [-12, -2], resignado: [-8, -2], triste: [-10, -2], dormido: [-16, -3], enfado: [7, 1], panico: [13, 3], asombro: [5, 2], sonrisa: [4, 1], risa: [6, 2], asco: [-4, -1], serio: [-3, -1], duda: [-2, 0], hablar: [0, 0], neutro: [0, 0] },
   cache: new Map(), last: 0, gap: 3300, lastError: '',
-  voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ[who] || narr; if (v === narr) v = ['es-ES-TeoNeural', 'es-ES-ElviraNeural', 'es-ES-SaulNeural', 'es-ES-LaiaNeural', 'es-ES-IreneNeural', 'es-ES-AlvaroNeural'].find(x => x !== narr && x !== this.VOZ.amigo) || 'es-ES-ElviraNeural'; return v; },
+  avail: null, maps: {},
+  GEN: { amigo: 'M', amiga: 'F', jefe: 'M', abuela: 'F', madre: 'F', ella: 'F', abuelo: 'M' },
+  async loadVoices(S){
+    if (this.avail) return this.avail;
+    const key = (S.azKey || '').trim(), region = (S.azRegion || 'westeurope').trim() || 'westeurope';
+    try {
+      const r = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`, { headers: { 'Ocp-Apim-Subscription-Key': key } });
+      if (!r.ok) throw new Error('lista ' + r.status);
+      const j = await r.json(); this.avail = j.filter(v => /^es-ES/i.test(v.Locale || '') && !/Multilingual|:/.test(v.ShortName)).map(v => ({ n: v.ShortName, g: /female/i.test(v.Gender) ? 'F' : 'M', st: v.StyleList || [] }));
+    } catch (e) { this.avail = []; }
+    this.maps = {}; return this.avail;
+  },
+  map(narr){
+    if (this.maps[narr]) return this.maps[narr];
+    const av = this.avail || [], has = n => !av.length || av.some(v => v.n === n), taken = new Set([narr]), m = { yo: narr };
+    Object.keys(this.GEN).forEach(who => {
+      let v = this.VOZ[who]; if (!v || v === narr || taken.has(v) || !has(v)) { const pool = av.filter(x => x.g === this.GEN[who] && !taken.has(x.n)); v = pool.length ? pool[0].n : (this.GEN[who] === 'F' ? 'es-ES-ElviraNeural' : 'es-ES-AlvaroNeural'); }
+      taken.add(v); m[who] = v;
+    });
+    return this.maps[narr] = m;
+  },
+  voiceFor(who, narr){ if (!who || who === 'yo') return narr; return this.map(narr)[who] || narr; },
   xml: t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-  ssml(parts, narr){
+  ssml(parts, narr, modo){
     return `<speak version="1.0" xml:lang="es-ES" xmlns="http://www.w3.org/2001/10/synthesis">` + parts.map((p, i) => {
-      const [r, pt] = this.EMO[p.mood] || [0, 0], sg = n => (n >= 0 ? '+' : '') + n;
-      return `<voice name="${this.voiceFor(p.who, narr)}"><prosody rate="${sg(r)}%" pitch="${sg(pt)}st">${this.xml(p.t)}</prosody></voice>` + (i < parts.length - 1 ? '<break time="120ms"/>' : '');
+      const [r, pt] = this.EMO[p.mood] || [0, 0], sg = n => (n >= 0 ? '+' : '') + n, vz = modo === 'solo' ? narr : this.voiceFor(p.who, narr), tx = this.xml(p.t);
+      return `<voice name="${vz}">` + (modo ? tx : (r || pt ? `<prosody rate="${sg(r)}%" pitch="${sg(pt)}st">${tx}</prosody>` : tx)) + `</voice>` + (i < parts.length - 1 && !modo ? '<break time="120ms"/>' : '');
     }).join('') + `</speak>`;
   },
   async post(S, ssml, progress){
@@ -3569,8 +3590,18 @@ const Azure = {
     parts.forEach(p => { p.t = p.t.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim(); });
     const narr = S.azVoice || 'es-ES-AlvaroNeural';
     try {
-      progress && progress('Voz Azure…');
-      const { pcm, fs } = this.wav(await this.post(S, this.ssml(parts, narr), progress));
+      progress && progress('Voz Azure…'); await this.loadVoices(S); let buf;
+      try { buf = await this.post(S, this.ssml(parts, narr), progress); }
+      catch (e1) {
+        if (!/respondió 400/.test(e1.message)) throw e1;
+        try { buf = await this.post(S, this.ssml(parts, narr, 'plano'), progress); this.warn = 'Azure no aceptó el ritmo/tono; uso las voces sin ajustes de emoción.'; }
+        catch (e2) {
+          if (!/respondió 400/.test(e2.message)) throw e2;
+          try { buf = await this.post(S, this.ssml(parts, narr, 'solo'), progress); this.warn = 'Azure no acepta alguna voz de los personajes en tu región; uso la del narrador.'; }
+          catch (e3) { throw new Error(e3.message + ' (voz narrador: ' + narr + ', región: ' + (S.azRegion || 'westeurope') + ')'); }
+        }
+      }
+      const { pcm, fs } = this.wav(buf);
       const th = .006; let a = 0, b = pcm.length - 1; while (a < b && Math.abs(pcm[a]) < th) a++; while (b > a && Math.abs(pcm[b]) < th) b--;
       a = Math.max(0, a - Math.floor(fs * .03)); b = Math.min(pcm.length - 1, b + Math.floor(fs * .08));
       const samples = pcm.slice(a, b + 1); let peak = 0; for (let j = 0; j < samples.length; j++) peak = Math.max(peak, Math.abs(samples[j])); if (peak > 0) { const g = .9 / peak; for (let j = 0; j < samples.length; j++) samples[j] *= g; }
@@ -3751,7 +3782,7 @@ $('#testVoice').addEventListener('click', async () => {
   const b = $('#testVoice'); b.disabled = true; const S = settings(); Voice.failed = false; Voice.forcePiper = false; Supertonic.failed = false;
   try {
     $('#vmsg').textContent = 'Generando la voz de prueba…'; const a = await Voice.speak('Esta es la voz de tu canal. Así sonarán tus historias, con un ritmo tranquilo y claro.', S, msg);
-    const ctx = new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume(); const buf = ctx.createBuffer(1, a.samples.length, a.fs); buf.copyToChannel(a.samples, 0); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(); src.onended = () => ctx.close(); $('#vmsg').textContent = 'Reproduciendo…';
+    const ctx = new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume(); const buf = ctx.createBuffer(1, a.samples.length, a.fs); buf.copyToChannel(a.samples, 0); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(); src.onended = () => ctx.close(); $('#vmsg').textContent = 'Reproduciendo…' + (S.engine === 'azure' ? ' ' + (Azure.avail && Azure.avail.length ? 'Voces es-ES disponibles en tu región: ' + Azure.avail.map(v => v.n.replace(/^es-ES-|Neural$/g, '')).join(', ') + '.' : '') + (Azure.warn ? ' Aviso: ' + Azure.warn : '') : '');
   } catch (e) { $('#vmsg').textContent = (e && e.message) || errCopy(e); }
   b.disabled = false;
 });
