@@ -67,13 +67,14 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
 #msg{font-size:12px;color:var(--muted);text-align:center;margin:0 0 8px;min-height:16px}
 .note{font-size:12px;color:var(--muted);margin:0 0 12px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#slot1,#slot2{display:none!important}
 body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,body.simple #auto,body.simple label.chk:has(#auto),body.simple #autoHint{display:none!important}
 </style>
 </head>
 <body>
 
 <header>
-  <div><h1>Estudio Diario</h1><small>Piso 3ºB · serie de comedia · 9:16 para Shorts, Reels y TikTok</small></div>
+  <div><h1>Estudio Diario</h1><small>Piso 3ºB · 1 capítulo al día a las 21:00 · 9:16 para Shorts, Reels y TikTok</small></div>
   <span class="pill" id="counter">Hoy 0/3</span><button id="modeBtn" style="margin-left:8px;padding:6px 10px;font-size:13px">Modo avanzado</button>
 </header>
 
@@ -137,7 +138,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <label class="f">Duración objetivo
     <select id="target"><option value="45">≈ 45 s</option><option value="60">≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option><option value="120" selected>≈ 120 s</option></select></label>
   <label class="chk"><input type="checkbox" id="auto"> Piloto automático (solo funciona con esta página abierta y la pantalla encendida)</label>
-  <div class="row"><label class="f">Hora 1<input type="time" id="t0" value="09:30"></label><label class="f">Hora 2<input type="time" id="t1" value="14:30"></label><label class="f">Hora 3<input type="time" id="t2" value="20:30"></label></div>
+  <div class="row"><label class="f">Hora 1<input type="time" id="t0" value="21:00"></label><label class="f">Hora 2<input type="time" id="t1" value="14:30"></label><label class="f">Hora 3<input type="time" id="t2" value="20:30"></label></div>
   <p class="hint" id="autoHint">Para que se haga sin abrir nada, usa la automatización en GitHub (mira el LEEME).</p>
   <button id="installBtn" hidden style="margin-top:12px">Instalar como app en este móvil</button>
 </details>
@@ -1229,7 +1230,7 @@ Object.assign(KITX, {
 /* ===== Figuras genéricas (lote 3): comedia de situación — personajes de primer plano, decorados domésticos y rótulos de pantalla ===== */
 Object.assign(KITX, {
   busto(c, x, y, r, t, o){ o = o || {}; const q = o.quien || 'yo', mood = o.mood || 'neutro';
-    const P = { yo: { hair: null, shirt: '#f08a24', skin: '#f2b890' }, ella: { hair: '#7a4a2a', shirt: '#8b4fd0', skin: '#f2b890', bob: true }, abuelo: { hair: '#d8d8dc', shirt: '#5b8fd0', skin: '#f0c9a8', bald: true }, abuela: { hair: '#dcdce0', shirt: '#e0708c', skin: '#f0c9a8', bob: true }, jefe: { hair: '#2a2a30', shirt: '#2f3a52', skin: '#e8b08a' }, amigo: { hair: '#3a2a20', shirt: '#2f9a58', skin: '#e0a47c' }, amiga: { hair: '#e0b040', shirt: '#2fa6a0', skin: '#f2b890', bob: true }, madre: { hair: '#5a3a2a', shirt: '#d8506a', skin: '#efb48a', bob: true } }[q] || { hair: null, shirt: '#f08a24', skin: '#f2b890' };
+    const P = { yo: { hair: '#9a6a3a', shirt: '#f08a24', skin: '#f2b890' }, ella: { hair: '#7a4a2a', shirt: '#8b4fd0', skin: '#f2b890', bob: true }, abuelo: { hair: '#d8d8dc', shirt: '#5b8fd0', skin: '#f0c9a8', bald: true }, abuela: { hair: '#dcdce0', shirt: '#e0708c', skin: '#f0c9a8', bob: true }, jefe: { hair: '#2a2a30', shirt: '#2f3a52', skin: '#e8b08a' }, amigo: { hair: '#3a2a20', shirt: '#2f9a58', skin: '#e0a47c' }, amiga: { hair: '#e0b040', shirt: '#2fa6a0', skin: '#f2b890', bob: true }, madre: { hair: '#5a3a2a', shirt: '#d8506a', skin: '#efb48a', bob: true } }[q] || { hair: null, shirt: '#f08a24', skin: '#f2b890' };
     const skin = o.skin || P.skin, shirt = o.shirt || P.shirt, hair = o.hair !== undefined ? o.hair : P.hair, look = o.look || 0, bob = o.bob != null ? o.bob : P.bob;
     const br = Math.sin(t * 1.3) * r * .012; c.save(); c.translate(x, y + br);
     /* torso */
@@ -1308,7 +1309,7 @@ Object.assign(KITX, {
   puerta(c, x, y, h, t, o){ o = o || {}; c.save(); c.translate(x, y); const w = h * .42; R(c, -w / 2 - w * .06, -h - w * .05, w * 1.12, h + w * .05, '#d8d2c4'); R(c, -w / 2, -h, w, h, lg(c, -w / 2, 0, w / 2, 0, [[0, '#a8683a'], [1, '#8a5226']]), 3); R(c, -w * .36, -h * .88, w * .72, h * .36, 'rgba(0,0,0,.12)', 3); R(c, -w * .36, -h * .42, w * .72, h * .36, 'rgba(0,0,0,.12)', 3); E(c, w * .3, -h * .5, w * .045, w * .045, '#e8c85a'); c.restore(); },
   whatsapp(c, x, y, w, t, o){ o = o || {}; const msgs = o.msgs || [{ txt: 'Hola', yo: false }, { txt: 'Ok', yo: true }]; c.save(); c.translate(x, y); const h = w * 1.55; R(c, -w / 2, -h / 2, w, h, '#101820', w * .09); R(c, -w / 2 + w * .03, -h / 2 + w * .03, w * .94, h - w * .06, '#e5ddd5', w * .07); R(c, -w / 2 + w * .03, -h / 2 + w * .03, w * .94, w * .15, '#0f7a6b', w * .07); E(c, -w * .36, -h / 2 + w * .11, w * .045, w * .045, '#cfe8e2'); c.fillStyle = '#fff'; c.font = `700 ${Math.round(w * .06)}px Poppins, sans-serif`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(o.nombre || 'Ella ❤', -w * .29, -h / 2 + w * .11);
     let yy = -h / 2 + w * .26; const n = Math.min(msgs.length, Math.floor(t / (o.cada || 1.2)) + 1); c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`;
-    for (let i = 0; i < n; i++) { const m = msgs[i], tw = Math.min(w * .72, c.measureText(m.txt).width + w * .12), bx = m.yo ? w / 2 - w * .05 - tw : -w / 2 + w * .05; R(c, bx, yy, tw, w * .13, m.yo ? '#d9fdd3' : '#fff', w * .035); c.fillStyle = '#1b1f23'; c.textAlign = 'left'; c.fillText(m.txt, bx + w * .05, yy + w * .065); if (m.yo) { c.fillStyle = '#4aa8e0'; c.font = `700 ${Math.round(w * .045)}px sans-serif`; c.textAlign = 'right'; c.fillText('✓✓', bx + tw - w * .02, yy + w * .105); c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`; } yy += w * .17; }
+    for (let i = 0; i < n; i++) { const m = msgs[i]; let fs = Math.round(w * .065); c.font = `600 ${fs}px Poppins, sans-serif`; while (fs > 14 && c.measureText(m.txt).width > w * .6) { fs--; c.font = `600 ${fs}px Poppins, sans-serif`; } const tw = Math.min(w * .72, c.measureText(m.txt).width + w * .12), bx = m.yo ? w / 2 - w * .05 - tw : -w / 2 + w * .05; R(c, bx, yy, tw, w * .13, m.yo ? '#d9fdd3' : '#fff', w * .035); c.fillStyle = '#1b1f23'; c.textAlign = 'left'; c.fillText(m.txt, bx + w * .05, yy + w * .065); if (m.yo) { c.fillStyle = '#4aa8e0'; c.font = `700 ${Math.round(w * .045)}px sans-serif`; c.textAlign = 'right'; c.fillText('✓✓', bx + tw - w * .02, yy + w * .105); c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`; } yy += w * .17; c.font = `600 ${Math.round(w * .065)}px Poppins, sans-serif`; }
     if (n >= msgs.length && o.escribiendo) { R(c, -w / 2 + w * .05, yy, w * .22, w * .1, '#fff', w * .04); for (let i = 0; i < 3; i++) E(c, -w / 2 + w * .1 + i * w * .055, yy + w * .05 + Math.sin(t * 6 + i) * w * .012, w * .014, w * .014, '#8a929e'); } c.restore(); },
   torre(c, x, y, h, t, o){ c.save(); c.translate(x, y); const w = h * .22; Pg(c, [[-w * .28, 0], [w * .28, 0], [w * .18, -h * .62], [-w * .18, -h * .62]], lg(c, -w, 0, w, 0, [[0, '#8a8f98'], [.5, '#b9bec6'], [1, '#7c818a']])); Pg(c, [[-w * .7, -h * .62], [w * .7, -h * .62], [w * .55, -h * .78], [-w * .55, -h * .78]], '#d9c88a'); R(c, -w * .55, -h * .75, w * 1.1, h * .08, '#4a78a8', 3); R(c, -w * .1, -h * .94, w * .02, h * .16, '#8a8f98'); E(c, -w * .09, -h * .95, w * .04, w * .04, Math.sin(t * 6) > 0 ? '#ff3a3a' : '#8a2a2a');
     for (let i = 0; i < 3; i++) { const u = (t * .8 + i * .33) % 1; c.strokeStyle = `rgba(255,200,80,${.8 * (1 - u)})`; c.lineWidth = h * .01; c.beginPath(); c.arc(-w * .09, -h * .94, h * (.05 + u * .22), Math.PI * 1.15, Math.PI * 1.85); c.stroke(); } c.restore(); },
@@ -1324,10 +1325,10 @@ Object.assign(KITX, {
     KITX.sala(c, set, t, { cuadro: set === 'salon' && plano === 'general', suelo: P.suelo });
     const pj = (p, x, y, r, ab, extra) => KITX.busto(c, x, y, r, t, Object.assign({ quien: 'yo', mood: 'neutro', abajo: ab }, p, extra || {}));
     if (plano === 'cerca') { const p = ps[0]; if (set === 'cocina') KITX.nevera(c, W * .9, fy, H * .62, t, { zumbido: false }); pj(p, W * .5, H * .44, 235, 900, { ph: p.ph || 0 }); }
-    else if (plano === 'objeto') { if (P.whatsapp) KITX.whatsapp(c, W * .5, H * .5, 540, t, P.whatsapp); }
-    else if (set === 'salon') { const w = W * 1.2, base = H * .86; if (P.ventana !== false) KITX.ventana(c, W * .84, H * .3, 150, 200, t, { noche: P.noche }); KITX.lampara(c, W * .08, H * .84, H * .4, t, {}); KITX.mesaCentro(c, W * .5, H * .97, W * .7, t); KITX.sofa(c, W * .5, base, w, t, {}); const xs = n === 1 ? [0] : n === 2 ? [-.2, .2] : [-.3, 0, .3]; ps.forEach((p, i) => pj(p, W * .5 + xs[i] * w, base - w * .42 * .6, w * .085, w * .2, { ph: i * 2 })); }
+    else if (plano === 'objeto') { if (P.whatsapp) KITX.whatsapp(c, W * .5, H * .44, 560, t, P.whatsapp); }
+    else if (set === 'salon') { const w = W * 1.2, base = H * .86; if (P.ventana !== false) KITX.ventana(c, W * .84, H * .3, 150, 200, t, { noche: P.noche }); KITX.lampara(c, W * .08, H * .84, H * .4, t, {}); KITX.mesaCentro(c, W * .5, H * .97, W * .7, t); KITX.sofa(c, W * .5, base, w, t, {}); const xs = n === 1 ? [0] : n === 2 ? [-.2, .2] : [-.3, 0, .3]; ps.forEach((p, i) => pj(p, W * .5 + xs[i] * w, base - w * .42 * .6 - w * .02, w * .11, w * .22, { ph: i * 2 })); }
     else if (set === 'dormitorio') { KITX.cama(c, W * .5, H * .97, W * .98, t, { ella: ps[0], yo: ps[1] || { quien: 'yo', mood: 'dormido' } }); }
-    else { const xs = n === 1 ? [.62] : n === 2 ? [.52, .78] : [.45, .65, .85], r = n === 3 ? 78 : 92; if (set === 'cocina') KITX.nevera(c, W * .15, fy + H * .02, H * .6, t, { zumbido: P.zumbido !== false }); if (set === 'bano') KITX.ducha(c, W * .75, fy + H * .02, H * .6, t, { temp: P.temp == null ? .5 : P.temp, vapor: true }); ps.forEach((p, i) => { const y = fy - r * 3.2; pj(p, W * xs[i], y, r, fy - y - r * 1.25 + 40, { ph: i * 2 }); }); }
+    else { const xs = n === 1 ? [.62] : n === 2 ? [.45, .8] : [.4, .64, .88], r = n === 3 ? 92 : n === 2 ? 108 : 122; if (set === 'cocina') KITX.nevera(c, W * .15, fy + H * .02, H * .6, t, { zumbido: P.zumbido === true }); if (set === 'bano') KITX.ducha(c, W * .75, fy + H * .02, H * .6, t, { temp: P.temp == null ? .5 : P.temp, vapor: true }); ps.forEach((p, i) => { const y = fy - r * 3.2; pj(p, W * xs[i], y, r, fy - y - r * 1.25 + 40, { ph: i * 2 }); }); }
     if (P.sello) KITX.sello(c, P.sello[0], W * .5, H * (P.sello[3] || .3), t, { col: P.sello[1], rot: P.sello[2] == null ? -.15 : P.sello[2] });
     if (P.noticia) KITX.noticia(c, P.noticia[0], P.noticia[1] || '', t, { y: H * .06 });
     if (P.hud) { const m = /^\s*(-?\d+)\s*(?:→|->)\s*(-?\d+)\s*(.*)$/.exec(String(P.hud[1])); if (m) { const a0 = +m[1], b0 = +m[2], k = Math.min(1, (t || 0) / 2.2); P.hud = [P.hud[0], Math.round(a0 + (b0 - a0) * k) + m[3], P.hud[2], P.hud[3] || 360]; } }
@@ -1722,6 +1723,7 @@ const slots = (store.get('slots', null) || [{},{},{}]).map(s => ({ topic: s.topi
 const doneMap = store.get('done', {});
 let aborter = null, current = null, running = false;
 const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: s.own, script: s.script })));
+const DAILY = 1; /* vídeos al día: 1 (capítulo de Piso 3ºB a las 21:00) */
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
 const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, quality: ($('#quality') || {}).value || '720', music: $('#musicOn').checked, sfx: ($('#sfxOn') || {}).checked !== false, tacos: ($('#tacos') || {}).checked !== false, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, stVoice: ($('#stVoice') || {}).value || 'M1', humor: ($('#humor') || {}).value || 'auto' });
@@ -2390,7 +2392,7 @@ function renderSlot(i){
 }
 function paintStatus(i){ const p = document.querySelector(`[data-st="${i}"]`); if (p) p.textContent = slots[i].busy; const b = document.querySelector(`[data-bar="${i}"]`); if (b) b.style.width = slots[i].pct + '%'; if (i === 0) { const q = document.getElementById('simStatus'); if (q) q.textContent = slots[0].busy; } }
 function refreshUI(){
-  const d = doneToday().filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/3`; $('#counter').classList.toggle('ok', d >= 3);
+  const d = doneToday().slice(0, DAILY).filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/${DAILY}`; $('#counter').classList.toggle('ok', d >= DAILY);
   [0,1,2].forEach(renderSlot); renderSimple(); $('#allBtn').disabled = running; $('#stopBtn').hidden = !running && !current;
 }
 function toMarkdownScript(s){ return s.escenas.map(e => e.texto.replace(/\*/g,'')).join('\n'); }
@@ -2480,7 +2482,7 @@ async function runSlotAuto(i){
 let autoBusy = false;
 async function autoTick(){
   if (autoBusy || running || !$('#auto').checked) return; const now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
-  for (let i = 0; i < 3; i++) { const v = ($('#t' + i).value || '').split(':'); if (v.length < 2) continue; if (cur >= (+v[0]) * 60 + (+v[1]) && cur < (+v[0]) * 60 + (+v[1]) + 180 && !doneToday()[i] && !slots[i].url && !slots[i].err) { autoBusy = true; try { await runSlotAuto(i); } finally { autoBusy = false; } return; } }
+  for (let i = 0; i < DAILY; i++) { const v = ($('#t' + i).value || '').split(':'); if (v.length < 2) continue; if (cur >= (+v[0]) * 60 + (+v[1]) && cur < (+v[0]) * 60 + (+v[1]) + 180 && !doneToday()[i] && !slots[i].url && !slots[i].err) { autoBusy = true; try { await runSlotAuto(i); } finally { autoBusy = false; } return; } }
 }
 setInterval(autoTick, 20000);
 $('#auto').addEventListener('change', async () => { if ($('#auto').checked) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} keepAwake(true); msg('Piloto automático activado: deja esta página abierta.'); autoTick(); } });
@@ -2588,7 +2590,7 @@ function renderSimple(){
   if (!s.topic.trim() && !s.script && !busy) { s.topic = pickSimpleTopic(); persist(); }
   const sc = s.script, normal = sc ? sc.escenas.filter(e => (e.tipo || 'normal') === 'normal') : [], faltan = sc ? normal.filter(e => !e.codigo).length : 0;
   const cfgS = slotCfg(), todayD = ymd(new Date());
-  let strip = `<p class="meta"><b>Vídeo de hoy por horas</b> (un toque: elige el tema y copia el prompt)</p><div class="row">` + cfgS.map((c, k) => { const done = registry().some(r => r.d === todayD && r.slot === k); return `<button id="simSlot${k}"${s.slotIdx === k ? ' class="pri"' : ''}>${esc(c.h)} · ${esc(SLOT_TYPES[c.type].n)}${done ? ' ✓' : ''}</button>`; }).join('') + `</div>`;
+  let strip = `<p class="meta"><b>Vídeo de hoy por horas</b> (un toque: elige el tema y copia el prompt)</p><div class="row">` + cfgS.slice(0, DAILY).map((c, k) => { const done = registry().some(r => r.d === todayD && r.slot === k); return `<button id="simSlot${k}"${s.slotIdx === k ? ' class="pri"' : ''}>${esc(c.h)} · ${esc(SLOT_TYPES[c.type].n)}${done ? ' ✓' : ''}</button>`; }).join('') + `</div>`;
   let h = strip + `<div class="top"><h2>Vídeo con ChatGPT</h2><span class="pill" id="simStatus">${esc(s.busy || (s.url ? 'Listo' : sc ? 'Guion cargado' : 'Paso 1'))}</span></div>`;
   if (s.url) {
     h += `<p class="meta"><b>${esc(sc ? sc.titulo : '')}</b></p><video class="out" src="${s.url}#t=0.1" preload="metadata" controls playsinline></video>
@@ -2675,8 +2677,8 @@ var SLOT_TYPES = {
   piso: { n: 'Piso 3ºB (serie)', desc: 'capítulos de la serie de comedia «Piso 3ºB»: tres compañeros de piso (yo, Dani y Marta) con decorados fijos; cada tema empieza por «PISO 3ºB:»', ej: 'PISO 3ºB: alguien se ha comido mi yogur y yo investigo' },
   historia: { n: 'Historia y misterios', desc: 'historias reales, hechos históricos y misterios', ej: 'La historia real de la biblioteca de Alejandría' }
 };
-var SLOT_DEF = [{ h: '09:00', type: 'piso', humor: 'comedia', own: '' }, { h: '13:00', type: 'piso', humor: 'comedia', own: '' }, { h: '18:00', type: 'piso', humor: 'comedia', own: '' }, { h: '21:00', type: 'piso', humor: 'comedia', own: '' }];
-var SLOT_HV = 4; /* versión de las horas por defecto: al subirla, las horas guardadas pasan a las nuevas una vez (temáticas y listas propias no se tocan) */
+var SLOT_DEF = [{ h: '21:00', type: 'piso', humor: 'comedia', own: '' }, { h: '13:00', type: 'piso', humor: 'comedia', own: '' }, { h: '18:00', type: 'piso', humor: 'comedia', own: '' }, { h: '21:00', type: 'piso', humor: 'comedia', own: '' }];
+var SLOT_HV = 5; /* versión de las horas por defecto: al subirla, las horas guardadas pasan a las nuevas una vez (temáticas y listas propias no se tocan) */
 function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function slotCfg(){ let c = store.get('slotCfg', null); if (!Array.isArray(c) || c.length !== 4) c = SLOT_DEF.map(x => Object.assign({}, x));
   if (store.get('slotHV', 0) !== SLOT_HV) { c = c.map((x, k) => Object.assign({}, x, { h: SLOT_DEF[k].h, type: SLOT_DEF[k].type, humor: SLOT_DEF[k].humor })); store.set('slotCfg', c); store.set('slotHV', SLOT_HV); } return c.map((x, k) => Object.assign({}, SLOT_DEF[k], x, { type: x && SLOT_TYPES[x.type] ? x.type : SLOT_DEF[k].type })); }
@@ -2701,8 +2703,8 @@ function topicsPrompt(k){
 }
 function renderSlotsCfg(){
   const el = $('#slotsBody'); if (!el) return; if (el.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
-  const cfg = slotCfg(), hum = $('#humor') ? $('#humor').innerHTML : '', reg = registry();
-  el.innerHTML = `<p class="meta">Horas pensadas para España (hora de Madrid): 09:00 primer scroll de la mañana, 13:00 pausa de comer, 18:00 pico de TikTok al salir de clase o del trabajo, 21:00 prime time de la noche. Puedes cambiarlas. Cada hora tiene su temática. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
+  const cfg = slotCfg().slice(0, DAILY), hum = $('#humor') ? $('#humor').innerHTML : '', reg = registry();
+  el.innerHTML = `<p class="meta">Un capítulo de Piso 3ºB al día, por defecto a las 21:00 (prime time en España, hora de Madrid). Puedes cambiar la hora. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
     <label class="f">Hora<input type="text" data-sc="${k}:h" value="${esc(c.h)}" inputmode="numeric" placeholder="12:30"></label>
     <label class="f">Temática<select data-sc="${k}:type">${['piso'].map(t => `<option value="${t}"${t === c.type ? ' selected' : ''}>${esc(SLOT_TYPES[t].n)}</option>`).join('')}</select></label>
     <label class="f">Humor<select data-sc="${k}:humor">${hum}</select></label>
@@ -2718,7 +2720,7 @@ document.addEventListener('click', async e => { const b = e.target.closest('[dat
 renderSlotsCfg();
 
 /* --- cola del día: los vídeos grabados se guardan en el móvil (IndexedDB) con la hora a la que toca publicarlos --- */
-function slotHours(){ return slotCfg().map(c => { const m = /^(\d{1,2}):(\d{2})$/.exec(c.h || ''); return m ? [+m[1], +m[2]] : [12, 0]; }); }
+function slotHours(){ return slotCfg().slice(0, DAILY).map(c => { const m = /^(\d{1,2}):(\d{2})$/.exec(c.h || ''); return m ? [+m[1], +m[2]] : [12, 0]; }); }
 const queueMem = []; let queueDB = null, queueSeq = 1;
 function qOpen(){ return new Promise(res => { if (queueDB !== null) return res(queueDB); try { const r = indexedDB.open('estudio-cola', 1); r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id' }); r.onsuccess = () => { queueDB = r.result; res(queueDB); }; r.onerror = () => { queueDB = false; res(false); }; } catch (e) { queueDB = false; res(false); } }); }
 async function qAll(){ const db = await qOpen(); if (!db) return queueMem.slice(); return new Promise(res => { try { const rq = db.transaction('q').objectStore('q').getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => res([]); } catch (e) { res([]); } }); }
