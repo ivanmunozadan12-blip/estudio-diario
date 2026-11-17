@@ -135,7 +135,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <label class="chk"><input type="checkbox" id="tacos" checked> Permitir tacos suaves (joder, hostia…) en «Comedia total»</label>
   <label class="chk"><input type="checkbox" id="subsOn" checked> Subtítulos de 2-3 palabras con la clave en amarillo</label>
   <label class="f">Duración objetivo
-    <select id="target"><option value="45">≈ 45 s</option><option value="60" selected>≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option></select></label>
+    <select id="target"><option value="45">≈ 45 s</option><option value="60">≈ 60 s</option><option value="75">≈ 75 s</option><option value="90">≈ 90 s</option><option value="120" selected>≈ 120 s</option></select></label>
   <label class="chk"><input type="checkbox" id="auto"> Piloto automático (solo funciona con esta página abierta y la pantalla encendida)</label>
   <div class="row"><label class="f">Hora 1<input type="time" id="t0" value="09:30"></label><label class="f">Hora 2<input type="time" id="t1" value="14:30"></label><label class="f">Hora 3<input type="time" id="t2" value="20:30"></label></div>
   <p class="hint" id="autoHint">Para que se haga sin abrir nada, usa la automatización en GitHub (mira el LEEME).</p>
@@ -2037,7 +2037,8 @@ y "plano" lleva SOLO estos campos posibles:
 - "whatsapp": {"nombre":"Piso 3ºB","msgs":[{"txt":"…","yo":false},{"txt":"…","yo":true}],"escribiendo":true} solo con plano "objeto" (máx. 6 mensajes, textos cortos; yo:true = mensaje mío).
 
 REGLAS DE DIRECCIÓN:
-- 14 a 18 escenas, vídeo de 35 a 55 segundos. Cada escena 1 o 2 frases de 3 a 12 palabras. Estilo de la cuenta: segunda persona o primera persona, frases entrecortadas, golpes secos.
+- DURACIÓN OBLIGATORIA: el vídeo dura MÍNIMO 90 segundos (objetivo 100 a 120). Eso son de 28 a 34 escenas (cada una dura unos 3 a 4 segundos). Un vídeo con menos de 26 escenas se rechaza. Cada escena 1 o 2 frases de 3 a 12 palabras.
+- Estructura en 4 actos: (1) gancho y problema, escenas 1-5; (2) investigación o escalada con 3 o 4 giros cada vez más incómodos, escenas 6-20; (3) el giro que lo cambia todo, escenas 21-27; (4) remate seco y vuelta al gancho, últimas 3 escenas. Cada acto con situaciones DISTINTAS (no repitas el mismo chiste). Estilo de la cuenta: segunda persona o primera persona, frases entrecortadas, golpes secos.
 - Alterna plano general y plano «cerca» (reacciones enormes). Máximo 2 escenas seguidas con el mismo set y el mismo plano. Cambia "mood" en cada escena según lo que se cuenta.
 - Mete 1 o 2 «hud», 1 «noticia» o 1 «sello» y 1 o 2 «etiqueta» en todo el vídeo (no en todas las escenas).
 - El humor viene de lo reconocible: frases que dice la gente DE VERDAD en un piso, coloquiales, con algún taco natural, dichas sin gracia por un narrador resignado. Final con giro seco que conecta con el primer gancho.
@@ -2052,10 +2053,13 @@ ${TACOS_BLOCK}
 
 FORMATO DE ENTREGA (OBLIGATORIO): responde SOLO con UN bloque de código (\`\`\`json … \`\`\`) que contenga un único objeto JSON válido, sin comentarios, sin texto fuera y sin más bloques de código. NO escribas código de escenas ni «### ESCENA». Forma exacta:
 {"titulo":"","descripcion":"","hashtags":["pisocompartido","humor"],"musica":"alegre","concepto":"","protagonista":null,"escenas":[{"texto":"","plano":{"set":"cocina","plano":"general","pers":[{"quien":"yo","mood":"asombro","look":-1}]},"camara":"zoomin"}]}
-Entrega TODAS las escenas de una vez, sin pararte, sin preguntar y sin resumir.`;
+Recuerda: mínimo 28 escenas (90 s). Entrega TODAS las escenas de una vez, sin pararte, sin preguntar y sin resumir.`;
 }
 function masterPrompt(i, S, mode){
-  const sl = slots[i], topic = (sl.topic || '').trim() || 'TEMA LIBRE: elige tú un tema sorprendente de ciencia, tecnología o curiosidades';
+  const sl = slots[i]; let topic = (sl.topic || '').trim();
+  if (!topic) topic = PISO_TOPICS[Math.floor(Math.random() * PISO_TOPICS.length)];
+  else if (!/^\s*PISO\b/i.test(topic)) topic = 'PISO 3ºB: ' + topic.replace(/^\s*(HISTORIA|POV|REGLAS|DOCUMENTAL|CRONOLOG[ÍI]A|CUENTAS)[^:]*:\s*/i, '');
+  sl.topic = topic;
   const dir = pickDirection(topic, store.get('sigs', []), comediaOn(S, topic) || /^\s*PISO\b/i.test(topic)); pendingDir[i] = dir;
   if (/^\s*PISO\b/i.test(topic)) return pisoPrompt(topic);
   const base = scriptPrompt(topic, S, '', null, dir).replace(/Responde SOLO con un objeto JSON válido con esta forma:[\s\S]*$/, '');
@@ -2118,6 +2122,7 @@ function importPackage(text, i){
   if (keep) script.escenas.forEach((e, k) => { if ((e.tipo || 'normal') === 'normal' && old.escenas[k].codigo) { e.codigo = old.escenas[k].codigo; ok++; } });
   script.programadas = ok; script.conPlantilla = at < 0 && !keep ? script.escenas.filter(e => (e.tipo || 'normal') === 'normal').length - ok : script.escenas.filter(e => (e.tipo || 'normal') === 'normal').length - ok; script.sinFuentes = true;
   if (!sl.topic) sl.topic = script.titulo;
+  { const dur = script.escenas.reduce((a, e) => a + estSceneDur(e), 0); script.durEst = dur; if (dur < 90) errs.push(`AVISO: el vídeo dura unos ${Math.round(dur)} s y tiene que durar mínimo 90 s. Pídele a ChatGPT más escenas (28 o más) con: «Faltan escenas: el vídeo debe durar mínimo 90 s. Entrégalo de nuevo con 30 escenas.»`); }
   sl.script = script; sl.err = ''; persist();
   return { ok, errs, total: script.escenas.length };
 }
@@ -2558,7 +2563,7 @@ const TOPIC_BANK = (() => {
 })();
 const COMEDY_TOPICS = ['HISTORIA (yo): abro la ducha, el agua sale para asar pollos y mi novia dice que está templada','HISTORIA (yo): mi novia y yo llevamos cuarenta minutos decidiendo qué cenar y ninguno quiere decidir','HISTORIA (yo): mi novia pone el aire acondicionado a 24 grados y se tapa con una manta','HISTORIA (yo): mi novia me pide que le diga algo bonito y me quedo en blanco','HISTORIA (yo): me dice «no pasa nada» y pasa todo','HISTORIA (yo): voy con mi madre a un recado rápido y vuelvo cuatro horas después','HISTORIA (yo): mi abuela me sirve una ración pequeña y es para un regimiento','HISTORIA (yo): llego a casa de mis padres y el termostato es territorio ocupado','HISTORIA (yo): monto un mueble sin instrucciones con mi pareja y sobran seis tornillos','HISTORIA (yo): le digo a mi pareja que llego en cinco minutos y llego en cuarenta','HISTORIA (yo): mi pareja se ríe mirando el móvil y yo no sé de qué','HISTORIA (yo): mi madre me pregunta si he comido mientras tengo la boca llena','HISTORIA (yo): me quedo solo en casa de mi novia con su gato y el gato me juzga','HISTORIA (yo): le digo a mi novia que no hace falta que me regale nada por mi cumpleaños','HISTORIA (tú): tu novia te dice «no pasa nada» y llevas diez minutos mirando la pared','HISTORIA (tú): son las tres de la mañana y tu pareja te pregunta en qué piensas','HISTORIA (tú): ella dice «me da igual dónde cenemos» y rechaza todos tus planes','HISTORIA (tú): tu madre te llama y solo quería decirte que se le ha ido el WhatsApp','HISTORIA (tú): te dicen «luego hablamos» y llevas toda la tarde pensando en el luego','HISTORIA (tú): dices «quita, que lo hago yo» y ahora lo haces tú todo para siempre','HISTORIA (tú): tu pareja organiza un plan tranquilo con doce personas','HISTORIA (tú): son las diez y media de un domingo y ya empiezas a notar el lunes','HISTORIA (tú): el edredón es de los dos pero esta noche solo lo tiene uno','HISTORIA (tú): tu abuela te da dinero «para que te compres algo» y no puedes decir que no','POV OBJETO: soy el mando de la tele y llevo seis años perdido entre los cojines','POV OBJETO: soy el despertador y mañana tienes que madrugar','POV OBJETO: soy la nevera y son las tres de la mañana y vienes otra vez','POV OBJETO: soy el cargador del móvil y siempre estoy en la otra habitación','POV OBJETO: soy el wifi del piso y todos se quejan de mí sin saber qué pasa','POV OBJETO: soy el termostato de una casa donde nadie se pone de acuerdo','POV OBJETO: soy la sartén que nadie quiere fregar','POV OBJETO: soy el calcetín que queda solo después de la colada','REGLAS NO ESCRITAS: de un piso de cuatro compañeros','REGLAS NO ESCRITAS: del grupo de WhatsApp de la familia','REGLAS NO ESCRITAS: del bar de siempre','REGLAS NO ESCRITAS: de compartir cama con alguien','DOCUMENTAL: un supermercado un sábado a las doce','DOCUMENTAL: una familia decidiendo dónde cenar','DOCUMENTAL: una pareja en el sofá un domingo por la tarde','CRONOLOGÍA: de un «solo me tomo una caña»','CRONOLOGÍA: de un domingo por la noche','CRONOLOGÍA: de una dieta que empieza el lunes','CUENTAS: cuántas horas de tu vida has pasado buscando el cargador','CUENTAS: cuánto tiempo pierdes al año decidiendo qué cenar'];
 function pickSimpleTopic(){
-  { const cm = (($('#humor') || {}).value) === 'comedia'; const pool = (cm ? PISO_TOPICS.concat(COMEDY_TOPICS) : slotPool('curiosidades').concat(slotPool('hipotetico'))).filter(t => !isUsed(t)); if (pool.length) return pool[Math.floor(Math.random() * pool.length)]; }
+  { const cm = (($('#humor') || {}).value) === 'comedia'; const pool = (true ? PISO_TOPICS : slotPool('curiosidades').concat(slotPool('hipotetico'))).filter(t => !isUsed(t)); if (pool.length) return pool[Math.floor(Math.random() * pool.length)]; }
   if ((($('#humor') || {}).value) === 'comedia') { const used = store.get('usedTopics', []), pool = COMEDY_TOPICS.filter(t => !used.includes(t)), src = pool.length ? pool : COMEDY_TOPICS; return src[Math.floor(Math.random() * src.length)]; }
   const used = store.get('usedTopics', []), rec = used.slice(-40), lastCat = store.get('lastTopicCat', '');
   let pool = TOPIC_BANK.filter(x => !rec.some(u => topicSim(u, x.t) >= .6));
@@ -2671,7 +2676,7 @@ var SLOT_TYPES = {
   historia: { n: 'Historia y misterios', desc: 'historias reales, hechos históricos y misterios', ej: 'La historia real de la biblioteca de Alejandría' }
 };
 var SLOT_DEF = [{ h: '09:00', type: 'piso', humor: 'comedia', own: '' }, { h: '13:00', type: 'piso', humor: 'comedia', own: '' }, { h: '18:00', type: 'piso', humor: 'comedia', own: '' }, { h: '21:00', type: 'piso', humor: 'comedia', own: '' }];
-var SLOT_HV = 3; /* versión de las horas por defecto: al subirla, las horas guardadas pasan a las nuevas una vez (temáticas y listas propias no se tocan) */
+var SLOT_HV = 4; /* versión de las horas por defecto: al subirla, las horas guardadas pasan a las nuevas una vez (temáticas y listas propias no se tocan) */
 function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function slotCfg(){ let c = store.get('slotCfg', null); if (!Array.isArray(c) || c.length !== 4) c = SLOT_DEF.map(x => Object.assign({}, x));
   if (store.get('slotHV', 0) !== SLOT_HV) { c = c.map((x, k) => Object.assign({}, x, { h: SLOT_DEF[k].h, type: SLOT_DEF[k].type, humor: SLOT_DEF[k].humor })); store.set('slotCfg', c); store.set('slotHV', SLOT_HV); } return c.map((x, k) => Object.assign({}, SLOT_DEF[k], x, { type: x && SLOT_TYPES[x.type] ? x.type : SLOT_DEF[k].type })); }
@@ -2680,7 +2685,7 @@ function normT(t){ return String(t || '').toLowerCase().normalize('NFD').replace
 function isUsed(t){ const n = normT(t); if (!n) return true; return registry().some(r => [r.tema, r.titulo].some(u => { const m = normT(u); return m && (m === n || topicSim(u, t) >= .7); })); }
 function regAdd(tema, titulo, slot){ if (!(tema || titulo)) return; const r = registry(); r.push({ d: ymd(new Date()), slot: slot >= 0 ? slot : -1, tema: tema || '', titulo: titulo || '' }); store.set('registry', r.slice(-3000)); renderSlotsCfg(); }
 function slotPool(type){
-  if (type === 'piso') return PISO_TOPICS.slice();
+  if (type === 'piso' || type === 'comedia') return PISO_TOPICS.slice();
   if (type === 'comedia') return COMEDY_TOPICS.slice();
   const cats = type === 'curiosidades' ? ['como', 'porque'] : type === 'hipotetico' ? ['si'] : ['hist'];
   return TOPIC_BANK.filter(x => cats.includes(x.c)).map(x => x.t);
@@ -2699,7 +2704,7 @@ function renderSlotsCfg(){
   const cfg = slotCfg(), hum = $('#humor') ? $('#humor').innerHTML : '', reg = registry();
   el.innerHTML = `<p class="meta">Horas pensadas para España (hora de Madrid): 09:00 primer scroll de la mañana, 13:00 pausa de comer, 18:00 pico de TikTok al salir de clase o del trabajo, 21:00 prime time de la noche. Puedes cambiarlas. Cada hora tiene su temática. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
     <label class="f">Hora<input type="text" data-sc="${k}:h" value="${esc(c.h)}" inputmode="numeric" placeholder="12:30"></label>
-    <label class="f">Temática<select data-sc="${k}:type">${Object.keys(SLOT_TYPES).map(t => `<option value="${t}"${t === c.type ? ' selected' : ''}>${esc(SLOT_TYPES[t].n)}</option>`).join('')}</select></label>
+    <label class="f">Temática<select data-sc="${k}:type">${['piso'].map(t => `<option value="${t}"${t === c.type ? ' selected' : ''}>${esc(SLOT_TYPES[t].n)}</option>`).join('')}</select></label>
     <label class="f">Humor<select data-sc="${k}:humor">${hum}</select></label>
     <label class="f">Mis temas (uno por línea; se usan primero y no se repiten)<textarea data-sc="${k}:own" rows="3" placeholder="Pega aquí la lista que te dé ChatGPT">${esc(c.own)}</textarea></label>
     <div class="row"><button data-scb="topics:${k}">🧠 Pedir temas nuevos a ChatGPT</button></div></div>`).join('') + `<p class="meta"><b>Registro:</b> ${reg.length} vídeo${reg.length === 1 ? '' : 's'} hecho${reg.length === 1 ? '' : 's'}; no se repetirá ninguno parecido.</p><div class="row"><button data-scb="regcopy">Copiar registro</button><button data-scb="regclear">Borrar registro</button></div>`;
