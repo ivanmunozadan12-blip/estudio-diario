@@ -123,6 +123,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
   <label class="f">Voz
     <select id="voiceEngine"><option value="natural" selected>Natural (neuronal, gratis, va dentro del vídeo)</option><option value="supertonic">Supertonic (muy natural, sin claves; ~250 MB la primera vez)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
   <div class="hint" id="stStatus" style="font-size:.85em;opacity:.85"></div>
+  <p class="meta">En Piso 3ºB cada personaje tiene su propia voz (Dani M2, Marta F4, casero M3, vecina F1, madre F5). La voz que elijas aquí es la del narrador (recomendado M4 o M5).</p>
   <label class="f">Voz de Supertonic
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4">M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
@@ -2042,7 +2043,7 @@ PERSONAJES FIJOS (siempre los mismos, con su carácter):
 LA CASA ENTERA (campo "set"; todo ocurre aquí, usa TODAS las estancias y cambia de una a otra a menudo): salon (sofá, tele, mesa), cocina (nevera, encimera, fregadero), bano (ducha), dormitorio (mi cuarto, la cama), pasillo (puertas de los cuartos, la puerta de entrada, zapatos, abrigos), cuartoDani (cuarto de Dani: pesas, banco, bote de proteína, póster), cuartoMarta (cuarto de Marta: plantas, escritorio, luces, corcho de notas), portal (buzones y escalera del edificio; para vecinos, casero y repartidor), terraza (tendedero con ropa y vistas a los edificios). Para el casero, la vecina y la madre usa pasillo, portal o salon.
 
 CADA ESCENA es un objeto con estos campos:
-{"texto":"frase que se dice","plano":{...},"camara":"zoomin"}
+{"texto":"frase que se dice","habla":"amigo","plano":{...},"camara":"zoomin"} ("habla" solo si en el texto hay algo entre «…»)
 y "plano" lleva SOLO estos campos posibles:
 - "set": uno de los decorados de arriba.
 - "plano": "general" (se ve la habitación con 1 a 3 personajes), "cerca" (primer plano enorme de UN personaje: úsalo para las reacciones y los remates) u "objeto" (solo el móvil con un chat de WhatsApp o un objeto).
@@ -2052,6 +2053,8 @@ y "plano" lleva SOLO estos campos posibles:
 - "sello": ["TEXTO CORTO","#c9182c",-0.15,0.3] = sello grande (texto, color, giro, altura 0.2-0.7). Ej: «CULPABLE», «NO TOCAR».
 - "etiqueta": texto corto de tiempo o lugar («Anoche 03:12», «Dos minutos después»).
 - "whatsapp": {"nombre":"Piso 3ºB","msgs":[{"txt":"…","yo":false},{"txt":"…","yo":true}],"escribiendo":true} solo con plano "objeto" (máx. 6 mensajes, textos cortos; yo:true = mensaje mío).
+
+VOCES (cada personaje tiene su propia voz en el vídeo): el narrador (yo) lee todo el texto de la escena MENOS lo que va entre comillas angulares «así», que lo lee el personaje indicado en el campo "habla" de esa escena ("amigo", "amiga", "jefe", "abuela" o "madre"). Por eso: (1) los diálogos de los demás personajes van SIEMPRE entre «…» con comillas angulares y el campo "habla" con quien los dice; (2) una escena solo puede tener UN personaje hablando (si hablan dos, sepáralas en dos escenas); (3) mete mucho diálogo: al menos la mitad de las escenas llevan una frase dicha por Dani, Marta, el casero, la vecina o mi madre, con el tono de cada uno; (4) lo que diga el narrador dentro de «…» lo lee su propia voz, no pongas "habla" para eso; (5) en la escena donde habla un personaje, muéstralo con su "mood":"hablar" en el plano.
 
 REGLAS DE DIRECCIÓN:
 - DURACIÓN OBLIGATORIA: el vídeo dura MÍNIMO 90 segundos (objetivo 100 a 120). Eso son de 28 a 34 escenas (cada una dura unos 3 a 4 segundos). Un vídeo con menos de 26 escenas se rechaza. Cada escena 1 o 2 frases de 3 a 12 palabras.
@@ -2070,7 +2073,7 @@ ${PISO_BLOCK}
 ${PISO_TACOS}
 
 FORMATO DE ENTREGA (OBLIGATORIO): responde SOLO con UN bloque de código (\`\`\`json … \`\`\`) que contenga un único objeto JSON válido, sin comentarios, sin texto fuera y sin más bloques de código. NO escribas código de escenas ni «### ESCENA». Forma exacta:
-{"titulo":"","descripcion":"","hashtags":["pisocompartido","humor"],"musica":"alegre","concepto":"","protagonista":null,"escenas":[{"texto":"","plano":{"set":"cocina","plano":"general","pers":[{"quien":"yo","mood":"asombro","look":-1}]},"camara":"zoomin"}]}
+{"titulo":"","descripcion":"","hashtags":["pisocompartido","humor"],"musica":"alegre","concepto":"","protagonista":null,"escenas":[{"texto":"","habla":"","plano":{"set":"cocina","plano":"general","pers":[{"quien":"yo","mood":"asombro","look":-1}]},"camara":"zoomin"}]}
 Recuerda: mínimo 28 escenas (90 s). Entrega TODAS las escenas de una vez, sin pararte, sin preguntar y sin resumir.`;
 }
 function masterPrompt(i, S, mode){
@@ -2205,6 +2208,7 @@ function sanitizeScript(raw, topic, dir){
   const scenes = raw.escenas.slice(0, 40).map((e, i) => {
     const texto = fixUno(String(e.texto || '').trim()); if (!texto) return null;
     const sc = { texto, fondo: BG[e.fondo] ? e.fondo : guessBg(texto), tono: VALID_TONO.includes(e.tono) ? e.tono : 'dia', camara: VALID_CAM.includes(e.camara) ? e.camara : VALID_CAM[i % 5], efectos: (Array.isArray(e.efectos) ? e.efectos : []).filter(x => VALID_FX.includes(x)).slice(0,3), tipo: VALID_TIPO.includes(e.tipo) ? e.tipo : 'normal', dato: e.dato && typeof e.dato === 'object' ? e.dato : null };
+    if (PISO_QUIEN.includes(e.habla) && e.habla !== 'yo') sc.habla = e.habla;
     { const pl = sanitizePlano(e.plano); if (pl && (e.tipo || 'normal') === 'normal') { sc.plano = pl; sc.codigo = planoCode(pl); } }
     if (e.visual) sc.visual = String(e.visual).slice(0, 500);
     if (e.rotulo) sc.rotulo = String(e.rotulo).slice(0, 40);
@@ -2258,7 +2262,7 @@ async function prepare(script, S, progress){
     const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
     const clean = e.texto.replace(/\s+/g,' ').trim();
     let words, dur, audio = null; nw += clean.split(' ').filter(Boolean).length;
-    if (S.voice) { progress && progress(`Voz: escena ${i + 1}/${script.escenas.length}`, i / script.escenas.length); audio = await Voice.speak(clean, S, m => progress && progress(m, i / script.escenas.length)); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
+    if (S.voice) { progress && progress(`Voz: escena ${i + 1}/${script.escenas.length}`, i / script.escenas.length); audio = await Voice.speakCast(clean, S, m => progress && progress(m, i / script.escenas.length), e.habla); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
     else {
       const toks = clean.split(' '), tot = toks.reduce((a, w) => a + w.length + 2, 0), span = Math.max(2.4, toks.length / 2.6 + .5); let acc = .15;
       words = toks.map(w => { const d = (w.length + 2) / tot * (span - .4); const o = { w: w.replace(/[*_]/g,''), s: acc, e: acc + d, hi: false }; acc += d; return o; }); dur = span;
@@ -3287,6 +3291,18 @@ const Voice = {
       toks.forEach((w, i) => { const s = s0 + acc / tot * sd; acc += wts[i]; words.push({ raw: w.replace(/[*_]/g, ''), s, e: s0 + acc / tot * sd }); });
     });
     return { samples, fs, dur, words };
+  },
+  VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5', ella: 'F2', abuelo: 'M5' },
+  voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ_PERSONAJE[who] || narr; if (v === narr) v = ['M2', 'F4', 'M3', 'F1', 'M5', 'F5'].find(x => x !== narr && x !== this.VOZ_PERSONAJE.amigo) || 'F4'; return v; },
+  async speakCast(text, S, progress, habla){
+    if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
+    const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
+    if (parts.length < 1) return this.speak(text, S, progress);
+    const narr = S.stVoice || 'M1', out = []; let fs = 44100;
+    for (const pt of parts) { const r = await this.speak(pt.t, Object.assign({}, S, { stVoice: this.voiceFor(pt.who, narr) }), progress); fs = r.fs; out.push(r); }
+    const gap = Math.round(.12 * fs); let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? gap : 0); });
+    const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
+    return { samples, fs, dur: total / fs, words };
   },
   async speak(text, S, progress){
     if (S.engine === 'supertonic' && !this.forcePiper) {
