@@ -2620,6 +2620,15 @@ function idleFrame(msg){ const c = sctx; c.setTransform(Q, 0, 0, Q, 0, 0); c.fil
 idleFrame();
 const MIMES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
 function pickMime(){ if (typeof MediaRecorder === 'undefined') return ''; return MIMES.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch (e) { return false; } }) || ''; }
+async function notifyMe(title, body){
+  try { if (navigator.vibrate) navigator.vibrate([250, 120, 250]); } catch (e) {}
+  try {
+    if (!window.Notification || Notification.permission !== 'granted') return;
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if (reg && reg.showNotification) await reg.showNotification(title, { body, tag: 'piso3b', renotify: true, vibrate: [250, 120, 250] });
+    else new Notification(title, { body });
+  } catch (e) {}
+}
 let wake = null; async function keepAwake(on){ try { if (on) wake = await navigator.wakeLock?.request('screen'); else { await wake?.release(); wake = null; } } catch (e) {} }
 
 function playProject(proj, { record = false, onTick } = {}){
@@ -2643,14 +2652,16 @@ function playProject(proj, { record = false, onTick } = {}){
         rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
         drawFrame(proj, 0); rec.start(400);
       }
-      const h = { ctx, rec, cancelled: false, raf: 0 }; current = h;
+      const h = { ctx, rec, cancelled: false, raf: 0, iv: 0, done: false }; current = h;
       const fin = (ok) => {
-        cancelAnimationFrame(h.raf); current = null;
+        if (h.done) return; h.done = true; cancelAnimationFrame(h.raf); clearInterval(h.iv); current = null;
         const done = () => { try { ctx.close(); } catch (e) {} ok ? resolve(record ? { blob: new Blob(chunks, { type: (mime || 'video/webm').split(';')[0] }), mime } : {}) : resolve(null); };
         if (rec && rec.state !== 'inactive') { rec.onstop = done; try { rec.stop(); } catch (e) { done(); } } else done();
       };
       h.cancel = () => { h.cancelled = true; fin(false); };
-      const loop = () => { const t = ctx.currentTime - t0; const i = drawFrame(proj, t); onTick && onTick(clamp(t / proj.total,0,1), i, t); if (t >= proj.total) fin(true); else h.raf = requestAnimationFrame(loop); };
+      const tick = () => { if (h.done) return false; const t = ctx.currentTime - t0; const i = drawFrame(proj, t); onTick && onTick(clamp(t / proj.total,0,1), i, t); if (t >= proj.total) { fin(true); return false; } return true; };
+      const loop = () => { if (tick()) h.raf = requestAnimationFrame(loop); };
+      h.iv = setInterval(() => { if (document.hidden) tick(); }, 33);
       loop();
     } catch (e) { reject(e); }
   });
@@ -2721,7 +2732,7 @@ function renderSlot(i){
   $('#topic' + i).addEventListener('input', e => { slots[i].topic = e.target.value; persist(); });
   $('#own' + i).addEventListener('input', e => { slots[i].own = e.target.value; persist(); });
 }
-function paintStatus(i){ const p = document.querySelector(`[data-st="${i}"]`); if (p) p.textContent = slots[i].busy; const b = document.querySelector(`[data-bar="${i}"]`); if (b) b.style.width = slots[i].pct + '%'; if (i === 0) { const q = document.getElementById('simStatus'); if (q) q.textContent = slots[0].busy; } }
+function paintStatus(i){ const p = document.querySelector(`[data-st="${i}"]`); if (p) p.textContent = slots[i].busy; const b = document.querySelector(`[data-bar="${i}"]`); if (b) b.style.width = slots[i].pct + '%'; if (i === 0) { const q = document.getElementById('simStatus'); if (q) q.textContent = slots[0].busy; const pc = document.getElementById('simPct'); if (pc) pc.textContent = slots[0].pct + ' %'; } }
 function refreshUI(){
   const d = doneToday().slice(0, DAILY).filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/${DAILY}`; $('#counter').classList.toggle('ok', d >= DAILY);
   [0,1,2].forEach(renderSlot); renderSimple(); $('#allBtn').disabled = running; $('#stopBtn').hidden = !running && !current;
@@ -2749,14 +2760,15 @@ async function saveVideo(i){
   try { if (downloads) { await downloads.save({ filename: name, data: s.blob }); msg('Guardado.'); return; } } catch (e) { if (e && e.code === 'declined') return; msg('No se pudo guardar desde aquí. Mantén pulsado el vídeo para descargarlo.'); return; }
   const a = document.createElement('a'); a.href = s.url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
-function setStage(i, p, txt){ $('#stageInfo').textContent = txt; slots[i].pct = Math.round(p * 100); paintStatus(i); }
+let alerted95 = false;
+function setStage(i, p, txt){ $('#stageInfo').textContent = txt; slots[i].pct = Math.round(30 + p * 70); paintStatus(i); if (i === 0 && slots[0].pct >= 95 && !alerted95) { alerted95 = true; notifyMe('Piso 3ºB', 'El vídeo va por el 95 %. Vuelve a la app para guardarlo.'); } }
 
 async function prepAndPlay(i, record){
   const S = settings(), sl = slots[i];
-  sl.busy = 'Preparando voz y escenas…'; sl.pct = 2; renderSlot(i); await new Promise(r => setTimeout(r, 30));
+  sl.busy = 'Preparando voz y escenas…'; sl.pct = 2; renderSlot(i); if (i === 0) renderSimple(); await new Promise(r => setTimeout(r, 30));
   Voice.failed = false;
-  const proj = await prepare(sl.script, S, (m, p) => { sl.busy = m; sl.pct = Math.round((p || 0) * 100); msg(m); paintStatus(i); });
-  msg(Voice.failed ? 'La voz natural no está disponible aquí: usé la sintética.' : ''); sl.busy = record ? 'Grabando…' : 'Reproduciendo…'; renderSlot(i); $('#stopBtn').hidden = false; await keepAwake(true);
+  const proj = await prepare(sl.script, S, (m, p) => { sl.busy = m; sl.pct = Math.round((p || 0) * 30); msg(m); paintStatus(i); });
+  msg(Voice.failed ? 'La voz natural no está disponible aquí: usé la sintética.' : ''); sl.busy = record ? 'Grabando…' : 'Reproduciendo…'; sl.pct = 30; alerted95 = false; renderSlot(i); if (i === 0) renderSimple(); $('#stopBtn').hidden = false; await keepAwake(true);
   let res; try { res = await playProject(proj, { record, onTick: (p, k, t) => { setStage(i, p, `${record ? 'Grabando' : 'Vista previa'} · escena ${k + 1}/${proj.scenes.length} · ${Math.round(t)} s de ${Math.round(proj.total)} s`); } }); }
   finally { await keepAwake(false); sl.busy = ''; sl.pct = 0; $('#stopBtn').hidden = true; }
   if (record && res && res.blob && res.blob.size > 1000) {
@@ -2927,7 +2939,7 @@ function renderSimple(){
     ${sc ? `<div class="row"><button data-a="copy" data-i="0" data-k="yt">Texto YouTube</button><button data-a="copy" data-i="0" data-k="tt">Texto TikTok</button><button data-a="copy" data-i="0" data-k="ig">Texto Reels</button></div>` : ''}
     <div class="row"><button id="simCover">Portada (.jpg)</button><button class="pri" id="simNew">➕ Nuevo capítulo</button></div>`;
   } else if (busy) {
-    h += `<div class="bar"><i data-bar="0" style="width:${s.pct}%"></i></div><p class="meta">Deja la pantalla encendida mientras se graba.</p>`;
+    h += `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px"><b style="font-size:1.6em" id="simPct">${s.pct} %</b><span class="meta">${esc(s.busy)}</span></div><div class="bar" style="height:14px"><i data-bar="0" style="width:${s.pct}%"></i></div><p class="meta">Preparar voces ≈ 30 % · grabar ≈ 70 %. Te aviso al llegar al 95 %. Mejor no cierres la app ni apagues la pantalla; si cambias de app puede pausarse la grabación (depende del móvil).</p>`;
   } else {
     if (!sc) {
       h += `<p class="meta">Pega aquí el capítulo que te dio ChatGPT (el bloque JSON) y pulsa «Crear vídeo»: se carga y se graba solo, con las voces de cada personaje.</p>`;
@@ -2946,7 +2958,7 @@ function renderSimple(){
   if (keep) { const k = document.getElementById(keep); if (k && k.focus) { try { k.focus(); } catch (e) {} } }
 }
 async function simpleRecord(){
-  if (running) return; running = true; refreshUI(); await guard(() => prepAndPlay(0, true), 0); running = false; refreshUI();
+  if (running) return; running = true; refreshUI(); await guard(() => prepAndPlay(0, true), 0); running = false; refreshUI(); if (slots[0].url) notifyMe('Piso 3ºB', 'Tu vídeo está listo.');
 }
 function simpleReset(pick){
   const s = slots[0]; if (s.url) { try { URL.revokeObjectURL(s.url); } catch (e) {} }
@@ -2976,7 +2988,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simSheetSave') { if (!simpleSheetBlob) return; const f = new File([simpleSheetBlob], 'escenas-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg', { type: 'image/jpeg' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } const a = document.createElement('a'); a.href = simpleSheetUrl; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); return; }
   if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
   if (b.id === 'simNew') { simpleReset(true); return; }
-  if (b.id === 'simRec') { simpleNote = ''; return simpleRecord(); }
+  if (b.id === 'simRec') { simpleNote = ''; try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); }
   if (b.id === 'simRetry') { Voice.failed = false; Voice.forcePiper = false; Supertonic.failed = false; s.err = ''; return simpleRecord(); }
   if (b.id === 'simPiper') { Voice.failed = false; Voice.forcePiper = true; s.err = ''; try { return await simpleRecord(); } finally { Voice.forcePiper = false; } }
   if (b.id === 'simRobot') { const en = $('#voiceEngine'); if (en) { en.value = 'robot'; en.dispatchEvent(new Event('change')); } Voice.failed = false; s.err = ''; return simpleRecord(); }
@@ -2990,7 +3002,7 @@ document.addEventListener('click', async ev => {
     if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
     { const h0 = String((s.script.escenas[0] || {}).texto || '').replace(/\*/g, '').trim(), nw0 = h0.split(/\s+/).filter(Boolean).length; if (!simpleNote && (nw0 < 5 || nw0 > 18 || /^(hoy|imagina|¿?sab[ií]as|bienvenid|hola|en este v[ií]deo)/i.test(h0))) simpleNote = `Ojo: el gancho («${h0}») parece flojo (${nw0 < 5 ? 'muy corto' : nw0 > 18 ? 'demasiado largo' : 'empieza como un saludo o una presentación'}). Pide a ChatGPT otra primera frase con el prompt de corrección de texto, indicando la escena 1.`; }
     if (!simpleNote && b.id !== 'simGo') simpleNote = 'Capítulo cargado. Pulsa «Grabar el cargado» para crear el vídeo.';
-    renderSimple(); if (b.id === 'simGo' && s.script && s.script.escenas.length) return simpleRecord(); return;
+    renderSimple(); if (b.id === 'simGo' && s.script && s.script.escenas.length) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); } return;
   }
 });
 (function(){ document.body.classList.add('simple'); })();
