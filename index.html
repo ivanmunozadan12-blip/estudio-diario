@@ -573,8 +573,8 @@ function wrapText(c,text,maxW){ const words = text.split(/\s+/), lines = []; let
 
 function drawOverlays(c, sc, u, tm){
   if (sc.rotulo && sc.tipo !== 'titulo') {
-    const a = ease(clamp(tm*4,0,1)); c.save(); c.globalAlpha = a; c.font = '900 64px Poppins, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const lines = wrapText(c,sc.rotulo.toUpperCase(),W*.84), y0 = H*.12; lines.forEach((ln,i) => { const y = y0 + i*76 - (1-a)*40, wd = c.measureText(ln).width + 56; c.fillStyle = 'rgba(8,10,16,.55)'; c.beginPath(); c.roundRect(W/2 - wd/2,y - 42,wd,84,14); c.fill(); c.fillStyle = '#ff4a46'; c.fillText(ln,W/2,y + 3); });
+    const a = ease(clamp(tm*4,0,1)); c.save(); c.globalAlpha = a; let rs = 64; c.font = '900 64px Poppins, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    let lines = wrapText(c,sc.rotulo.toUpperCase(),W*.84); const widest = () => Math.max(...lines.map(l => c.measureText(l).width)); while (widest() > W*.86 && rs > 30) { rs -= 4; c.font = `900 ${rs}px Poppins, sans-serif`; lines = wrapText(c,sc.rotulo.toUpperCase(),W*.84); } const y0 = H*.12; lines.forEach((ln,i) => { const y = y0 + i*76 - (1-a)*40, wd = c.measureText(ln).width + 56; c.fillStyle = 'rgba(8,10,16,.55)'; c.beginPath(); c.roundRect(W/2 - wd/2,y - 42,wd,84,14); c.fill(); c.fillStyle = '#ff4a46'; c.fillText(ln,W/2,y + 3); });
     c.restore();
   }
   if (sc.etiqueta && sc.etiqueta.nombre) {
@@ -1454,7 +1454,7 @@ REQUISITOS DE GUION
 - GANCHO (escena 1, 2-3 segundos; decide si se ve el vídeo): las primeras 8 palabras deben plantear una promesa, una contradicción o una consecuencia concreta que el espectador necesita cerrar, con una cifra o un detalle visual inesperado. Fórmulas que funcionan: «En 3 días, X…», «Esto no debería poder pasar, pero…», «Todo el mundo cree X. Es mentira.», «Si X desapareciera mañana, esto es lo primero que fallaría». Prohibido empezar con saludos, «hoy», «imagina», «¿sabías que…?» o presentar el tema.${dir.gancho ? '\n- TIPO DE GANCHO IMPUESTO PARA ESTE VÍDEO (úsalo tal cual, no lo cambies por otro): ' + dir.gancho + ' La escena 1 es solo el gancho: máximo 14 palabras y una imagen potente desde el primer fotograma.' : ''}${dir.formato ? '\n- FORMATO NARRATIVO IMPUESTO PARA ESTE VÍDEO: «' + dir.formato + '». ' + dir.formatoGuia + ' Respeta este esqueleto en lugar del esquema genérico de abajo; aplica igualmente el gancho, los bucles abiertos y el cierre.' : ''}
 - BUCLES ABIERTOS: cada 2 o 3 escenas termina con una frase que obligue a seguir viendo («pero eso no es lo peor», «y aquí viene lo raro»).
 - Estructura: gancho, contexto mínimo, nudo con giros cada 2 o 3 escenas, clímax, desenlace con dato final sorprendente. CIERRE EN BUCLE: la última escena remata con el dato o el chiste más fuerte y su última frase conecta con la primera, de modo que al repetirse el vídeo empalme solo; sin pedir «suscríbete» ni sonar a anuncio. ${dir.cierre ? 'TÉCNICA DE BUCLE IMPUESTA PARA ESTE VÍDEO: ' + dir.cierre + ' ' : ''}La última escena debe además volver visualmente al encuadre, color o elemento de la primera escena, para que el salto al reiniciar apenas se note.
-- Frases cortas, ritmo rápido, español neutro de España, tono de narrador cercano. Cada escena tiene 1 o 2 frases (6 a 20 palabras). Escribe los números con cifras. Sin violencia gráfica.
+- Frases cortas, ritmo rápido, español neutro de España, tono de narrador cercano. Cada escena tiene 1 o 2 frases (6 a 20 palabras). Escribe los números con cifras, pero «un», «una» y «uno» como artículo o número suelto van con letras («una neurona», «un día», nunca «1 neurona»). Sin violencia gráfica.
 - En "texto" marca con asteriscos UNA palabra clave por escena (*así*), que saldrá en amarillo en el subtítulo.
 
 DIRECCIÓN VISUAL IMPUESTA PARA ESTE VÍDEO (es lo que lo hace único: respétala, no la sustituyas por un estilo genérico)
@@ -1630,7 +1630,7 @@ Herramientas extra de acabado: K.focus(c,x,y,radio,alfa) oscurece alrededor de u
 REGLAS
 - Rellena TODO el lienzo con un fondo opaco al empezar. Dibuja cada fotograma desde cero como función pura de t y u (no acumules estado; usa K.rnd o K.hh para azar fijo).
 - Anima SIEMPRE: algo se mueve en cada instante (entradas escalonadas con K.pop/K.tween, movimiento continuo suave, paralaje). Sincroniza con la narración: lo que se nombra primero aparece primero; la escena dura K.dur segundos.
-- Composición vertical: la acción principal entre el 10% y el 66% de la altura. Entre el 70% y el 84% van los subtítulos: no pongas nada importante ni texto ahí.
+- Composición vertical: la acción principal entre el 10% y el 66% de la altura, con su centro hacia el 38-40% (no pegada arriba) y el elemento principal ocupando al menos el 55% del ancho; no dejes vacía la mitad inferior de la zona de acción. Nada importante cortado por los bordes: todo dentro del 5%-95% del ancho. Si hay una cámara o un zoom, el elemento principal tiene que seguir entero en pantalla. Entre el 70% y el 84% van los subtítulos: no pongas nada importante ni texto ahí.
 - Calidad: tres capas de profundidad (fondo, plano medio, primer plano), luz (glow, degradados, sombras), objetos con detalle (base + sombra + brillo + al menos un rasgo que los identifique), coherencia total con el ESTILO GRÁFICO impuesto. Colores de K.P y derivados (K.mix/K.shade/K.alpha) más algún color realista puntual (fuego, piel, vegetación) si el objeto lo exige.
 - Representa literalmente lo descrito en «QUÉ SE VE». Nada de decoración sin relación con lo que se explica.
 - Cada escena debe verse distinta a las demás del vídeo (plano, composición), pero con el mismo estilo, paleta e hilo visual.
@@ -1773,13 +1773,23 @@ async function buildPrograms(script, S, progress, sig){
   return script;
 }
 
+/* «1 neurona» se leía «uno neurona»: el artículo se escribe con letras y con su género. */
+function fixUno(t){
+  const MASC_A = /^(día|dia|mapa|planeta|problema|sistema|tema|programa|idioma|clima|cometa|poema|teorema|esquema|síntoma|sintoma|diagrama|drama|pijama|panorama|lema|dilema|trauma|axioma|aroma|enigma|estigma|karma)$/, FEM_O = /^(mano|foto|moto|radio)$/, SKIP_NEXT = /^(de|del|en|a|al|y|e|o|u|que|por|con|para|sobre|entre|km|kg|cm|mm|ml|mg|mb|gb|tb|kb|hz|min|seg|kwh|mph|db|ºc)$/, SKIP_PREV = /^(número|numero|nº|n°|top|puesto|capítulo|capitulo|parte|fase|paso|nivel|ronda|round|grupo|clase|opción|opcion|versión|version|regla|punto|lugar|categoría|categoria|etapa|temporada)$/;
+  return t.replace(/(^|[^\d.,])(\p{L}+\s+)?1(?![\d.,%])(\s+)(\p{L}+)/gu, (m, pre, prevw, sp, next) => {
+    const nx = next.toLowerCase(), pv = (prevw || '').trim().toLowerCase();
+    if (SKIP_NEXT.test(nx) || (pv && SKIP_PREV.test(pv)) || nx.length < 3) return m;
+    const fem = (/(a|ión|dad|tad|tud|umbre|ie|is)$/.test(nx) && !MASC_A.test(nx)) || FEM_O.test(nx);
+    return pre + (prevw || '') + (fem ? 'una' : 'un') + sp + next;
+  });
+}
 function sanitizeScript(raw, topic, dir){
   if (!raw || !Array.isArray(raw.escenas) || !raw.escenas.length) throw new Error('El guion no tiene escenas');
   const hist = store.get('hist', []); hist.push(topic); store.set('hist', hist.slice(-40));
   dir = dir || pickDirection(topic, store.get('sigs', []));
   const sigs = store.get('sigs', []); sigs.push({ p: dir.p, e: dir.e, c: dir.c, m: dir.m, f: dir.f, h: dir.h, l: dir.l }); store.set('sigs', sigs.slice(-30));
   const scenes = raw.escenas.slice(0, 40).map((e, i) => {
-    const texto = String(e.texto || '').trim(); if (!texto) return null;
+    const texto = fixUno(String(e.texto || '').trim()); if (!texto) return null;
     const sc = { texto, fondo: BG[e.fondo] ? e.fondo : guessBg(texto), tono: VALID_TONO.includes(e.tono) ? e.tono : 'dia', camara: VALID_CAM.includes(e.camara) ? e.camara : VALID_CAM[i % 5], efectos: (Array.isArray(e.efectos) ? e.efectos : []).filter(x => VALID_FX.includes(x)).slice(0,3), tipo: VALID_TIPO.includes(e.tipo) ? e.tipo : 'normal', dato: e.dato && typeof e.dato === 'object' ? e.dato : null };
     if (e.visual) sc.visual = String(e.visual).slice(0, 500);
     if (e.rotulo) sc.rotulo = String(e.rotulo).slice(0, 40);
@@ -1842,7 +1852,8 @@ async function prepare(script, S, progress){
     words.forEach((w, k) => { const m = marks[k]; if (m && m.includes('*')) w.hi = true; });
     const groups = []; let g = [];
     const flush = () => { if (!g.length) return; const hasHi = g.some(x => x.hi); if (!hasHi) { let bi = 0, bl = 0; g.forEach((x, k) => { const l = x.w.replace(/[^\p{L}\p{N}]/gu,'').length; if (l > bl) { bl = l; bi = k; } }); if (bl >= 4) g[bi].hi = true; } groups.push({ t0: g[0].s, words: g.map(x => ({ t: x.w, hi: x.hi, s: x.s, e: x.e })), last: g[g.length-1].e }); g = []; };
-    words.forEach(w => { const len = g.reduce((a, x) => a + x.w.length + 1, 0) + w.w.length; if (g.length && (g.length >= 3 || len > 24)) flush(); g.push(w); if (/[.,;:!?…]$/.test(w.w)) flush(); }); flush();
+    const WEAK = /^(el|la|los|las|un|una|unos|unas|de|del|al|a|en|y|e|o|u|que|con|por|para|sin|sobre|se|su|sus|lo|le|les|me|te|mi|tu|como|pero|si|no|ni|muy|más|es|son|ha|han|era|fue|hay|este|esta|esto|ese|esa|cada|tan|ya|nos|entre|hasta|desde|según)$/;
+    words.forEach(w => { const len = g.reduce((a, x) => a + x.w.length + 1, 0) + w.w.length; if (g.length && (g.length >= 3 || len > 24)) { const lw = g[g.length-1].w.replace(/[^\p{L}]/gu,'').toLowerCase(); if (!(WEAK.test(lw) && g.length < 5 && len <= 30)) flush(); } g.push(w); if (/[.,;:!?…]$/.test(w.w)) flush(); }); flush();
     groups.forEach((gr, k) => { gr.t1 = k < groups.length - 1 ? groups[k+1].t0 : dur; gr.t1 = Math.min(gr.t1, gr.last + .6); });
     sc.t0 = t; sc.dur = dur; sc.audio = audio; sc.groups = groups; scenes.push(sc); t += dur;
   }
@@ -1871,8 +1882,6 @@ function drawFrame(proj, t){
   c.drawImage(vigCanvas,0,0);
   drawOverlays(c, sc, local / sc.dur, local);
   if (proj.subs) drawSubs(c, sc.groups.find(g => local >= g.t0 && local < g.t1), local);
-  if (t < .25) { c.fillStyle = `rgba(0,0,0,${1 - Math.max(0,t) / .25})`; c.fillRect(0,0,W,H); }
-  if (t > proj.total - .5) { c.fillStyle = `rgba(0,0,0,${clamp((t - (proj.total - .5)) / .45,0,1)})`; c.fillRect(0,0,W,H); }
   return i;
 }
 function idleFrame(msg){ const c = sctx; c.setTransform(Q, 0, 0, Q, 0, 0); c.fillStyle = lg(c,0,0,0,H,[[0,'#14201b'],[1,'#07100c']]); c.fillRect(0,0,W,H); c.fillStyle = 'rgba(255,197,51,.9)'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '800 70px Poppins, sans-serif'; c.fillText('ESTUDIO',W/2,H*.44); c.fillText('DIARIO',W/2,H*.44 + 84); c.fillStyle = 'rgba(255,255,255,.6)'; c.font = '600 30px Poppins, sans-serif'; c.fillText(msg || '9:16 · 3 vídeos al día',W/2,H*.62); }
