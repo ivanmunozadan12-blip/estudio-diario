@@ -2566,6 +2566,7 @@ function autoScenes(text, topic){
 
 /* --- preparar proyecto (voz, tiempos, subtítulos) --- */
 async function prepare(script, S, progress){
+  if (script) script._t0 = 0;
   setQ(S.quality === '1080' ? 1.5 : 1);
   let t = 0.1, nw = 0; const scenes = [];
   for (let i = 0; i < script.escenas.length; i++) {
@@ -2573,7 +2574,8 @@ async function prepare(script, S, progress){
     const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
     const clean = e.texto.replace(/\s+/g,' ').trim();
     let words, dur, audio = null; nw += clean.split(' ').filter(Boolean).length;
-    if (S.voice) { progress && progress(`Voz: escena ${i + 1}/${script.escenas.length}`, i / script.escenas.length); audio = await Voice.speakCast(clean, S, m => progress && progress(m, i / script.escenas.length), e.habla); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
+    if (S.voice) { const N = script.escenas.length, el = (Date.now() - (script._t0 || (script._t0 = Date.now()))) / 1000, eta = i >= 2 ? Math.round(el / i * (N - i)) : 0, tag = `Voz · escena ${i + 1}/${N}` + (eta ? ` · quedan ~${eta >= 90 ? Math.round(eta / 60) + ' min' : eta + ' s'}` : '');
+      progress && progress(tag, i / N); audio = await Voice.speakCast(clean, S, m => progress && progress(/Descarg|Carg|Prepar/i.test(m) ? m : tag, i / N), e.habla); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
     else {
       const toks = clean.split(' '), tot = toks.reduce((a, w) => a + w.length + 2, 0), span = Math.max(2.4, toks.length / 2.6 + .5); let acc = .15;
       words = toks.map(w => { const d = (w.length + 2) / tot * (span - .4); const o = { w: w.replace(/[*_]/g,''), s: acc, e: acc + d, hi: false }; acc += d; return o; }); dur = span;
