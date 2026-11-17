@@ -128,7 +128,8 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
   <p class="meta">En Piso 3ºB cada personaje tiene su propia voz (Dani M2, Marta F4, casero M3, vecina F1, madre F5). La voz que elijas aquí es la del narrador (recomendado M4 o M5).</p>
   <label class="f">Voz de Supertonic
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4" selected>M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
-  <div class="row"><button id="testVoice">Probar voz</button></div><p class="meta" id="vmsg"></p>
+  <div class="row"><button id="testVoice">Probar voz</button><button id="testAllVoices">Escuchar todas las voces de España</button></div><p class="meta" id="vmsg"></p>
+  <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
   <div hidden>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
     <select id="voiceId"><option value="es_ES-davefx-medium">ES · davefx · medium</option></select></label>
@@ -3548,6 +3549,7 @@ const Voice = {
     try { const all = await this.mod.voices(); this.voices = Object.keys(all || {}).filter(k => /^es_/.test(k)).sort((a, b) => (/es_ES/.test(b) - /es_ES/.test(a)) || (/high|medium/.test(b) - /high|medium/.test(a))); } catch (e) { this.voices = ['es_ES-davefx-medium']; }
     if (!this.voices.length) this.voices = ['es_ES-davefx-medium'];
     const sel = $('#voiceId'); if (sel) { const cur = sel.value; sel.innerHTML = this.voices.map(v => `<option value="${esc(v)}">${esc(v.replace(/^es_/, '').replace(/-/g, ' · '))}</option>`).join(''); if (cur && this.voices.includes(cur)) sel.value = cur; }
+    try { this.fillPV(); } catch (e) {}
     return this.mod;
   },
   async natural(text, progress){
@@ -3592,7 +3594,7 @@ const Voice = {
     return ev;
   },
   async _natural(text, progress, setStage){
-    const mod = await this.load(progress), voiceId = $('#voiceId').value || this.voices[0]; setStage('descargar o ejecutar el modelo «' + voiceId + '»');
+    const mod = await this.load(progress), voiceId = this.curVoice || $('#voiceId').value || this.voices[0]; setStage('descargar o ejecutar el modelo «' + voiceId + '»');
     const clean = text.replace(/[_#]/g, '').replace(/\s+/g, ' ').trim();
     const sents = this.splitSentences(clean), ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 22050, 22050);
     const segs = []; let fs = 22050;
@@ -3620,7 +3622,39 @@ const Voice = {
   },
   VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5', ella: 'F2', abuelo: 'M5' },
   voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ_PERSONAJE[who] || narr; if (v === narr) v = ['M2', 'F4', 'M3', 'F1', 'M5', 'F5'].find(x => x !== narr && x !== this.VOZ_PERSONAJE.amigo) || 'F4'; return v; },
+  PERS: { amigo: 'Dani', amiga: 'Marta', jefe: 'El casero', abuela: 'La vecina', madre: 'La madre' },
+  PITCH: { yo: 1, amigo: .97, amiga: 1.05, jefe: .93, abuela: 1.08, madre: 1.04, ella: 1.05, abuelo: .92 },
+  MOODF: { cansado: .94, resignado: .95, triste: .95, dormido: .9, enfado: 1.05, panico: 1.1, asombro: 1.04, sonrisa: 1.02, risa: 1.04, asco: .97, serio: .97 },
+  esVoices(){ return (this.voices || []).filter(v => /^es_ES/.test(v)); },
+  fillPV(){
+    const box = $('#pvSel'); if (!box) return; const vs = this.esVoices(); if (!vs.length) return;
+    box.innerHTML = Object.keys(this.PERS).map(k => `<label class="f">${this.PERS[k]}<select data-pv="${k}"><option value="">Automática</option>${vs.map(v => `<option value="${esc(v)}">${esc(v.replace(/^es_ES-/, ''))}</option>`).join('')}</select></label>`).join('');
+    box.querySelectorAll('select[data-pv]').forEach(el => { const v = store.get('set:pv_' + el.dataset.pv, ''); if (v && vs.includes(v)) el.value = v; el.addEventListener('change', () => store.set('set:pv_' + el.dataset.pv, el.value)); });
+  },
+  tone(r, f){
+    if (!f || Math.abs(f - 1) < .01) return r; const n = Math.floor(r.samples.length / f), o = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = i * f, a = Math.floor(x), b = Math.min(a + 1, r.samples.length - 1), t = x - a; o[i] = r.samples[a] * (1 - t) + r.samples[b] * t; }
+    return { samples: o, fs: r.fs, dur: n / r.fs, words: (r.words || []).map(w => ({ raw: w.raw, s: w.s / f, e: w.e / f })) };
+  },
+  async speakCastPiper(text, S, progress, habla, moods){
+    moods = moods || {}; await this.load(progress);
+    const narrV = $('#voiceId').value || this.voices[0], parts = [];
+    text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
+    if (parts.length < 1) return this.speak(text, S, progress);
+    const pool = this.esVoices().filter(v => v !== narrV), auto = {};
+    Object.keys(this.PERS).concat(['ella', 'abuelo']).forEach((w, i) => { auto[w] = pool.length ? pool[i % pool.length] : narrV; });
+    const out = []; let fs = 22050;
+    for (const pt of parts) {
+      this.curVoice = pt.who === 'yo' ? narrV : (store.get('set:pv_' + pt.who, '') || auto[pt.who] || narrV);
+      let r; try { r = await this.speak(pt.t, S, progress); } finally { this.curVoice = null; }
+      r = this.tone(r, (this.PITCH[pt.who] || 1) * (this.MOODF[moods[pt.who]] || 1)); fs = r.fs; out.push(r);
+    }
+    const gap = Math.round(.12 * fs); let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? gap : 0); });
+    const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
+    return { samples, fs, dur: total / fs, words };
+  },
   async speakCast(text, S, progress, habla, moods){
+    if (S.engine === 'natural' && habla && habla !== 'yo' && !this.failed && /«/.test(text)) return this.speakCastPiper(text, S, progress, habla, moods);
     if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
     const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
     if (parts.length < 1) return this.speak(text, S, progress);
@@ -3690,6 +3724,22 @@ $('#testVoice').addEventListener('click', async () => {
   try {
     $('#vmsg').textContent = 'Generando la voz de prueba…'; const a = await Voice.speak('Esta es la voz de tu canal. Así sonarán tus historias, con un ritmo tranquilo y claro.', S, msg);
     const ctx = new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume(); const buf = ctx.createBuffer(1, a.samples.length, a.fs); buf.copyToChannel(a.samples, 0); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(); src.onended = () => ctx.close(); $('#vmsg').textContent = 'Reproduciendo…';
+  } catch (e) { $('#vmsg').textContent = (e && e.message) || errCopy(e); }
+  b.disabled = false;
+});
+$('#testAllVoices').addEventListener('click', async () => {
+  const b = $('#testAllVoices'); b.disabled = true; const S = Object.assign(settings(), { engine: 'natural' }); Voice.failed = false;
+  try {
+    $('#vmsg').textContent = 'Cargando las voces de España…'; await Voice.load(msg); const vs = Voice.esVoices(); if (!vs.length) throw new Error('No hay voces es_ES disponibles.');
+    const ctx = new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume();
+    for (let i = 0; i < vs.length; i++) {
+      $('#vmsg').textContent = `Voz ${i + 1}/${vs.length}: ${vs[i].replace(/^es_ES-/, '')} (generando…)`; Voice.curVoice = vs[i];
+      let a; try { a = await Voice.speak('Tranquilo, tío, que sobra tiempo. ¿Vosotros habéis visto cómo ha subido la luz? Esto es un robo, vale.', S, msg); } finally { Voice.curVoice = null; }
+      $('#vmsg').textContent = `Voz ${i + 1}/${vs.length}: ${vs[i].replace(/^es_ES-/, '')} (sonando)`;
+      const buf = ctx.createBuffer(1, a.samples.length, a.fs); buf.copyToChannel(a.samples, 0); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start();
+      await new Promise(res => { src.onended = res; });
+    }
+    $('#vmsg').textContent = 'Listo. Elige en «Voz de cada personaje» la que quieras para cada uno.';
   } catch (e) { $('#vmsg').textContent = (e && e.message) || errCopy(e); }
   b.disabled = false;
 });
