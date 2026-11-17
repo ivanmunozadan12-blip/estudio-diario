@@ -1437,7 +1437,7 @@ const ITEM_LIST = Object.keys(ITEM).join(', ');
 const BG_LIST = Object.keys(BG).join(', ');
 function scriptPrompt(topic, S, dossier, plan, dir){
   dir = dir || pickDirection(topic, []);
-  const nScenes = Math.round(S.target / 4.1), nWords = Math.round(S.target * 2.5);
+  const nScenes = Math.round(S.target / 4.1), nWords = Math.round(S.target * clamp(+store.get('wps:' + S.engine, 0) || 2.5, 1.8, 3.2));
   const hypothetical = /¿QUÉ PASARÍA SI/i.test(topic);
    const format = /¿CÓMO FUNCIONA/i.test(topic) ? 'EXPLICACIÓN DE UN OBJETO O FENÓMENO COTIDIANO' : hypothetical ? 'ESCENARIO HIPOTÉTICO ¿QUÉ PASARÍA SI…?' : '¿SABÍAS QUE? / CIENCIA Y CURIOSIDADES';
    return `Eres el guionista y director de un canal de vídeos verticales en español (YouTube Shorts, TikTok, Reels). Crea vídeos divulgativos muy visuales, dinámicos y entretenidos, con animación 2D de calidad y ritmo cinematográfico. Escribe el guion completo y la dirección visual de UN vídeo.
@@ -1451,7 +1451,7 @@ REQUISITOS DE GUION
 - En vídeos de ciencia y curiosidades, utiliza hechos reales comprobables. En explicaciones, describe el mecanismo real de forma sencilla y visual. En escenarios hipotéticos, diferencia explícitamente hechos científicos, suposiciones y consecuencias imaginadas. Nunca hagas pasar una hipótesis por noticia o hecho real.
 - No generes vídeos de supervivencia extrema, tragedias, crímenes, sucesos morbosos ni misterios sin resolver. No centres el canal en historias de víctimas o catástrofes reales.
 - Si no estás seguro de un dato real (nombre, cifra, fecha o explicación), no lo inventes ni lo presentes como cierto.
-- GANCHO (escena 1, 2-3 segundos; decide si se ve el vídeo): las primeras 8 palabras deben plantear una promesa, una contradicción o una consecuencia concreta que el espectador necesita cerrar, con una cifra o un detalle visual inesperado. Fórmulas que funcionan: «En 3 días, X…», «Esto no debería poder pasar, pero…», «Todo el mundo cree X. Es mentira.», «Si X desapareciera mañana, esto es lo primero que fallaría». Prohibido empezar con saludos, «hoy», «imagina», «¿sabías que…?» o presentar el tema.${dir.gancho ? '\n- TIPO DE GANCHO IMPUESTO PARA ESTE VÍDEO (úsalo tal cual, no lo cambies por otro): ' + dir.gancho + ' La escena 1 es solo el gancho: máximo 14 palabras y una imagen potente desde el primer fotograma.' : ''}${dir.formato ? '\n- FORMATO NARRATIVO IMPUESTO PARA ESTE VÍDEO: «' + dir.formato + '». ' + dir.formatoGuia + ' Respeta este esqueleto en lugar del esquema genérico de abajo; aplica igualmente el gancho, los bucles abiertos y el cierre.' : ''}
+- GANCHO (escena 1, 2-3 segundos; decide si se ve el vídeo): las primeras 8 palabras deben plantear una promesa, una contradicción o una consecuencia concreta que el espectador necesita cerrar, con una cifra o un detalle visual inesperado. Fórmulas que funcionan: «En 3 días, X…», «Esto no debería poder pasar, pero…», «Todo el mundo cree X. Es mentira.», «Si X desapareciera mañana, esto es lo primero que fallaría». Prohibido empezar con saludos, «hoy», «imagina», «¿sabías que…?» o presentar el tema. La primera frase debe ser una frase completa y autosuficiente (de 6 a 14 palabras, con sujeto y verbo) que se entienda sin ver nada más y funcione como titular; prohibidas las frases a medias o elípticas del tipo «Cada recuerdo completo.». Si no te haría parar de hacer scroll, reescríbela.${dir.gancho ? '\n- TIPO DE GANCHO IMPUESTO PARA ESTE VÍDEO (úsalo tal cual, no lo cambies por otro): ' + dir.gancho + ' La escena 1 es solo el gancho: máximo 14 palabras y una imagen potente desde el primer fotograma.' : ''}${dir.formato ? '\n- FORMATO NARRATIVO IMPUESTO PARA ESTE VÍDEO: «' + dir.formato + '». ' + dir.formatoGuia + ' Respeta este esqueleto en lugar del esquema genérico de abajo; aplica igualmente el gancho, los bucles abiertos y el cierre.' : ''}
 - BUCLES ABIERTOS: cada 2 o 3 escenas termina con una frase que obligue a seguir viendo («pero eso no es lo peor», «y aquí viene lo raro»).
 - Estructura: gancho, contexto mínimo, nudo con giros cada 2 o 3 escenas, clímax, desenlace con dato final sorprendente. CIERRE EN BUCLE: la última escena remata con el dato o el chiste más fuerte y su última frase conecta con la primera, de modo que al repetirse el vídeo empalme solo; sin pedir «suscríbete» ni sonar a anuncio. ${dir.cierre ? 'TÉCNICA DE BUCLE IMPUESTA PARA ESTE VÍDEO: ' + dir.cierre + ' ' : ''}La última escena debe además volver visualmente al encuadre, color o elemento de la primera escena, para que el salto al reiniciar apenas se note.
 - Frases cortas, ritmo rápido, español neutro de España, tono de narrador cercano. Cada escena tiene 1 o 2 frases (6 a 20 palabras). Escribe los números con cifras, pero «un», «una» y «uno» como artículo o número suelto van con letras («una neurona», «un día», nunca «1 neurona»). Sin violencia gráfica.
@@ -1630,7 +1630,8 @@ Herramientas extra de acabado: K.focus(c,x,y,radio,alfa) oscurece alrededor de u
 REGLAS
 - Rellena TODO el lienzo con un fondo opaco al empezar. Dibuja cada fotograma desde cero como función pura de t y u (no acumules estado; usa K.rnd o K.hh para azar fijo).
 - Anima SIEMPRE: algo se mueve en cada instante (entradas escalonadas con K.pop/K.tween, movimiento continuo suave, paralaje). Sincroniza con la narración: lo que se nombra primero aparece primero; la escena dura K.dur segundos.
-- Composición vertical: la acción principal entre el 10% y el 66% de la altura, con su centro hacia el 38-40% (no pegada arriba) y el elemento principal ocupando al menos el 55% del ancho; no dejes vacía la mitad inferior de la zona de acción. Nada importante cortado por los bordes: todo dentro del 5%-95% del ancho. Si hay una cámara o un zoom, el elemento principal tiene que seguir entero en pantalla. Entre el 70% y el 84% van los subtítulos: no pongas nada importante ni texto ahí.
+- Composición vertical: la acción principal entre el 10% y el 66% de la altura, con su centro hacia el 38-40% (no pegada arriba) y el elemento principal ocupando al menos el 55% del ancho; no dejes vacía la mitad inferior de la zona de acción. Nada importante cortado por los bordes: todo dentro del 5%-95% del ancho. Si hay una cámara o un zoom, el elemento principal tiene que seguir entero en pantalla.
+- VARIEDAD ENTRE ESCENAS: dos escenas seguidas nunca comparten composición ni el mismo dibujo con otros datos. Alterna plano general, plano medio y detalle; alterna composición centrada y asimétrica; cambia el color dominante del fondo cada 3 o 4 escenas; y cada escena aporta un elemento visual propio que explique su frase (no basta con mover los mismos óvalos o círculos). Entre el 70% y el 84% van los subtítulos: no pongas nada importante ni texto ahí.
 - Calidad: tres capas de profundidad (fondo, plano medio, primer plano), luz (glow, degradados, sombras), objetos con detalle (base + sombra + brillo + al menos un rasgo que los identifique), coherencia total con el ESTILO GRÁFICO impuesto. Colores de K.P y derivados (K.mix/K.shade/K.alpha) más algún color realista puntual (fuego, piel, vegetación) si el objeto lo exige.
 - Representa literalmente lo descrito en «QUÉ SE VE». Nada de decoración sin relación con lo que se explica.
 - Cada escena debe verse distinta a las demás del vídeo (plano, composición), pero con el mismo estilo, paleta e hilo visual.
@@ -1837,12 +1838,12 @@ function autoScenes(text, topic){
 /* --- preparar proyecto (voz, tiempos, subtítulos) --- */
 async function prepare(script, S, progress){
   setQ(S.quality === '1080' ? 1.5 : 1);
-  let t = 0.1; const scenes = [];
+  let t = 0.1, nw = 0; const scenes = [];
   for (let i = 0; i < script.escenas.length; i++) {
     const e = script.escenas[i];
     const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
     const clean = e.texto.replace(/\s+/g,' ').trim();
-    let words, dur, audio = null;
+    let words, dur, audio = null; nw += clean.split(' ').filter(Boolean).length;
     if (S.voice) { progress && progress(`Voz: escena ${i + 1}/${script.escenas.length}`, i / script.escenas.length); audio = await Voice.speak(clean, S, m => progress && progress(m, i / script.escenas.length)); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
     else {
       const toks = clean.split(' '), tot = toks.reduce((a, w) => a + w.length + 2, 0), span = Math.max(2.4, toks.length / 2.6 + .5); let acc = .15;
@@ -1857,6 +1858,7 @@ async function prepare(script, S, progress){
     groups.forEach((gr, k) => { gr.t1 = k < groups.length - 1 ? groups[k+1].t0 : dur; gr.t1 = Math.min(gr.t1, gr.last + .6); });
     sc.t0 = t; sc.dur = dur; sc.audio = audio; sc.groups = groups; scenes.push(sc); t += dur;
   }
+  if (S.voice && nw > 20 && t > 10) { try { const k = 'wps:' + S.engine, old = +store.get(k, 0) || 0, cur = nw / (t - .1); store.set(k, +clamp(old ? old * .5 + cur * .5 : cur, 1.6, 3.4).toFixed(3)); } catch (e) {} }
   return { scenes, total: t + .5, voice: S.voice, music: S.music, sfx: S.sfx !== false, musica: script.musica, subs: S.subs };
 }
 
@@ -1878,6 +1880,7 @@ function drawFrame(proj, t){
     else { c.globalAlpha = k; scene(c); }
     c.restore();
   } else scene(c);
+  if (proj.scenes.length > 1 && t > proj.total - .45) { const k = ease(clamp((t - (proj.total - .45)) / .4, 0, 1)); c.save(); c.globalAlpha = k; drawScene(c, proj.scenes[0], 0, 0, 0); c.restore(); }
   c.globalAlpha = 1;
   c.drawImage(vigCanvas,0,0);
   drawOverlays(c, sc, local / sc.dur, local);
@@ -2259,6 +2262,7 @@ document.addEventListener('click', async ev => {
     simpleText = ''; const used = store.get('usedTopics', []); used.push(s.topic || (s.script && s.script.titulo) || ''); store.set('usedTopics', used.slice(-120)); regAdd(s.topic, s.script && s.script.titulo, s.slotIdx);
     const normal = s.script.escenas.filter(e => (e.tipo || 'normal') === 'normal'), faltan = normal.filter(e => !e.codigo).length;
     if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
+    { const h0 = String((s.script.escenas[0] || {}).texto || '').replace(/\*/g, '').trim(), nw0 = h0.split(/\s+/).filter(Boolean).length; if (!simpleNote && (nw0 < 5 || nw0 > 18 || /^(hoy|imagina|¿?sab[ií]as|bienvenid|hola|en este v[ií]deo)/i.test(h0))) simpleNote = `Ojo: el gancho («${h0}») parece flojo (${nw0 < 5 ? 'muy corto' : nw0 > 18 ? 'demasiado largo' : 'empieza como un saludo o una presentación'}). Pide a ChatGPT otra primera frase con el prompt de corrección de texto, indicando la escena 1.`; }
     if (!simpleNote) simpleNote = faltan ? '' : 'Guion cargado. Revísalo si quieres (🖼 imagen, ✔ verificar datos o 🛠 corregir escenas) y pulsa «Grabar vídeo».';
     renderSimple(); return;
   }
