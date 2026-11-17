@@ -3002,7 +3002,8 @@ document.addEventListener('click', async ev => {
     if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
     { const h0 = String((s.script.escenas[0] || {}).texto || '').replace(/\*/g, '').trim(), nw0 = h0.split(/\s+/).filter(Boolean).length; if (!simpleNote && (nw0 < 5 || nw0 > 18 || /^(hoy|imagina|¿?sab[ií]as|bienvenid|hola|en este v[ií]deo)/i.test(h0))) simpleNote = `Ojo: el gancho («${h0}») parece flojo (${nw0 < 5 ? 'muy corto' : nw0 > 18 ? 'demasiado largo' : 'empieza como un saludo o una presentación'}). Pide a ChatGPT otra primera frase con el prompt de corrección de texto, indicando la escena 1.`; }
     if (!simpleNote && b.id !== 'simGo') simpleNote = 'Capítulo cargado. Pulsa «Grabar el cargado» para crear el vídeo.';
-    renderSimple(); if (b.id === 'simGo' && s.script && s.script.escenas.length) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); } return;
+    renderSimple(); if (b.id === 'simGo' && s.script && s.script.escenas.length < 12) { simpleNote = `Eso no parece un capítulo: solo ha salido ${s.script.escenas.length} escena(s). Pega el bloque JSON completo que te da ChatGPT (empieza por { y tiene unas 30 escenas).`; s.script = null; renderSimple(); return; }
+    if (b.id === 'simGo' && s.script && s.script.escenas.length) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); } return;
   }
 });
 (function(){ document.body.classList.add('simple'); })();
