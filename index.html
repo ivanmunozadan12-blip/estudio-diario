@@ -2457,9 +2457,11 @@ var SLOT_TYPES = {
   comedia: { n: 'Comedia', desc: 'sketches de humor absurdo con hipotéticos, crossovers y lugares reales de España', ej: '¿QUÉ PASARÍA SI Spider-Man protegiese Madrid?' },
   historia: { n: 'Historia y misterios', desc: 'historias reales, hechos históricos y misterios', ej: 'La historia real de la biblioteca de Alejandría' }
 };
-var SLOT_DEF = [{ h: '07:30', type: 'curiosidades', humor: 'auto', own: '' }, { h: '12:30', type: 'hipotetico', humor: 'auto', own: '' }, { h: '15:00', type: 'comedia', humor: 'comedia', own: '' }, { h: '20:00', type: 'historia', humor: 'nunca', own: '' }];
+var SLOT_DEF = [{ h: '09:00', type: 'curiosidades', humor: 'auto', own: '' }, { h: '13:00', type: 'hipotetico', humor: 'auto', own: '' }, { h: '18:00', type: 'comedia', humor: 'comedia', own: '' }, { h: '21:00', type: 'historia', humor: 'nunca', own: '' }];
+var SLOT_HV = 2; /* versión de las horas por defecto: al subirla, las horas guardadas pasan a las nuevas una vez (temáticas y listas propias no se tocan) */
 function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
-function slotCfg(){ let c = store.get('slotCfg', null); if (!Array.isArray(c) || c.length !== 4) c = SLOT_DEF.map(x => Object.assign({}, x)); return c.map((x, k) => Object.assign({}, SLOT_DEF[k], x, { type: x && SLOT_TYPES[x.type] ? x.type : SLOT_DEF[k].type })); }
+function slotCfg(){ let c = store.get('slotCfg', null); if (!Array.isArray(c) || c.length !== 4) c = SLOT_DEF.map(x => Object.assign({}, x));
+  if (store.get('slotHV', 0) !== SLOT_HV) { c = c.map((x, k) => Object.assign({}, x, { h: SLOT_DEF[k].h })); store.set('slotCfg', c); store.set('slotHV', SLOT_HV); } return c.map((x, k) => Object.assign({}, SLOT_DEF[k], x, { type: x && SLOT_TYPES[x.type] ? x.type : SLOT_DEF[k].type })); }
 function registry(){ return store.get('registry', []); }
 function normT(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 function isUsed(t){ const n = normT(t); if (!n) return true; return registry().some(r => [r.tema, r.titulo].some(u => { const m = normT(u); return m && (m === n || topicSim(u, t) >= .7); })); }
@@ -2481,7 +2483,7 @@ function topicsPrompt(k){
 function renderSlotsCfg(){
   const el = $('#slotsBody'); if (!el) return; if (el.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   const cfg = slotCfg(), hum = $('#humor') ? $('#humor').innerHTML : '', reg = registry();
-  el.innerHTML = `<p class="meta">Cada hora tiene su temática. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
+  el.innerHTML = `<p class="meta">Horas pensadas para España (hora de Madrid): 09:00 primer scroll de la mañana, 13:00 pausa de comer, 18:00 pico de TikTok al salir de clase o del trabajo, 21:00 prime time de la noche. Puedes cambiarlas. Cada hora tiene su temática. En el modo simple, un botón por hora copia el prompt con el tema ya elegido y sin repetir nunca (se guarda un registro).</p>` + cfg.map((c, k) => `<div class="qi"><p class="meta"><b>Hueco ${k + 1}</b></p>
     <label class="f">Hora<input type="text" data-sc="${k}:h" value="${esc(c.h)}" inputmode="numeric" placeholder="12:30"></label>
     <label class="f">Temática<select data-sc="${k}:type">${Object.keys(SLOT_TYPES).map(t => `<option value="${t}"${t === c.type ? ' selected' : ''}>${esc(SLOT_TYPES[t].n)}</option>`).join('')}</select></label>
     <label class="f">Humor<select data-sc="${k}:humor">${hum}</select></label>
