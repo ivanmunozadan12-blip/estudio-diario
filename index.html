@@ -1063,7 +1063,40 @@ const SceneProg = (() => {
   const alphaC = (a, al) => { if (!hexOk(a)) return a; const A = toRGB(a); return `rgba(${A[0]},${A[1]},${A[2]},${al})`; };
   const vnoise = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, s = v => v * v * (3 - 2 * v); const g = (i, j) => hh(i * 57.3 + j * 131.7 + 1.9); const a = g(xi, yi), b = g(xi + 1, yi), c2 = g(xi, yi + 1), d = g(xi + 1, yi + 1); return lerp(lerp(a, b, s(xf)), lerp(c2, d, s(xf)), s(yf)); };
 
-  function makeKit(sc){
+  /* Piezas de agua y mar (más detalle sin depender de que la IA improvise formas lisas) */
+Object.assign(KITX, {
+  sea(c, y, t, o){ o = o || {}; const col = o.col || '#2b7fd0', n = o.layers || 4;
+    for (let i = 0; i < n; i++) { const k = i / Math.max(1, n - 1), yy = y + k * (H - y) * .3 + i * 8, a = 12 + i * 7, f = x => yy + Math.sin(x * .012 + t * (1.1 + i * .25) + i * 1.7) * a + Math.sin(x * .031 - t * (.8 + i * .2) + i) * a * .35;
+      c.fillStyle = lg(c, 0, yy - a, 0, H, [[0, shade(col, .22 - k * .4)], [1, shade(col, -.5)]]); c.beginPath(); c.moveTo(-10, H + 10); for (let x = -10; x <= W + 20; x += 10) c.lineTo(x, f(x)); c.lineTo(W + 10, H + 10); c.closePath(); c.fill();
+      if (o.foam !== false) { c.strokeStyle = `rgba(255,255,255,${.4 - k * .22})`; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); for (let x = -10; x <= W + 20; x += 10) x === -10 ? c.moveTo(x, f(x)) : c.lineTo(x, f(x)); c.stroke(); } } },
+  drop(c, x, y, s, t, o){ o = o || {}; const col = o.col || '#4aa8ff'; c.save(); c.translate(x, y + Math.sin(t * 2.2 + (o.ph || 0)) * s * .03); c.scale(s, s); c.beginPath(); c.moveTo(0, -.55); c.bezierCurveTo(.12, -.3, .38, -.05, .38, .17); c.arc(0, .17, .38, 0, Math.PI, false); c.bezierCurveTo(-.38, -.05, -.12, -.3, 0, -.55); c.closePath(); c.fillStyle = lg(c, -.3, -.3, .35, .5, [[0, shade(col, .35)], [1, shade(col, -.25)]]); c.fill(); c.lineWidth = .025; c.strokeStyle = 'rgba(255,255,255,.55)'; c.stroke(); E(c, -.14, .08, .06, .12, 'rgba(255,255,255,.7)', .4); c.restore(); },
+  iceberg(c, x, y, s, t, o){ const bob = Math.sin(t * 1.2) * s * .012; c.save(); c.translate(x, y + bob); c.scale(s, s);
+    Pg(c, [[-.5, 0], [-.42, .25], [-.2, .62], [.05, .8], [.3, .55], [.48, .22], [.5, 0]], 'rgba(120,190,235,.45)');
+    Pg(c, [[-.5, 0], [-.36, -.2], [-.2, -.14], [-.06, -.42], [.08, -.28], [.2, -.5], [.34, -.2], [.5, 0]], '#e9f6ff'); Pg(c, [[-.06, -.42], [.08, -.28], [.2, -.5], [.12, -.1], [-.02, -.12]], '#ffffff'); Pg(c, [[.2, -.5], [.34, -.2], [.5, 0], [.12, 0], [.12, -.1]], '#b9dcf2');
+    c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = .012; c.beginPath(); c.moveTo(-.5, 0); c.lineTo(.5, 0); c.stroke(); c.restore(); },
+  thermo(c, x, y, h, v, o){ o = o || {}; const col = o.col || '#ff4d4d', w = h * .14; v = clamp(v == null ? .5 : v, 0, 1); c.save(); c.translate(x, y); R(c, -w / 2, -h, w, h * .88, 'rgba(240,244,250,.95)', w / 2); E(c, 0, -h * .06, w * .95, w * .95, 'rgba(240,244,250,.95)'); const top = -h * .92 + (1 - v) * h * .78; R(c, -w * .28, top, w * .56, -h * .06 - top, col, w * .28); E(c, 0, -h * .06, w * .66, w * .66, col); c.strokeStyle = 'rgba(30,40,60,.55)'; c.lineWidth = 2; for (let i = 0; i < 8; i++) { const yy = -h * .2 - i * h * .09; c.beginPath(); c.moveTo(w * .5, yy); c.lineTo(w * (i % 2 ? .8 : 1.05), yy); c.stroke(); } c.restore(); },
+  coral(c, x, y, s, col, seed){ const r = mulberry(hash(String(seed || 'c'))); col = col || '#ff7a8a'; c.save(); c.translate(x, y); c.lineCap = 'round';
+    const br = (bx, by, len, ang, wd, d) => { const ex = bx + Math.sin(ang) * len, ey = by - Math.cos(ang) * len; c.strokeStyle = d > 1 ? shade(col, .12) : col; c.lineWidth = wd; c.beginPath(); c.moveTo(bx, by); c.lineTo(ex, ey); c.stroke(); if (d >= 3) { E(c, ex, ey, wd * .9, wd * .9, shade(col, .3)); return; } br(ex, ey, len * .74, ang - .5 - r() * .3, wd * .72, d + 1); br(ex, ey, len * .74, ang + .5 + r() * .3, wd * .72, d + 1); };
+    E(c, 0, 0, s * .24, s * .05, shade(col, -.4)); br(0, 0, s * .34, 0, s * .09, 0); c.restore(); },
+  seaweed(c, x, y, h, t, col){ col = col || '#2fa66a'; for (let k = 0; k < 3; k++) { c.strokeStyle = shade(col, k * .12 - .1); c.lineWidth = h * .035; c.lineCap = 'round'; c.beginPath(); for (let i = 0; i <= 12; i++) { const u = i / 12, xx = x + (k - 1) * h * .07 + Math.sin(u * 4 + t * 1.6 + k) * h * .06 * u, yy = y - u * h * (.8 + k * .1); i ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.stroke(); } },
+  jelly(c, x, y, s, t, o){ o = o || {}; const col = o.col || '#c78cff', k = Math.sin(t * 2.4) * .06; c.save(); c.translate(x, y); c.scale(s, s);
+    c.strokeStyle = shade(col, .1); c.lineWidth = .025; c.lineCap = 'round'; for (let i = -3; i <= 3; i++) { c.beginPath(); for (let j = 0; j <= 8; j++) { const u = j / 8; j ? c.lineTo(i * .08 + Math.sin(u * 5 + t * 2 + i) * .05 * u, u * .7) : c.moveTo(i * .08, 0); } c.stroke(); }
+    c.beginPath(); c.moveTo(-.34, 0); c.bezierCurveTo(-.34, -.42 - k, .34, -.42 - k, .34, 0); c.quadraticCurveTo(.17, .07, 0, 0); c.quadraticCurveTo(-.17, .07, -.34, 0); c.closePath(); c.fillStyle = lg(c, 0, -.4, 0, .08, [[0, alphaC(shade(col, .3), .9)], [1, alphaC(col, .65)]]); c.fill(); E(c, -.1, -.22, .07, .04, 'rgba(255,255,255,.6)', -.5); c.restore(); },
+  bubbles(c, x, y, w, h, t, n){ for (let i = 0; i < (n || 14); i++) { const u = ((t * (.12 + hh(i + 3) * .1) + hh(i)) % 1), bx = x + hh(i + 7) * w + Math.sin(t * 2 + i) * 6, by = y + h - u * h, r = 4 + hh(i + 11) * 12; c.strokeStyle = `rgba(255,255,255,${.5 * (1 - u * .6)})`; c.lineWidth = 2; c.beginPath(); c.arc(bx, by, r, 0, 7); c.stroke(); E(c, bx - r * .3, by - r * .3, r * .22, r * .22, `rgba(255,255,255,${.6 * (1 - u * .6)})`); } }
+});
+/* Guardas de texto de las escenas: «\n» escrito como barra+n, textos que no caben, bocadillos fuera de pantalla y choques con el rótulo rojo.
+   La cámara hace zoom de hasta 1,26 sobre toda la escena, así que los márgenes se calculan para el peor caso. */
+function guardText(K, sc){
+  const ZS = 1.26, rotB = sc && sc.rotulo ? H * (.17 + (String(sc.rotulo).length > 15 ? .07 : 0)) : 0, topMin = rotB ? H / 2 - (H / 2 - rotB - 40) / ZS : 0, xl = W / 2 - (W / 2 - 28) / ZS + 8, xr = W - xl, maxW = xr - xl;
+  const nl = v => String(v == null ? '' : v).replace(/\\n/g, '\n'), fy = (y, hh) => (rotB && y - hh < topMin) ? topMin + hh : y, fx = (x, hw) => clamp(x, xl + hw, xr - hw);
+  const text0 = K.text, label0 = K.label, speech0 = K.speech;
+  const widest = (c, lines, size, wt) => { c.save(); c.font = `${wt || 800} ${size}px Poppins, sans-serif`; const m = Math.max(...lines.map(l => c.measureText(l).width)); c.restore(); return m; };
+  const wrap = (c, lines, size, lim) => { c.save(); c.font = `800 ${size}px Poppins, sans-serif`; const out = []; lines.forEach(l => { let cur = ''; l.split(/\s+/).forEach(w => { const t = cur ? cur + ' ' + w : w; if (cur && c.measureText(t).width > lim) { out.push(cur); cur = w; } else cur = t; }); out.push(cur); }); c.restore(); return out; };
+  K.text = (c, v, x, y, size, col, o) => { o = o || {}; size = Math.max(26, +size || 40); const lines = nl(v).split('\n'); let mw = widest(c, lines, size, o.weight); if (mw > maxW) { size = Math.max(22, Math.floor(size * maxW / mw)); mw = widest(c, lines, size, o.weight); } const lh = size * 1.15, hh = lines.length * lh / 2, y0 = fy(y, hh), x0 = !o.align || o.align === 'center' ? fx(x, mw / 2) : x; lines.forEach((l, i) => text0(c, l, x0, y0 + (i - (lines.length - 1) / 2) * lh, size, col, o)); };
+  K.label = (c, v, x, y, o) => { o = Object.assign({}, o || {}); v = nl(v).replace(/\n/g, ' '); o.size = Math.max(28, o.size || 34); let mw = widest(c, [v], o.size) + 44; if (mw > maxW) { o.size = Math.max(22, Math.floor((o.size) * (maxW - 44) / (mw - 44))); mw = widest(c, [v], o.size) + 44; } label0(c, v, fx(x, mw / 2), fy(y, (o.size + 28) / 2), o); };
+  K.speech = (c, x, y, w, h, v, o) => { o = Object.assign({}, o || {}); let size = Math.max(26, o.size || 32), lines = wrap(c, nl(v).split('\n'), size, maxW - 52); if (lines.length > 4) { size = 26; lines = wrap(c, nl(v).split('\n'), size, maxW - 52); } const mw = widest(c, lines, size); w = Math.min(Math.max(w || 0, mw + 52), maxW); h = Math.max(h || 0, lines.length * size * 1.15 + 34); o.size = size; speech0(c, fx(x, w / 2), fy(y, h / 2), w, h, lines.join('\n'), o); };
+}
+function makeKit(sc){
     const dir = sc._dir || {};
     const P = (Array.isArray(dir.paleta) ? dir.paleta.filter(hexOk) : []).slice(0, 8);
     const base = ['#101a33', '#2b5fd9', '#3ec1d3', '#ffd23f', '#ff7a45', '#f6f3ea'];
@@ -1107,7 +1140,7 @@ const SceneProg = (() => {
       item: (c, name, spec, x, y, h, t) => { const fn = ITEM[name]; if (!fn) return; c.save(); c.translate(x, y); c.scale(h, h); c.lineWidth = .01; try { fn(c, spec || {}, t || 0, mulberry(7)); } catch (e) {} c.restore(); },
       bg: (c, name, tono) => { const k = { fondo: BG[name] ? name : 'abstracto', tono: tono || 'dia', _seed: sc._seed }; c.drawImage(getBg(k, 'k' + (sc._n || 0)), 0, 0); }
     };
-    return Object.assign(K, KITX);
+    Object.assign(K, KITX); guardText(K, sc); return K;
   }
 
   function camFor(sc, u, tm){
@@ -1460,7 +1493,7 @@ REQUISITOS DE GUION
 DIRECCIÓN VISUAL IMPUESTA PARA ESTE VÍDEO (es lo que lo hace único: respétala, no la sustituyas por un estilo genérico)
 - Estilo gráfico: ${dir.estilo}
 - Lenguaje de plano y composición: ${dir.camara}
-- Hilo visual recurrente: ${dir.motivo}
+- Hilo visual recurrente (detalle SECUNDARIO: como mucho el 15 % de la pantalla; nunca tapa ni sustituye al dibujo principal): ${dir.motivo}
 - Paleta base obligatoria: ${dir.paletaNombre}
 Decide además "concepto": UNA frase con la idea visual propia de este tema (qué escenario, qué objeto protagonista, qué transformación cuenta la explicación). Debe ser inconfundible respecto a cualquier otro vídeo del canal.
 Si en el vídeo aparece una persona, define "protagonista" ({"genero":"f|m","pelo":"rubio|castano|negro|pelirrojo|canoso|calvo","piel":"claro|medio|oscuro","ropa":"color|vestido|bata|uniforme","edad":"nino|joven|adulto|mayor","accesorio":"gafas|sombrero|casco o vacío"}) y mantenla igual todo el vídeo. Si el tema no necesita personas, deja "protagonista" en null.
@@ -1471,7 +1504,7 @@ CADA ESCENA:
 - "fondo" (${BG_LIST}) y "tono" (dia, atardecer, noche, tormenta, calido, niebla, tension): SOLO son un respaldo sencillo por si falla el dibujo personalizado; elígelos con sentido.
 - "items" (0 a 2, opcional, también solo de respaldo): {"t": nombre, "x": 0-1, "y": 0-1, "s": escala}. Nombres: ${ITEM_LIST}.
 - camara: zoomin, zoomout, izq, der, arriba, abajo o fija. Alterna solo cuando ayude a contar la acción.
-- rotulo (opcional, 1 a 3 palabras): rótulo rojo arriba para un lugar, fecha o concepto.
+- rotulo (opcional, 1 a 3 palabras): rótulo rojo arriba para un lugar, fecha o concepto; debe aportar algo que la narración no dice, no repetirla.
 - etiqueta (opcional): {"nombre": "...", "sub": "..."} para presentar a una persona real.
 - tipo (opcional): "normal" casi siempre. Recursos especiales con plantilla fija, SOLO si aportan una explicación real: "mapa" con dato {"pins":[{"n":"LIMA","x":0.25,"y":0.6}]}; "grid" con dato {"total":92,"dest":1}; "numero" con dato {"valor":11,"sufijo":" días","etiqueta":"..."}; "barras" con dato {"barras":[{"n":"A","v":10}]}; "titulo" con dato {"texto":"..."}.
 
@@ -1530,7 +1563,7 @@ const ART = {
     'una mascota-objeto con ojos (un objeto del propio tema) que reacciona en cada escena',
     'un hilo de color continuo que atraviesa las escenas y conecta unas ideas con otras',
     'un reloj o cuenta atrás pequeño que avanza en una esquina superior mientras ocurre el proceso',
-    'una lupa o círculo de enfoque que revela detalles ocultos',
+    'una pequeña lupa (máximo 120 px) que señala el detalle clave de cada escena',
     'un único protagonista humano que reaparece en cada escena viviendo la explicación',
     'una forma geométrica simple que se transforma en el objeto protagonista de cada escena',
     'puntos de luz o partículas que guían la mirada de un elemento al siguiente',
@@ -1596,7 +1629,7 @@ VÍDEO: «${script.titulo}»
 CONCEPTO VISUAL: ${d.concepto || 'el que mejor explique el tema'}
 ESTILO GRÁFICO IMPUESTO: ${d.estilo}
 LENGUAJE DE PLANO: ${d.camara}
-HILO VISUAL RECURRENTE: ${d.motivo}
+HILO VISUAL RECURRENTE (detalle SECUNDARIO: como mucho el 15 % de la pantalla; nunca tapa ni sustituye al dibujo principal): ${d.motivo}
 PALETA (K.P): ${d.paletaNombre} → ${JSON.stringify(d.paleta)}  [0 fondo oscuro, 1 primario, 2 secundario, 3 acento claro, 4 acento cálido, 5 claro]
 PROTAGONISTA HUMANO (K.hero): ${d.protagonista ? JSON.stringify(d.protagonista) : 'ninguno: no dibujes personas salvo que la escena lo pida'}
 
@@ -1613,6 +1646,7 @@ Escenario: K.hills(c,y,amp,col,semilla,desplazamiento,frec), K.cloud(c,x,y,tam,a
 Personajes y objetos: K.person(c,spec,x_pies,y_pies,alto_px,t) con spec {genero,pelo,piel,ropa,emocion,accion:'caminar|correr|hablar|senalar',brazos:'arriba',accesorio,edad,herida,sucio} (por defecto usa K.hero); K.item(c,nombre,spec,x_base,y_base,alto_px,t) con nombres: ${ITEM_LIST}. Úsalos cuando ahorren trabajo, pero dibuja a mano los objetos propios del tema.
 Piezas hechas (úsalas, ahorran trabajo y quedan bien): K.pigeon(c,x,y,largo_px,t,{fly,dir:-1,col}) paloma; K.horse(c,x,y_suelo,alto_px,t,{col,gait,dir}) caballo; K.fish(c,x,y,largo_px,t,{col,dir,ph}); K.flock(c,x,y,ancho,alto,n,t,col) bandada; K.pylon(c,x,y_suelo,alto_px,col) torre eléctrica (devuelve los extremos de sus brazos) y K.cable(c,x0,y0,x1,y1,caída,col,grosor); K.skyline(c,y,semilla,col,{off,lit,hmax,win}) ciudad; K.crowd(c,x,y,ancho,n,alto_px,t,semilla) multitud; K.car(c,x,y_suelo,largo_px,col,t,{dir,v}); K.house(c,x,y_suelo,tam,col,luz); K.planet(c,x,y,r,col,{ring,bands}); K.atom(c,x,y,r,t,col); K.bolt(c,x0,y0,x1,y1,t,col,grosor) rayo. Lo que no esté aquí, dibújalo tú con formas.
 Piezas nuevas con vida propia (y = suelo salvo que se diga; tam = alto o largo en px): K.toon(c,x,y,alto,t,{mood,skin,body,legs,arms,dir,walk,hat,look}) personaje de dibujos con CARA que reacciona (mood: feliz|risa|panic|sorpresa|triste|enfado|pensando|asco|dormido|hablar; arms: arriba|saludar|señalar|caer|barriga; hat: cono|copa) → ÚSALO para los chistes visuales y las reacciones; K.face(c,x,y,radio,t,mood,{skin,look}) cara suelta (también para dar cara a un objeto); animales K.cat/K.dog(c,x,y,largo,t,{col,dir}), K.bee(c,x,y,largo,t,{dir}), K.whale(c,x,y,largo,t,{col,dir}), K.spider(c,x,y,tam,t), K.ant(c,x,y,largo,t); vehículos K.plane(c,x,y,largo,t,{dir,tilt}), K.rocket(c,x,y,tam,t), K.ship(c,x,y,tam,t), K.train(c,x,y,tam,col,t,{dir}); edificios K.skyscraper(c,x,y,ancho,alto,col,t), K.factory(c,x,y,tam,t), K.lighthouse(c,x,y,tam,t); comida K.coffee(c,x,y,tam,t), K.pizza(c,x,y,tam,t), K.apple(c,x,y,tam,col); cuerpo K.brain(c,x,y,tam,t), K.heart(c,x,y,tam,t) (late), K.eye(c,x,y,tam,t,{look}); objetos K.bulb(c,x,y,tam,t,encendida), K.clock(c,x,y,radio,t,{speed}), K.phone(c,x,y,tam,t), K.magnet(c,x,y,tam,t); astros K.sun(c,x,y,r,t,{face}), K.moon(c,x,y,r,t,{phase,face}), K.earth(c,x,y,r,t,{face}); extras K.sweat(c,x,y,tam,t) gota de sudor, K.zzz(c,x,y,tam,t), K.speech(c,x,y,ancho,alto,'texto\nlínea 2',{tx,ty}) bocadillo de cómic con punta hacia (tx,ty). K.pylon ahora es una torre de celosía mucho mejor.
+Piezas de agua y mar (úsalas siempre que el tema toque agua, hielo o temperatura): K.sea(c,y_superficie,t,{col,layers,foam}) mar con olas en capas y espuma hasta el borde inferior; K.drop(c,x,y,tam,t,{col}) gota; K.iceberg(c,x_centro,y_linea_de_agua,ancho,t) iceberg con su parte sumergida; K.thermo(c,x,y_base,alto,valor_0_a_1,{col}) termómetro; K.coral(c,x,y_suelo,tam,col,semilla); K.seaweed(c,x,y_suelo,alto,t,col) algas; K.jelly(c,x,y,tam,t,{col}) medusa; K.bubbles(c,x,y,ancho,alto,t,n) burbujas que suben.
 Para HUMOR VISUAL: pon a un K.toon reaccionando (mood panic/sorpresa/risa) al lado de lo que ocurre, o dale cara a un objeto con K.face, y usa K.speech para un comentario corto y gracioso.
 Texto: K.text(c,'texto',x,y,tam,col,{stroke,align,weight,alpha}), K.label(c,'ETIQUETA',x,y,{size,alpha,tx,ty}) cartel con línea hacia un punto. Solo etiquetas cortas en español.
 
@@ -1631,7 +1665,10 @@ REGLAS
 - Rellena TODO el lienzo con un fondo opaco al empezar. Dibuja cada fotograma desde cero como función pura de t y u (no acumules estado; usa K.rnd o K.hh para azar fijo).
 - Anima SIEMPRE: algo se mueve en cada instante (entradas escalonadas con K.pop/K.tween, movimiento continuo suave, paralaje). Sincroniza con la narración: lo que se nombra primero aparece primero; la escena dura K.dur segundos.
 - Composición vertical: la acción principal entre el 10% y el 66% de la altura, con su centro hacia el 38-40% (no pegada arriba) y el elemento principal ocupando al menos el 55% del ancho; no dejes vacía la mitad inferior de la zona de acción. Nada importante cortado por los bordes: todo dentro del 5%-95% del ancho. Si hay una cámara o un zoom, el elemento principal tiene que seguir entero en pantalla.
-- VARIEDAD ENTRE ESCENAS: dos escenas seguidas nunca comparten composición ni el mismo dibujo con otros datos. Alterna plano general, plano medio y detalle; alterna composición centrada y asimétrica; cambia el color dominante del fondo cada 3 o 4 escenas; y cada escena aporta un elemento visual propio que explique su frase (no basta con mover los mismos óvalos o círculos). Entre el 70% y el 84% van los subtítulos: no pongas nada importante ni texto ahí.
+- VARIEDAD ENTRE ESCENAS: dos escenas seguidas nunca comparten composición ni el mismo dibujo con otros datos. Alterna plano general, plano medio y detalle; alterna composición centrada y asimétrica; cambia el color dominante del fondo cada 3 o 4 escenas; y cada escena aporta un elemento visual propio que explique su frase (no basta con mover los mismos óvalos o círculos).
+- DETALLE: cada escena tiene un sujeto principal RECONOCIBLE dibujado con partes, sombras y luz (ojos, aletas, ventanas, olas…), con al menos 6 elementos visibles: fondo en 2 o 3 capas, sujeto, 2 o 3 detalles secundarios y algo en movimiento. Prohibido usar elipses, círculos o anillos lisos como sujeto principal o como «representación abstracta» de algo: si es el mar, usa K.sea con olas, barcos o peces; la Tierra es K.earth (K.planet es un planeta de gas con bandas); un pez, K.fish; una ballena, K.whale; y así con todo lo que exista en las piezas hechas.
+- TEXTO DENTRO DEL DIBUJO: como mucho 2 etiquetas por escena, de 28 px o más, nunca en el 20 % superior (ahí va el rótulo rojo) ni entre el 70 % y el 84 % (subtítulos); no repitas con K.label lo que ya dice el rótulo ni la narración. En K.speech y K.label el salto de línea es «\\n» escrito UNA sola vez en el código JS (no «\\\\n»).
+- PERSONAJES: un K.toon o K.person mide entre 300 y 420 px de alto (nunca menos de 250), en la zona central y entero dentro de la pantalla, no pegado a una esquina. Entre el 70% y el 84% van los subtítulos: no pongas nada importante ni texto ahí.
 - Calidad: tres capas de profundidad (fondo, plano medio, primer plano), luz (glow, degradados, sombras), objetos con detalle (base + sombra + brillo + al menos un rasgo que los identifique), coherencia total con el ESTILO GRÁFICO impuesto. Colores de K.P y derivados (K.mix/K.shade/K.alpha) más algún color realista puntual (fuego, piel, vegetación) si el objeto lo exige.
 - Representa literalmente lo descrito en «QUÉ SE VE». Nada de decoración sin relación con lo que se explica.
 - Cada escena debe verse distinta a las demás del vídeo (plano, composición), pero con el mismo estilo, paleta e hilo visual.
