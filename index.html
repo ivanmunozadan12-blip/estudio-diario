@@ -121,6 +121,7 @@ body.simple #slots,body.simple #ia,body.simple #counter,body.simple .dock .in,bo
     <select id="humor"><option value="auto" selected>Automático (recomendado): mucho en hipotéticos, un toque en explicaciones, nada en temas serios</option><option value="comedia">🤣 Comedia total: vídeos de humor, hipotéticos disparatados, lleno de coñas (adultos)</option><option value="siempre">Siempre divertido (salvo temas sensibles)</option><option value="nunca">Nunca: tono serio</option></select></label>
   <label class="f">Voz
     <select id="voiceEngine"><option value="natural" selected>Natural (neuronal, gratis, va dentro del vídeo)</option><option value="supertonic">Supertonic (muy natural, sin claves; ~250 MB la primera vez)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
+  <div class="hint" id="stStatus" style="font-size:.85em;opacity:.85"></div>
   <label class="f">Voz de Supertonic
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4">M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
@@ -1450,9 +1451,9 @@ REQUISITOS DE GUION
 - En vídeos de ciencia y curiosidades, utiliza hechos reales comprobables. En explicaciones, describe el mecanismo real de forma sencilla y visual. En escenarios hipotéticos, diferencia explícitamente hechos científicos, suposiciones y consecuencias imaginadas. Nunca hagas pasar una hipótesis por noticia o hecho real.
 - No generes vídeos de supervivencia extrema, tragedias, crímenes, sucesos morbosos ni misterios sin resolver. No centres el canal en historias de víctimas o catástrofes reales.
 - Si no estás seguro de un dato real (nombre, cifra, fecha o explicación), no lo inventes ni lo presentes como cierto.
-- GANCHO (escena 1, 2-3 segundos; decide si se ve el vídeo): las primeras 8 palabras deben plantear una promesa, una contradicción o una consecuencia concreta que el espectador necesita cerrar, con una cifra o un detalle visual inesperado. Fórmulas que funcionan: «En 3 días, X…», «Esto no debería poder pasar, pero…», «Todo el mundo cree X. Es mentira.», «Si X desapareciera mañana, esto es lo primero que fallaría». Prohibido empezar con saludos, «hoy», «imagina», «¿sabías que…?» o presentar el tema.
+- GANCHO (escena 1, 2-3 segundos; decide si se ve el vídeo): las primeras 8 palabras deben plantear una promesa, una contradicción o una consecuencia concreta que el espectador necesita cerrar, con una cifra o un detalle visual inesperado. Fórmulas que funcionan: «En 3 días, X…», «Esto no debería poder pasar, pero…», «Todo el mundo cree X. Es mentira.», «Si X desapareciera mañana, esto es lo primero que fallaría». Prohibido empezar con saludos, «hoy», «imagina», «¿sabías que…?» o presentar el tema.${dir.gancho ? '\n- TIPO DE GANCHO IMPUESTO PARA ESTE VÍDEO (úsalo tal cual, no lo cambies por otro): ' + dir.gancho + ' La escena 1 es solo el gancho: máximo 14 palabras y una imagen potente desde el primer fotograma.' : ''}${dir.formato ? '\n- FORMATO NARRATIVO IMPUESTO PARA ESTE VÍDEO: «' + dir.formato + '». ' + dir.formatoGuia + ' Respeta este esqueleto en lugar del esquema genérico de abajo; aplica igualmente el gancho, los bucles abiertos y el cierre.' : ''}
 - BUCLES ABIERTOS: cada 2 o 3 escenas termina con una frase que obligue a seguir viendo («pero eso no es lo peor», «y aquí viene lo raro»).
-- Estructura: gancho, contexto mínimo, nudo con giros cada 2 o 3 escenas, clímax, desenlace con dato final sorprendente. CIERRE EN BUCLE: la última escena remata con el dato o el chiste más fuerte y su última frase conecta con la primera (callback), de modo que al repetirse el vídeo empalme solo; sin pedir «suscríbete» ni sonar a anuncio.
+- Estructura: gancho, contexto mínimo, nudo con giros cada 2 o 3 escenas, clímax, desenlace con dato final sorprendente. CIERRE EN BUCLE: la última escena remata con el dato o el chiste más fuerte y su última frase conecta con la primera, de modo que al repetirse el vídeo empalme solo; sin pedir «suscríbete» ni sonar a anuncio. ${dir.cierre ? 'TÉCNICA DE BUCLE IMPUESTA PARA ESTE VÍDEO: ' + dir.cierre + ' ' : ''}La última escena debe además volver visualmente al encuadre, color o elemento de la primera escena, para que el salto al reiniciar apenas se note.
 - Frases cortas, ritmo rápido, español neutro de España, tono de narrador cercano. Cada escena tiene 1 o 2 frases (6 a 20 palabras). Escribe los números con cifras. Sin violencia gráfica.
 - En "texto" marca con asteriscos UNA palabra clave por escena (*así*), que saldrá en amarillo en el subtítulo.
 
@@ -1538,6 +1539,33 @@ const ART = {
     'sin personajes: solo objetos, materiales y fenómenos como protagonistas'
   ]
 };
+/* Formato narrativo, tipo de gancho y técnica de cierre en bucle: rotan para que 4 vídeos al día no se parezcan. k = tipos de tema donde encaja (h hipotético, c cómo funciona, s sabías que). */
+const FORMATS = [
+  { n: 'MITO VS REALIDAD', k: 'hcs', t: 'Abre afirmando como cierto un mito muy extendido, déjalo asentarse una escena y desmóntalo con un giro claro («Pues no»). Después explica lo que ocurre de verdad y remata con el dato que nadie esperaba.' },
+  { n: 'CUENTA ATRÁS', k: 'cs', t: 'Elige 3 a 5 elementos y ordénalos de menos a más sorprendente, anunciando cada número («Número 3…»). El último es el más fuerte y el que cierra el bucle.' },
+  { n: 'CRONOLOGÍA CON RELOJ', k: 'hs', t: 'Cuenta todo como una línea de tiempo con marcas concretas («Minuto 1… Hora 6… Día 3… Año 1»). Cada marca trae una consecuencia peor o más rara que la anterior.' },
+  { n: 'CONSECUENCIAS EN CADENA (EFECTO DOMINÓ)', k: 'hcs', t: 'Cada escena es la consecuencia directa de la anterior («y eso provoca…», «lo que a su vez…»). Una sola cadena causal, sin desvíos, que acaba en algo absurdo o enorme.' },
+  { n: 'PREGUNTA ABSURDA, RESPUESTA SERIA', k: 'hcs', t: 'Plantea una pregunta que suena a tontería y respóndela por capas con total seriedad científica, subiendo la apuesta en cada capa hasta una conclusión que cambia cómo ves el asunto.' },
+  { n: 'COMPARATIVA DE ESCALA', k: 'cs', t: 'Todo se explica comparando cifras con cosas cotidianas que el espectador pueda imaginar (campos de fútbol, años, autobuses). Una comparación visual por escena, cada vez más desproporcionada.' },
+  { n: 'EL ERROR QUE COMETE TODO EL MUNDO', k: 'cs', t: 'Señala algo que todos hacen o creen mal, explica por qué parece lógico, qué pasa en realidad y qué habría que hacer. Tono de «te lo llevan años ocultando», sin dramatismo falso.' },
+  { n: 'ENIGMA CON PISTAS', k: 'cs', t: 'Plantea un enigma en la escena 1, reparte 2 o 3 pistas y resuélvelo en la penúltima escena con una explicación que lo encaje todo; la última escena añade el giro final.' },
+  { n: 'MINI-HISTORIA CON PROTAGONISTA', k: 'hcs', t: 'Sigue a un protagonista sencillo (una persona, un objeto o una gota de agua) a lo largo de todo el proceso, contado en tercera persona o en segunda («tú»), de modo que la ciencia se vea a través de lo que le pasa.' }
+];
+const HOOKS = [
+  'CIFRA CONCRETA Y RARA: la primera frase arranca con un número o una medida exacta que choca («37 segundos», «el 99 %», «tres toneladas»).',
+  'CONTRADICCIÓN: la primera frase afirma algo que parece imposible o contrario al sentido común y la segunda lo confirma.',
+  'CONSECUENCIA INMEDIATA: empieza por el resultado ya ocurrido («Ya no queda agua en tu vaso, y esto es solo el principio») y explica el cómo después.',
+  'ORDEN O RETO AL ESPECTADOR: la primera frase le manda o le reta a hacer algo ahora mismo («Mira tu mano. Ahora no la muevas.»).',
+  'PREGUNTA CON TRAMPA: una pregunta corta cuya respuesta intuitiva es falsa, y la segunda frase avisa de que casi todos se equivocan.',
+  'IN MEDIAS RES: empieza en mitad de la acción, con hora o lugar exacto («03:07 de la madrugada. Suena la primera alarma.»), sin presentación.',
+  'PROMESA CON PLAZO: promete algo concreto y rápido («En 20 segundos vas a entender por qué…») y cúmplelo.'
+];
+const LOOPS = [
+  'FRASE ABIERTA: la última frase termina en una coma, una conjunción o una palabra que la primera frase del vídeo completa, de forma que al reiniciarse se lea como una sola frase continua (por ejemplo, acaba en «…y por eso» y el gancho empieza con «nadie lo esperaba»). Compruébalo leyendo el final y el principio seguidos.',
+  'ECO DEL GANCHO: la última frase repite la cifra, la palabra clave o la imagen del gancho, ahora con un significado nuevo tras todo lo que se ha contado, de modo que el principio vuelva a sonar distinto.',
+  'PREGUNTA QUE VUELVE: la última frase es la pregunta del gancho, ya respondida, reformulada para dejar una duda nueva que solo se resuelve volviendo a ver el vídeo.',
+  'REMATE QUE ENCAJA: la última frase es el chiste o el dato más fuerte y termina con la misma estructura de palabras con la que empieza la primera, de modo que el final y el principio rimen.'
+];
 function pickDirection(topic, recent){
   const rec = (recent || []).filter(f => f && typeof f === 'object');
   const pick = (key, list, win) => {
@@ -1547,7 +1575,11 @@ function pickDirection(topic, recent){
     return cand[Math.floor(Math.random() * cand.length)];
   };
   const p = pick('p', ART.paletas, 9), e = pick('e', ART.estilos, 6), c = pick('c', ART.camaras, 4), m = pick('m', ART.motivos, 5);
-  return { p, e, c, m, paleta: ART.paletas[p].c.slice(), paletaNombre: ART.paletas[p].n, estilo: ART.estilos[e], camara: ART.camaras[c], motivo: ART.motivos[m] };
+  const kind = /¿QUÉ PASARÍA SI/i.test(topic || '') ? 'h' : /¿CÓMO FUNCIONA/i.test(topic || '') ? 'c' : 's';
+  const okF = FORMATS.map((x, i) => i).filter(i => FORMATS[i].k.includes(kind)), bannedF = new Set(rec.slice(-4).map(x => x.f));
+  let candF = okF.filter(i => !bannedF.has(i)); if (!candF.length) candF = okF;
+  const f = candF[Math.floor(Math.random() * candF.length)], h = pick('h', HOOKS, 4), l = pick('l', LOOPS, 3);
+  return { p, e, c, m, f, h, l, paleta: ART.paletas[p].c.slice(), paletaNombre: ART.paletas[p].n, estilo: ART.estilos[e], camara: ART.camaras[c], motivo: ART.motivos[m], formato: FORMATS[f].n, formatoGuia: FORMATS[f].t, gancho: HOOKS[h], cierre: LOOPS[l] };
 }
 /* Parecido entre temas: evita repetir asuntos aunque se redacten distinto. */
 const STOPW = new Set('que como cual cuando donde sobre entre desde hasta todo toda todos esto esta este para pero porque cada tiene hace sabias sabias funciona pasaria ocurriria vez dentro luego puede pueden'.split(' '));
@@ -1745,7 +1777,7 @@ function sanitizeScript(raw, topic, dir){
   if (!raw || !Array.isArray(raw.escenas) || !raw.escenas.length) throw new Error('El guion no tiene escenas');
   const hist = store.get('hist', []); hist.push(topic); store.set('hist', hist.slice(-40));
   dir = dir || pickDirection(topic, store.get('sigs', []));
-  const sigs = store.get('sigs', []); sigs.push({ p: dir.p, e: dir.e, c: dir.c, m: dir.m }); store.set('sigs', sigs.slice(-30));
+  const sigs = store.get('sigs', []); sigs.push({ p: dir.p, e: dir.e, c: dir.c, m: dir.m, f: dir.f, h: dir.h, l: dir.l }); store.set('sigs', sigs.slice(-30));
   const scenes = raw.escenas.slice(0, 40).map((e, i) => {
     const texto = String(e.texto || '').trim(); if (!texto) return null;
     const sc = { texto, fondo: BG[e.fondo] ? e.fondo : guessBg(texto), tono: VALID_TONO.includes(e.tono) ? e.tono : 'dia', camara: VALID_CAM.includes(e.camara) ? e.camara : VALID_CAM[i % 5], efectos: (Array.isArray(e.efectos) ? e.efectos : []).filter(x => VALID_FX.includes(x)).slice(0,3), tipo: VALID_TIPO.includes(e.tipo) ? e.tipo : 'normal', dato: e.dato && typeof e.dato === 'object' ? e.dato : null };
@@ -2172,7 +2204,7 @@ function renderSimple(){
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
   if (s.err) h += `<p class="meta" style="color:var(--red)">${esc(s.err)}</p>`;
-  if (s.err && /voz neuronal/i.test(s.err) && !busy) h += `<div class="row"><button id="simRetry">Reintentar voz natural</button><button class="pri" id="simRobot">Grabar con voz sintética (sin descargas)</button></div>`;
+  if (s.err && /voz neuronal/i.test(s.err) && !busy) h += /Supertonic/.test(s.err) ? `<div class="row"><button class="pri" id="simRetry">Reintentar Supertonic</button><button id="simPiper">Grabar con Piper esta vez</button></div>` : `<div class="row"><button id="simRetry">Reintentar voz natural</button><button class="pri" id="simRobot">Grabar con voz sintética (sin descargas)</button></div>`;
   const keep = document.activeElement && document.activeElement.id; el.innerHTML = h;
   if (keep) { const k = document.getElementById(keep); if (k && k.focus) { try { k.focus(); } catch (e) {} } }
 }
@@ -2208,7 +2240,8 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
   if (b.id === 'simNew') { simpleReset(true); return; }
   if (b.id === 'simRec') { simpleNote = ''; return simpleRecord(); }
-  if (b.id === 'simRetry') { Voice.failed = false; Supertonic.failed = false; s.err = ''; return simpleRecord(); }
+  if (b.id === 'simRetry') { Voice.failed = false; Voice.forcePiper = false; Supertonic.failed = false; s.err = ''; return simpleRecord(); }
+  if (b.id === 'simPiper') { Voice.failed = false; Voice.forcePiper = true; s.err = ''; try { return await simpleRecord(); } finally { Voice.forcePiper = false; } }
   if (b.id === 'simRobot') { const en = $('#voiceEngine'); if (en) { en.value = 'robot'; en.dispatchEvent(new Event('change')); } Voice.failed = false; s.err = ''; return simpleRecord(); }
   if (b.id === 'simImp') {
     simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
@@ -2571,37 +2604,73 @@ async function buildScript(request, S, progress, sig){
 }
 /* ===== Supertonic: voz neuronal multilingüe (español) que corre en el navegador con ONNX Runtime Web. Código basado en el ejemplo web oficial (MIT). ===== */
 const Supertonic = {
-  ort: null, tts: null, styles: {}, failed: false,
-  BASES: ['https://huggingface.co/Supertone/supertonic-3/resolve/main/', 'https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/', 'https://huggingface.co/Supertone/supertonic-2/resolve/main/'],
+  ort: null, tts: null, styles: {}, failed: false, base: null, baseName: '', status: '', lastError: '',
+  BASES: ['https://huggingface.co/Supertone/supertonic-3/resolve/main/', 'https://huggingface.co/jinhwan000/supertonic-3-mirror/resolve/main/', 'https://huggingface.co/jiangzhuo9357/supertonic-3/resolve/main/', 'https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/', 'https://huggingface.co/Supertone/supertonic-2/resolve/main/'],
+  ORT: ['1.23.0', '1.22.0'],
+  setStatus(t, bad){ this.status = t; try { const el = document.getElementById('stStatus'); if (el) { el.textContent = t; el.style.color = bad ? '#c0392b' : ''; } } catch (e) {} },
+  async fetchOnce(url, progress, label){
+    const ctrl = new AbortController(), kill = setTimeout(() => ctrl.abort(), 120000);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status + ' en ' + url);
+      const total = +r.headers.get('content-length') || 0; let buf = new Uint8Array(total || 1 << 20), got = 0;
+      const put = v => { if (got + v.length > buf.length) { const nb = new Uint8Array(Math.max(buf.length * 2, got + v.length)); nb.set(buf.subarray(0, got)); buf = nb; } buf.set(v, got); got += v.length; };
+      if (r.body && r.body.getReader) { const rd = r.body.getReader(); for (;;) { const { done, value } = await rd.read(); if (done) break; put(value); clearTimeout(kill); if (progress && total) progress(`${label}… ${Math.round(got / total * 100)}%`); } }
+      else put(new Uint8Array(await r.arrayBuffer()));
+      return got === buf.length ? buf : buf.subarray(0, got);
+    } finally { clearTimeout(kill); }
+  },
   async fetchCached(path, progress, label, asJson){
-    let cache = null; try { cache = await caches.open('supertonic-v1'); } catch (e) {}
+    const url = this.base + path; let cache = null; try { cache = await caches.open('supertonic-v2'); } catch (e) {}
+    if (cache) { try { const hit = await cache.match(url); if (hit) return asJson ? hit.json() : new Uint8Array(await hit.arrayBuffer()); } catch (e) {} }
     let lastErr;
-    for (const base of this.BASES) {
-      const url = base + path;
+    for (let t = 0; t < 3; t++) {
       try {
-        if (cache) { const hit = await cache.match(url); if (hit) return asJson ? hit.json() : new Uint8Array(await hit.arrayBuffer()); }
-        const r = await fetch(url); if (!r.ok) throw new Error('HTTP ' + r.status + ' en ' + url);
-        const total = +r.headers.get('content-length') || 0; let got = 0; const parts = [];
-        if (r.body && r.body.getReader) { const rd = r.body.getReader(); for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; if (progress && total) progress(`${label}… ${Math.round(got / total * 100)}%`); } }
-        else parts.push(new Uint8Array(await r.arrayBuffer()));
-        let n = 0; parts.forEach(x => n += x.length); const buf = new Uint8Array(n); let o = 0; parts.forEach(x => { buf.set(x, o); o += x.length; });
-        if (cache) { try { await cache.put(url, new Response(buf, { headers: { 'content-type': asJson ? 'application/json' : 'application/octet-stream' } })); } catch (e) {} }
-        return asJson ? JSON.parse(new TextDecoder().decode(buf)) : buf;
-      } catch (e) { lastErr = e; }
+        const buf = await this.fetchOnce(url, progress, label);
+        if (asJson) { const j = JSON.parse(new TextDecoder().decode(buf)); if (cache) { try { await cache.put(url, new Response(JSON.stringify(j), { headers: { 'content-type': 'application/json' } })); } catch (e) {} } return j; }
+        if (cache) { try { await cache.put(url, new Response(buf, { headers: { 'content-type': 'application/octet-stream' } })); } catch (e) {} }
+        return buf;
+      } catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 700 * (t + 1))); }
     }
     throw lastErr || new Error('no se pudo descargar ' + path);
   },
+  /* Elige UNA sola fuente para todos los ficheros (mezclar versiones rompe el modelo). */
+  async pickBase(progress){
+    if (this.base) return;
+    const errs = [];
+    for (const base of this.BASES) {
+      try { this.base = base; const cfg = await this.fetchCached('onnx/tts.json', progress, 'Configuración', true); if (!cfg || !cfg.ae) throw new Error('tts.json no válido'); this.baseName = base.replace(/^https:\/\/huggingface\.co\//, '').replace(/\/resolve\/.*/, ''); this._cfg = cfg; return; }
+      catch (e) { errs.push(base.replace(/^https:\/\/huggingface\.co\//, '').replace(/\/resolve\/.*/, '') + ': ' + (e && e.message || e)); this.base = null; }
+    }
+    throw new Error('no se pudo descargar el modelo desde ninguna fuente (' + errs.join(' | ') + ')');
+  },
+  EXPECT: { duration_predictor: ['text_ids', 'style_dp', 'text_mask'], text_encoder: ['text_ids', 'style_ttl', 'text_mask'], vector_estimator: ['noisy_latent', 'text_emb', 'style_ttl', 'latent_mask', 'text_mask', 'current_step', 'total_step'], vocoder: ['latent'] },
   async load(progress){
     if (this.tts) return this.tts;
-    progress && progress('Cargando Supertonic…');
-    const urls = ['https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.mjs', 'https://esm.sh/onnxruntime-web@1.22.0/wasm'];
-    let err; for (const u of urls) { try { this.ort = await import(u); break; } catch (e) { err = e; } }
-    if (!this.ort) throw new Error('no se pudo cargar ONNX Runtime: ' + (err && err.message || err));
-    try { this.ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/'; this.ort.env.wasm.numThreads = Math.min(4, (navigator.hardwareConcurrency || 2)); } catch (e) {}
-    const cfg = await this.fetchCached('onnx/tts.json', progress, 'Configuración', true), indexer = await this.fetchCached('onnx/unicode_indexer.json', progress, 'Diccionario', true);
-    const names = [['duration_predictor', 'Voz (1/4)'], ['text_encoder', 'Voz (2/4)'], ['vector_estimator', 'Voz (3/4)'], ['vocoder', 'Voz (4/4)']], sess = {};
-    for (const [n, label] of names) { const buf = await this.fetchCached('onnx/' + n + '.onnx', progress, 'Descargando ' + label, false); sess[n] = await this.ort.InferenceSession.create(buf, { executionProviders: ['wasm'] }); }
-    this.tts = { cfg, indexer, sess }; return this.tts;
+    progress && progress('Cargando Supertonic…'); this.setStatus('Supertonic: cargando…');
+    await this.pickBase(progress);
+    const cfg = this._cfg, indexer = await this.fetchCached('onnx/unicode_indexer.json', progress, 'Diccionario', true);
+    const names = [['duration_predictor', 'Voz (1/4)'], ['text_encoder', 'Voz (2/4)'], ['vector_estimator', 'Voz (3/4)'], ['vocoder', 'Voz (4/4)']];
+    let lastErr;
+    for (const ver of this.ORT) {
+      try {
+        const urls = ['https://cdn.jsdelivr.net/npm/onnxruntime-web@' + ver + '/dist/ort.wasm.min.mjs', 'https://esm.sh/onnxruntime-web@' + ver + '/wasm'];
+        let ort = null, ierr; for (const u of urls) { try { ort = await import(u); break; } catch (e) { ierr = e; } }
+        if (!ort) throw new Error('no se pudo cargar ONNX Runtime ' + ver + ': ' + (ierr && ierr.message || ierr));
+        try { ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@' + ver + '/dist/'; ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1; } catch (e) {}
+        const sess = {};
+        for (const [n, label] of names) {
+          let buf = await this.fetchCached('onnx/' + n + '.onnx', progress, 'Descargando ' + label, false);
+          progress && progress('Preparando ' + label + '…');
+          try { sess[n] = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' }); }
+          catch (e) { throw new Error('ONNX Runtime ' + ver + ' no pudo abrir ' + n + ' (' + (e && e.message || e) + ')'); }
+          buf = null;
+          const have = sess[n].inputNames || [], need = this.EXPECT[n], extra = have.filter(x => !need.includes(x)), miss = need.filter(x => !have.includes(x));
+          if (extra.length || miss.length) throw new Error('el modelo «' + n + '» tiene otras entradas de las previstas (recibe: ' + have.join(', ') + ')');
+        }
+        this.ort = ort; this.tts = { cfg, indexer, sess }; this.setStatus('Supertonic listo (' + this.baseName + ', ONNX ' + ver + ')'); return this.tts;
+      } catch (e) { lastErr = e; this.ort = null; }
+    }
+    throw lastErr || new Error('no se pudo cargar Supertonic');
   },
   async style(name){
     if (this.styles[name]) return this.styles[name];
@@ -2662,7 +2731,7 @@ const Supertonic = {
 };
 /* ===== Voz: natural (Piper, neuronal, en el navegador) o sintética de respaldo ===== */
 const Voice = {
-  mod: null, ready: false, failed: false, voices: [],
+  mod: null, ready: false, failed: false, forcePiper: false, voices: [],
   async load(progress){
     if (this.mod) return this.mod;
     // El espejo antiguo de Piper en Hugging Face responde 405; usar el repositorio oficial fijado v1.0.0.
@@ -2759,9 +2828,9 @@ const Voice = {
     return { samples, fs, dur, words };
   },
   async speak(text, S, progress){
-    if (S.engine === 'supertonic' && !Supertonic.failed) {
-      try { return await Supertonic.speak(text, S, progress); }
-      catch (e) { Supertonic.failed = true; const d = e && (e.message || e.toString()) || 'error'; console.error('[Supertonic]', d, e && e.stack || ''); msg('Supertonic falló, uso Piper: ' + d); S = Object.assign({}, S, { engine: 'natural' }); }
+    if (S.engine === 'supertonic' && !this.forcePiper) {
+      try { const r = await Supertonic.speak(text, S, progress); Supertonic.lastError = ''; return r; }
+      catch (e) { const d = e && (e.message || e.toString()) || 'error'; Supertonic.lastError = d; Supertonic.setStatus('Supertonic falló: ' + d, true); console.error('[Supertonic]', d, e && e.stack || ''); throw new Error('No se pudo generar la voz neuronal Supertonic: ' + d); }
     }
     if (S.engine === 'supertonic') S = Object.assign({}, S, { engine: 'natural' });
     if (S.engine === 'natural') {
@@ -2814,7 +2883,7 @@ $('#testAI').addEventListener('click', async () => {
   } catch (e) { st.textContent = errCopy(e); }
 });
 $('#testVoice').addEventListener('click', async () => {
-  const b = $('#testVoice'); b.disabled = true; const S = settings(); Voice.failed = false;
+  const b = $('#testVoice'); b.disabled = true; const S = settings(); Voice.failed = false; Voice.forcePiper = false; Supertonic.failed = false;
   try {
     msg('Generando la voz de prueba…'); const a = await Voice.speak('Esta es la voz de tu canal. Así sonarán tus historias, con un ritmo tranquilo y claro.', S, msg);
     const ctx = new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume(); const buf = ctx.createBuffer(1, a.samples.length, a.fs); buf.copyToChannel(a.samples, 0); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(); src.onended = () => ctx.close(); msg('Reproduciendo…');
