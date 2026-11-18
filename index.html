@@ -3644,7 +3644,7 @@ const Voice = {
   VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5', ella: 'F2', abuelo: 'M5' },
   voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ_PERSONAJE[who] || narr; if (v === narr) v = ['M2', 'F4', 'M3', 'F1', 'M5', 'F5'].find(x => x !== narr && x !== this.VOZ_PERSONAJE.amigo) || 'F4'; return v; },
   PERS: { amigo: 'Dani', amiga: 'Marta', jefe: 'El casero', abuela: 'La vecina', madre: 'La madre' },
-  PITCH: { yo: .94, amigo: 1.0, amiga: 1.2, jefe: .8, abuela: 1.26, madre: 1.14, ella: 1.2, abuelo: .84 },
+  PITCH: { yo: .94, amigo: 1.0, amiga: 1.2, jefe: .9, abuela: 1.26, madre: 1.14, ella: 1.2, abuelo: .9 },
   MOODF: { cansado: .94, resignado: .95, triste: .95, dormido: .9, enfado: 1.05, panico: 1.1, asombro: 1.04, sonrisa: 1.02, risa: 1.04, asco: .97, serio: .97 },
   // Ánimo: f = tono y velocidad (más grave y lento / más agudo y rápido), g = volumen, p = pausas
   MOODT: { harto: { f: .93, g: .9, p: 1.4 }, cansado: { f: .90, g: .85, p: 1.6 }, resignado: { f: .92, g: .88, p: 1.4 }, triste: { f: .91, g: .82, p: 1.5 }, dormido: { f: .86, g: .72, p: 1.8 },
