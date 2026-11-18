@@ -19,9 +19,11 @@ try:
     for l in open(os.path.join(HERE, 'config.txt'), encoding='utf-8'):
         if '=' in l: k, v = l.split('=', 1); cfg[k.strip().upper()] = v.strip()
 except Exception: pass
-URL = (cfg.get('URL') or '').rstrip('/'); KEY = cfg.get('KEY') or ''
+URL = (cfg.get('URL') or os.environ.get('SUPABASE_URL') or '').rstrip('/'); KEY = cfg.get('KEY') or os.environ.get('SUPABASE_KEY') or ''
+ONCE = os.environ.get('ONCE') == '1'   # modo GitHub: trabaja hasta vaciar la cola y termina
+T_INI = time.time()
 if not URL or not KEY: log('Falta config.txt con URL= y KEY='); sys.exit(2)
-HOST = socket.gethostname()
+HOST = os.environ.get('WORKER_NAME') or socket.gethostname()
 
 def api(method, path, body=None, headers=None, raw=False, retries=3):
     h = {'apikey': KEY, 'Authorization': 'Bearer ' + KEY}
@@ -123,13 +125,21 @@ def limpiar():
 try: api('PATCH', '/rest/v1/voz_jobs?status=eq.working&worker=eq.' + urllib.parse.quote(HOST), {'status': 'pending'}, {'Prefer': 'return=minimal'})
 except Exception as e: log('aviso:', e)
 
-ult_latido = 0; ult_limp = 0; hechas = 0; seg_audio = 0.0; seg_cpu = 0.0
+ult_latido = 0; ult_limp = 0; ult_atasco = 0; ult_trabajo = time.time(); hechas = 0; seg_audio = 0.0; seg_cpu = 0.0
 while True:
     try:
         if time.time() - ult_latido > 10: latido(); ult_latido = time.time()
         if time.time() - ult_limp > 1800: limpiar(); ult_limp = time.time()
+        if time.time() - ult_atasco > 120:
+            ult_atasco = time.time()
+            lim = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=25)).isoformat()
+            api('PATCH', '/rest/v1/voz_jobs?status=eq.working&updated_at=lt.' + urllib.parse.quote(lim), {'status': 'pending'}, {'Prefer': 'return=minimal'})
+        if ONCE and (time.time() - T_INI > 5.4 * 3600): log('Tiempo maximo del turno alcanzado; sigo en el proximo.'); break
         r = api('GET', '/rest/v1/voz_jobs?select=*&status=eq.pending&key=neq.__latido__&order=created_at.asc&limit=1')
-        if not r: time.sleep(3); continue
+        if not r:
+            if ONCE and time.time() - ult_trabajo > 90: log('Cola vacia. Termino.'); break
+            time.sleep(3); continue
+        ult_trabajo = time.time()
         j = r[0]
         c = api('PATCH', '/rest/v1/voz_jobs?key=eq.%s&status=eq.pending' % urllib.parse.quote(j['key']),
                 {'status': 'working', 'worker': HOST, 'updated_at': now_iso()}, {'Prefer': 'return=representation'})
@@ -141,7 +151,7 @@ while True:
             api('POST', '/storage/v1/object/voz/%s.wav' % urllib.parse.quote(j['key']), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
             api('PATCH', '/rest/v1/voz_jobs?key=eq.' + urllib.parse.quote(j['key']),
                 {'status': 'done', 'audio_path': j['key'] + '.wav', 'dur': dur, 'updated_at': now_iso()}, {'Prefer': 'return=minimal'})
-            dt = time.time() - t; hechas += 1; seg_audio += dur; seg_cpu += dt
+            ult_trabajo = time.time(); dt = time.time() - t; hechas += 1; seg_audio += dur; seg_cpu += dt
             log('   listo: %.1f s de audio en %.0f s (media x%.1f) · frases hechas: %d' % (dur, dt, seg_cpu / max(seg_audio, .1), hechas))
         except Exception as e:
             traceback.print_exc(); log('   ERROR en la frase:', e)
