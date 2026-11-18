@@ -129,6 +129,7 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
   <label class="f">Voz de Supertonic
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4" selected>M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
   <div class="row"><button id="testVoice">Probar voz</button><button id="testAllVoices">Escuchar todas las voces de España</button></div><p class="meta" id="vmsg"></p>
+  <label class="f"><span><input type="checkbox" id="pocketOn" checked> Usar Pocket TTS (voces clonadas de <code>voces/*.wav</code>: protagonista, Marta, casero, madre, abuela; descarga ~150 MB la primera vez; si falla, usa Piper). Modelo de Kyutai, licencia CC-BY-4.0.</span></label>
   <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
   <div hidden>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
@@ -1969,6 +1970,7 @@ const Music = (() => {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
 const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+document.addEventListener('DOMContentLoaded', () => { const c = document.getElementById('pocketOn'); if (c) { c.checked = store.get('set:pocket', '1') !== '0'; c.addEventListener('change', () => { store.set('set:pocket', c.checked ? '1' : '0'); if (typeof Voice !== 'undefined') Voice.pocketFail = false; }); } });
 const dayKey = () => new Date().toLocaleDateString('sv');
 const stage = $('#stage'), sctx = stage.getContext('2d');
 function setQ(q){ q = q || 1; if (q === Q && stage.width === Math.round(W * q)) return; Q = q; stage.width = Math.round(W * Q); stage.height = Math.round(H * Q); SceneProg.resetCanvas(); }
@@ -2294,7 +2296,6 @@ PERSONAJES FIJOS (siempre los mismos, con su carácter):
 - «jefe» = el CASERO. Aparece de golpe, habla de «humedad normal», de la inflación y de «echar un vistazo».
 - «abuela» = la VECINA de arriba. Se queja de todo.
 - «madre» = mi MADRE cuando visita.
-(«ella», «abuelo» existen pero no son del piso.)
 
 LA CASA ENTERA (campo "set"; todo ocurre aquí, usa TODAS las estancias y cambia de una a otra a menudo): salon (sofá, tele, mesa), cocina (nevera, encimera, fregadero), bano (ducha), dormitorio (mi cuarto, la cama), pasillo (puertas de los cuartos, la puerta de entrada, zapatos, abrigos), cuartoDani (cuarto de Dani: pesas, banco, bote de proteína, póster), cuartoMarta (cuarto de Marta: plantas, escritorio, luces, corcho de notas), portal (buzones y escalera del edificio; para vecinos, casero y repartidor), terraza (tendedero con ropa y vistas a los edificios). Para el casero, la vecina y la madre usa pasillo, portal o salon.
 
@@ -2492,8 +2493,8 @@ function fixUno(t){
 }
 const PISO_OBJ = ['yogur','factura','termostato','platos','llaves','pizza','ropa','paquete','sarten'], PISO_OBJ_RE = { yogur: /yogur|envase|fresa|postre|nata/i, factura: /factura|luz\b|euros|€|recibo|gas\b|agua\b|alquiler|dinero/i, termostato: /termostato|grados|calefacci|°|radiador|aire acondicionado|frío|calor/i, platos: /plato|fregadero|sucio|vajilla|cubiertos|vaso|fregar|friegaplatos/i, llaves: /llave|cerradura|cerrado|portal|candado|copias?\b/i, pizza: /pizza|cena|comida|hambre|repartidor/i, ropa: /ropa|tend|colada|camiseta|toalla|calcet|prenda|pinza|lavadora|secadora|sudadera|braga|calzon/i, paquete: /paquete|caja|pedido|repartidor|correos|amazon|envío|envio/i, sarten: /sart[eé]n|quemad|aceite|humo|fre[ií]r|huevo|olla|cocinar|tortilla/i };
 Object.keys(OBJ_REG).forEach(k => { if (!PISO_OBJ.includes(k)) { PISO_OBJ.push(k); PISO_OBJ_RE[k] = OBJ_REG[k].kw; } });
-const PISO_SETS = ['salon','cocina','dormitorio','bano','pasillo','cuartoDani','cuartoMarta','portal','terraza','oficina','bar','ventanilla','calle'], PISO_QUIEN = ['yo','ella','abuelo','abuela','jefe','amigo','amiga','madre'], PISO_MOOD = ['neutro','serio','enfado','duda','asombro','resignado','sonrisa','triste','hablar','dormido','panico','cansado','risa','asco'], PISO_ARMS = ['cruzados','abiertos','manos','cabeza','reposo'];
-const PISO_NOMBRES = { yo: 'yo', dani: 'amigo', marta: 'amiga', madre: 'madre', casero: 'jefe', vecino: 'abuelo', vecina: 'abuela' };
+const PISO_SETS = ['salon','cocina','dormitorio','bano','pasillo','cuartoDani','cuartoMarta','portal','terraza','oficina','bar','ventanilla','calle'], PISO_QUIEN = ['yo','abuela','jefe','amigo','amiga','madre'], PISO_MOOD = ['neutro','serio','enfado','duda','asombro','resignado','sonrisa','triste','hablar','dormido','panico','cansado','risa','asco'], PISO_ARMS = ['cruzados','abiertos','manos','cabeza','reposo'];
+const PISO_NOMBRES = { yo: 'yo', dani: 'amigo', marta: 'amiga', madre: 'madre', casero: 'jefe', vecina: 'abuela' };
 function sanitizePlano(p){
   if (!p || typeof p !== 'object') return null;
   const T = (x, n) => String(x == null ? '' : x).slice(0, n), o = {};
@@ -3643,10 +3644,10 @@ const Voice = {
     });
     return { samples, fs, dur, words };
   },
-  VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5', ella: 'F2', abuelo: 'M5' },
+  VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5' },
   voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ_PERSONAJE[who] || narr; if (v === narr) v = ['M2', 'F4', 'M3', 'F1', 'M5', 'F5'].find(x => x !== narr && x !== this.VOZ_PERSONAJE.amigo) || 'F4'; return v; },
   PERS: { amigo: 'Dani', amiga: 'Marta', jefe: 'El casero', abuela: 'La vecina', madre: 'La madre' },
-  PITCH: { yo: .94, amigo: 1.0, amiga: 1.2, jefe: .9, abuela: 1.26, madre: 1.14, ella: 1.2, abuelo: .9 },
+  PITCH: { yo: .94, amigo: 1.0, amiga: 1.2, jefe: .9, abuela: 1.26, madre: 1.14 },
   MOODF: { cansado: .94, resignado: .95, triste: .95, dormido: .9, enfado: 1.05, panico: 1.1, asombro: 1.04, sonrisa: 1.02, risa: 1.04, asco: .97, serio: .97 },
   // Voces de OpenVoiceOS (compatibles con Piper): miro (hombre) y dii (mujer) en es-ES. Se prueban varias direcciones por si cambia el nombre del repositorio.
   OV: { m: 'es_ES-ovosmiro-medium', d: 'es_ES-ovosdii-medium' },
@@ -3664,8 +3665,9 @@ const Voice = {
     if (last && last.status) return last; throw (last || new Error('voz OpenVoiceOS no disponible'));
   },
   // tono por personaje con las voces de OpenVoiceOS (miro: hombres; dii: mujeres) para que no suenen igual
-  PITCH_OV: { yo: 1.02, amigo: 1.12, jefe: .88, abuelo: .9, amiga: 1.04, madre: .95, abuela: 1.14, ella: 1.04 },
-  OV_VOZ: { yo: 'm', amigo: 'm', jefe: 'm', abuelo: 'm', amiga: 'd', madre: 'd', abuela: 'd', ella: 'd' },
+  PITCH_PK: { yo: 1 },
+  PITCH_OV: { yo: 1.02, amigo: 1.12, jefe: .88, amiga: 1.04, madre: .95, abuela: 1.14 },
+  OV_VOZ: { yo: 'm', amigo: 'm', jefe: 'm', amiga: 'd', madre: 'd', abuela: 'd' },
   // Dice un texto con una voz; si es de OpenVoiceOS y falla, avisa y sigue con las voces normales de Piper
   async say(text, S, progress, voiceId){
     const ov = this.isOv(voiceId); this.curVoice = voiceId;
@@ -3722,20 +3724,55 @@ const Voice = {
     for (let i = 0; i < n; i++) { const x = i * f, a = Math.floor(x), b = Math.min(a + 1, r.samples.length - 1), t = x - a; o[i] = r.samples[a] * (1 - t) + r.samples[b] * t; }
     return { samples: o, fs: r.fs, dur: n / r.fs, words: (r.words || []).map(w => ({ raw: w.raw, s: w.s / f, e: w.e / f })) };
   },
+  /* Pocket TTS (Kyutai, clonación de voz desde un clip de referencia en voces/<personaje>.wav; pesos CC-BY-4.0). Opcional (ajuste set:pocket). Cualquier fallo -> Piper. */
+  pocketFail: false, pocketRefs: {}, pocketHas: {},
+  pocketOn(){ return store.get('set:pocket', '1') !== '0' && !this.pocketFail; },
+  async pocketLoad(progress){
+    if (this.pocketTTS) return this.pocketTTS;
+    progress && progress('Cargando Pocket TTS (primera vez ~150 MB)…');
+    let mod, last; for (const u of ['https://esm.sh/pocket-tts-js@0.1.0', 'https://cdn.jsdelivr.net/npm/pocket-tts-js@0.1.0/+esm']) { try { mod = await import(u); break; } catch (e) { last = e; } }
+    if (!mod) throw new Error('no se pudo cargar la librería: ' + (last && last.message || last));
+    const P = mod.PocketTTS || mod.default; if (!P) throw new Error('librería sin PocketTTS');
+    const langs = P.LANGUAGES || {}, ks = Object.keys(langs), key = ks.find(k => /^(es|spanish)$/i.test(k)) || ks.find(k => /span|^es/i.test(k));
+    const t = new P(key ? { language: key } : {}); await t.load(); this.pocketTTS = t; return t;
+  },
+  async pocketVoice(who, progress){
+    if (this.pocketRefs[who]) return this.pocketRefs[who];
+    const resp = await fetch('voces/' + who + '.wav'); if (!resp.ok) throw new Error('falta voces/' + who + '.wav');
+    const ac = new (window.AudioContext || window.webkitAudioContext)(); const buf = await ac.decodeAudioData(await resp.arrayBuffer()); try { ac.close(); } catch (e) {}
+    const t = await this.pocketLoad(progress);
+    return this.pocketRefs[who] = await t.cloneVoice(buf.getChannelData(0), { inputSampleRate: buf.sampleRate, name: who });
+  },
+  async pocketSay(text, who, progress){
+    if (!this.pocketOn()) return null;
+    try {
+      if (!(who in this.pocketHas)) { const h = await fetch('voces/' + who + '.wav', { method: 'HEAD' }).catch(() => null); this.pocketHas[who] = !!(h && h.ok); }
+      if (!this.pocketHas[who]) return null;
+      const v = await this.pocketVoice(who, progress), t = await this.pocketLoad(progress), chunks = []; let fs = 24000;
+      const res = await t.generate(text, { voice: v, onChunk: c => { const a = c && (c.audio || c.samples || c); if (a && a.length) { chunks.push(Float32Array.from(a)); if (c.sampleRate) fs = c.sampleRate; } } });
+      let samples; if (chunks.length) { let n = 0; chunks.forEach(c => n += c.length); samples = new Float32Array(n); let o = 0; chunks.forEach(c => { samples.set(c, o); o += c.length; }); }
+      else { const a = res && (res.audio || res.samples || res); samples = Float32Array.from(a); if (res && res.sampleRate) fs = res.sampleRate; }
+      if (!samples.length) throw new Error('audio vacío');
+      const ws = text.split(/\s+/).filter(Boolean), tot = ws.reduce((a, w) => a + w.length + 1, 0), dur = samples.length / fs, words = []; let c = 0;
+      ws.forEach(w => { const s0 = c / tot * dur; c += w.length + 1; words.push({ raw: w, s: s0, e: Math.min(dur, c / tot * dur) }); });
+      return { samples, fs, dur, words, pause: 1 };
+    } catch (e) { this.pocketFail = true; console.error('[Pocket]', e); msg('Pocket TTS no está disponible (' + (e && e.message || e) + '); uso Piper.'); return null; }
+  },
   async speakCastPiper(text, S, progress, habla, moods){
     moods = moods || {}; await this.load(progress);
     const narrV = $('#voiceId').value || this.voices[0], parts = [];
     text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
     if (parts.length < 1) return this.speak(text, S, progress);
     const pool = this.esVoices().filter(v => v !== narrV && !this.isOv(v)), auto = {};
-    Object.keys(this.PERS).concat(['ella', 'abuelo']).forEach((w, i) => { auto[w] = pool.length ? pool[i % pool.length] : narrV; });
+    Object.keys(this.PERS).forEach((w, i) => { auto[w] = pool.length ? pool[i % pool.length] : narrV; });
     const out = []; let fs = 22050;
     for (const pt of parts) {
       const ovOn = this.ovOn(), own = pt.who === 'yo' ? '' : store.get('set:pv_' + pt.who, '');
       const vid = (own && (ovOn || !this.isOv(own))) ? own : ovOn ? this.OV[this.OV_VOZ[pt.who] || 'm'] : (pt.who === 'yo' ? narrV : (auto[pt.who] || narrV));
       const mn = moods[pt.who] || (pt.who === 'yo' ? 'harto' : ''); this.flatK = this.FLAT[mn];
-      let r; try { r = await this.say(pt.t, S, progress, vid); } finally { this.flatK = null; }
-      r = this.mood(r, mn, pt.who, (this.isOv(vid) && !this.ovFail) ? this.PITCH_OV : this.PITCH); fs = r.fs; out.push(r);
+      let r = await this.pocketSay(pt.t, pt.who, progress); const pk = !!r;
+      if (!r) { try { r = await this.say(pt.t, S, progress, vid); } finally { this.flatK = null; } }
+      r = this.mood(r, mn, pt.who, pk ? this.PITCH_PK : (this.isOv(vid) && !this.ovFail) ? this.PITCH_OV : this.PITCH); fs = r.fs; out.push(r);
     }
     let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? Math.round(.12 * fs * Math.max(r.pause || 1, (out[i + 1] || {}).pause || 1)) : 0); });
     const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
@@ -3745,8 +3782,9 @@ const Voice = {
     if (S.engine === 'natural' && !this.failed) {
       if (habla && habla !== 'yo' && /«/.test(text)) return this.polish(await this.speakCastPiper(text, S, progress, habla, moods));
       const mn = (moods || {}).yo || 'harto'; this.flatK = this.FLAT[mn]; const ov = this.ovOn();
-      let r; try { r = ov ? await this.say(text, S, progress, this.OV.m) : await this.speak(text, S, progress); } finally { this.flatK = null; }
-      return this.polish(this.mood(r, mn, 'yo', (ov && !this.ovFail) ? this.PITCH_OV : this.PITCH));
+      let r = await this.pocketSay(text, 'yo', progress); const pk = !!r;
+      if (!r) { try { r = ov ? await this.say(text, S, progress, this.OV.m) : await this.speak(text, S, progress); } finally { this.flatK = null; } }
+      return this.polish(this.mood(r, mn, 'yo', pk ? this.PITCH_PK : (ov && !this.ovFail) ? this.PITCH_OV : this.PITCH));
     }
     if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
     const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
