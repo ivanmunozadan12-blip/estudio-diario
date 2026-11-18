@@ -20,6 +20,7 @@ try:
         if '=' in l: k, v = l.split('=', 1); cfg[k.strip().upper()] = v.strip()
 except Exception: pass
 URL = (cfg.get('URL') or os.environ.get('SUPABASE_URL') or '').rstrip('/'); KEY = cfg.get('KEY') or os.environ.get('SUPABASE_KEY') or ''
+NTFY = (cfg.get('NTFY') or os.environ.get('NTFY_TOPIC') or '').strip()
 ONCE = os.environ.get('ONCE') == '1'   # modo GitHub: trabaja hasta vaciar la cola y termina
 T_INI = time.time()
 if not URL or not KEY: log('Falta config.txt con URL= y KEY='); sys.exit(2)
@@ -46,6 +47,15 @@ def api(method, path, body=None, headers=None, raw=False, retries=3):
         except (urllib.error.URLError, socket.timeout, ConnectionError) as e:
             if k < retries - 1: time.sleep(2 + k * 3); continue
             raise RuntimeError('red: %s' % e)
+
+def avisar(texto):
+    # Aviso al movil con ntfy.sh (gratis, sin cuenta): hay que tener la app ntfy suscrita al mismo tema.
+    if not NTFY: return
+    try:
+        req = urllib.request.Request('https://ntfy.sh/' + urllib.parse.quote(NTFY), data=texto.encode('utf-8'), method='POST',
+                                     headers={'Title': 'Piso 3B - voces listas', 'Tags': 'microphone', 'Priority': 'high'})
+        urllib.request.urlopen(req, timeout=20).read(); log('Aviso enviado al movil')
+    except Exception as e: log('No pude enviar el aviso:', e)
 
 def now_iso(): return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -125,7 +135,7 @@ def limpiar():
 try: api('PATCH', '/rest/v1/voz_jobs?status=eq.working&worker=eq.' + urllib.parse.quote(HOST), {'status': 'pending'}, {'Prefer': 'return=minimal'})
 except Exception as e: log('aviso:', e)
 
-ult_latido = 0; ult_limp = 0; ult_atasco = 0; ult_trabajo = time.time(); hechas = 0; seg_audio = 0.0; seg_cpu = 0.0
+nuevas = 0; ult_latido = 0; ult_limp = 0; ult_atasco = 0; ult_trabajo = time.time(); hechas = 0; seg_audio = 0.0; seg_cpu = 0.0
 while True:
     try:
         if time.time() - ult_latido > 10: latido(); ult_latido = time.time()
@@ -137,6 +147,8 @@ while True:
         if ONCE and (time.time() - T_INI > 5.4 * 3600): log('Tiempo maximo del turno alcanzado; sigo en el proximo.'); break
         r = api('GET', '/rest/v1/voz_jobs?select=*&status=eq.pending&key=neq.__latido__&order=created_at.asc&limit=1')
         if not r:
+            if nuevas and time.time() - ult_trabajo > 15:
+                avisar('Las voces estan listas (%d frases). Abre la web y pulsa Crear video.' % nuevas); nuevas = 0
             if ONCE and time.time() - ult_trabajo > 90: log('Cola vacia. Termino.'); break
             time.sleep(3); continue
         ult_trabajo = time.time()
@@ -151,7 +163,7 @@ while True:
             api('POST', '/storage/v1/object/voz/%s.wav' % urllib.parse.quote(j['key']), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
             api('PATCH', '/rest/v1/voz_jobs?key=eq.' + urllib.parse.quote(j['key']),
                 {'status': 'done', 'audio_path': j['key'] + '.wav', 'dur': dur, 'updated_at': now_iso()}, {'Prefer': 'return=minimal'})
-            ult_trabajo = time.time(); dt = time.time() - t; hechas += 1; seg_audio += dur; seg_cpu += dt
+            ult_trabajo = time.time(); dt = time.time() - t; hechas += 1; nuevas += 1; seg_audio += dur; seg_cpu += dt
             log('   listo: %.1f s de audio en %.0f s (media x%.1f) · frases hechas: %d' % (dur, dt, seg_cpu / max(seg_audio, .1), hechas))
         except Exception as e:
             traceback.print_exc(); log('   ERROR en la frase:', e)

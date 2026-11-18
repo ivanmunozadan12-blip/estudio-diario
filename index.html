@@ -3039,7 +3039,7 @@ function renderSimple(){
       h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>`;
     }
     h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
-    <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
+    <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button><button id="simEnc">🎙 Encargar voces</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
     <details style="margin-top:8px"><summary>Prompt para ChatGPT</summary><div class="row"><button id="simCopyDia">Copiar prompt diario</button></div><p class="meta">Pégalo en ChatGPT: te devuelve el capítulo del día en JSON.</p></details>`;
   }
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
@@ -3091,7 +3091,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simPiper') { Voice.failed = false; Voice.forcePiper = true; s.err = ''; try { return await simpleRecord(); } finally { Voice.forcePiper = false; } }
   if (b.id === 'simRobot') { const en = $('#voiceEngine'); if (en) { en.value = 'robot'; en.dispatchEvent(new Event('change')); } Voice.failed = false; s.err = ''; return simpleRecord(); }
   if (b.id === 'simCopyDia') return copyText(pisoDiarioPrompt(), b);
-  if (b.id === 'simImp' || b.id === 'simGo') {
+  if (b.id === 'simImp' || b.id === 'simGo' || b.id === 'simEnc') {
     simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
     if (t.trim().length < 50) { simpleNote = 'Pega primero el capítulo de ChatGPT.'; renderSimple(); return; }
     const had = !!s.script; let r; try { r = importPackage(t, 0); } catch (e) { simpleNote = 'No pude leer el capítulo: ' + (e && e.message || e) + (e && e.detail ? ` Detalle: ${e.detail}. Se pegaron ${e.len} caracteres y terminan en «${e.tail}».` : '') + ' Copia el capítulo ENTERO (de la primera { a la última }) y vuelve a pegarlo.'; renderSimple(); return; }
@@ -3101,6 +3101,13 @@ document.addEventListener('click', async ev => {
     { const h0 = String((s.script.escenas[0] || {}).texto || '').replace(/\*/g, '').trim(), nw0 = h0.split(/\s+/).filter(Boolean).length; if (!simpleNote && (nw0 < 5 || nw0 > 18 || /^(hoy|imagina|¿?sab[ií]as|bienvenid|hola|en este v[ií]deo)/i.test(h0))) simpleNote = `Ojo: el gancho («${h0}») parece flojo (${nw0 < 5 ? 'muy corto' : nw0 > 18 ? 'demasiado largo' : 'empieza como un saludo o una presentación'}). Pide a ChatGPT otra primera frase con el prompt de corrección de texto, indicando la escena 1.`; }
     if (!simpleNote && b.id !== 'simGo') simpleNote = 'Capítulo cargado. Pulsa «Grabar el cargado» para crear el vídeo.';
     renderSimple(); if (b.id === 'simGo' && s.script && s.script.escenas.length < 12) { simpleNote = `Eso no parece un capítulo: solo ha salido ${s.script.escenas.length} escena(s). Pega el bloque JSON completo que te da ChatGPT (empieza por { y tiene unas 30 escenas).`; s.script = null; renderSimple(); return; }
+    if (b.id === 'simEnc') {
+      if (!s.script || !s.script.escenas.length) { renderSimple(); return; }
+      if (!Voice.pcOn()) { simpleNote = 'Para encargar voces configura antes «Voz del PC» en Ajustes (URL y clave de Supabase).'; renderSimple(); return; }
+      try { Voice.informeReset(); const n = await Voice.pcPlan(s.script, null, true); simpleNote = 'Voces encargadas (' + n + ' frases). Se hacen solas en el PC o en GitHub; cuando estén listas te llegará el aviso. Entonces abre la web y pulsa «Grabar el cargado».'; }
+      catch (e) { simpleNote = 'No pude encargar las voces: ' + (e && e.message || e); }
+      renderSimple(); return;
+    }
     if (b.id === 'simGo' && s.script && s.script.escenas.length) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); } return;
   }
 });
@@ -3909,10 +3916,10 @@ const Voice = {
     });
   },
   async pcVivo(){ try { const r = await this.pcApi('GET', '/rest/v1/voz_jobs?select=updated_at,worker&key=eq.__latido__'); if (!r || !r[0]) return null; const age = (Date.now() - new Date(r[0].updated_at).getTime()) / 1000; return age < 45 ? r[0].worker || 'PC' : null; } catch (e) { return null; } },
-  async pcPlan(script, progress){
+  async pcPlan(script, progress, sinBloqueo){
     const rows = {}; script.escenas.forEach(e => { const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); this.pcParts(e.texto.replace(/\s+/g, ' ').trim(), e.habla, moods).forEach(p => { rows[p.key] = { key: p.key, who: p.who, mood: p.mood, alto: p.alto, text: p.text, status: 'pending' }; }); });
     const list = Object.values(rows); this.pcKeys = Object.keys(rows); this.pcT0 = Date.now(); this.pcDone0 = 0;
-    try { if (navigator.wakeLock) this.pcLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    try { if (!sinBloqueo && navigator.wakeLock) this.pcLock = await navigator.wakeLock.request('screen'); } catch (e) {}
     for (let i = 0; i < list.length; i += 100) await this.pcApi('POST', '/rest/v1/voz_jobs?on_conflict=key', list.slice(i, i + 100), { Prefer: 'resolution=ignore-duplicates,return=minimal' });
     // las que fallaron otra vez a la cola
     for (let i = 0; i < this.pcKeys.length; i += 40) { const ks = this.pcKeys.slice(i, i + 40).map(encodeURIComponent).join(','); await this.pcApi('PATCH', '/rest/v1/voz_jobs?status=eq.error&key=in.(' + ks + ')', { status: 'pending', error: null }, { Prefer: 'return=minimal' }); }
