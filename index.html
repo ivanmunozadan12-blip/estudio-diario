@@ -3917,8 +3917,8 @@ const Voice = {
     // las que fallaron otra vez a la cola
     for (let i = 0; i < this.pcKeys.length; i += 40) { const ks = this.pcKeys.slice(i, i + 40).map(encodeURIComponent).join(','); await this.pcApi('PATCH', '/rest/v1/voz_jobs?status=eq.error&key=in.(' + ks + ')', { status: 'pending', error: null }, { Prefer: 'return=minimal' }); }
     const n = await this.pcContar(); this.pcDone0 = n;
-    const vivo = await this.pcVivo(); this.informeAdd('Voz del PC · ' + list.length + ' frases · ' + n + ' ya hechas' + (vivo ? ' · PC conectado (' + vivo + ')' : ' · PC SIN CONECTAR: abre iniciar_voces.bat'));
-    if (!vivo) msg('Preparando voz del PC: el ordenador no está conectado. Abre iniciar_voces.bat; las frases esperan en la cola.');
+    const vivo = await this.pcVivo(); this.informeAdd('Voz del PC · ' + list.length + ' frases · ' + n + ' ya hechas' + (vivo ? ' · PC conectado (' + vivo + ')' : ' · PC apagado: si has activado GitHub, arrancará solo en unos minutos'));
+    if (!vivo) msg('Preparando voz del PC: el ordenador no está conectado. Las frases esperan en la cola (si GitHub está activado, arranca solo en unos minutos).');
     return list.length;
   },
   async pcContar(){ let n = 0; const ks = this.pcKeys || []; for (let i = 0; i < ks.length; i += 40) { const q = ks.slice(i, i + 40).map(encodeURIComponent).join(','); const r = await this.pcApi('GET', '/rest/v1/voz_jobs?select=key&status=eq.done&key=in.(' + q + ')'); n += (r || []).length; } return n; },
@@ -3935,8 +3935,8 @@ const Voice = {
         return this.pcTrim(buf.getChannelData(0), buf.sampleRate, pt.text);
       }
       if (j.status === 'error') { if (reintentos++ >= 1) throw new Error('el PC no pudo generar «' + pt.text.slice(0, 40) + '»: ' + (j.error || 'error')); await this.pcApi('PATCH', '/rest/v1/voz_jobs?key=eq.' + encodeURIComponent(pt.key), { status: 'pending', error: null }, { Prefer: 'return=minimal' }); }
-      if (Date.now() - ult > 6000) { ult = Date.now(); try { const n = await this.pcContar(), tot = (this.pcKeys || []).length, el = (Date.now() - this.pcT0) / 1000, hechas = n - this.pcDone0, resto = tot - n, eta = hechas > 0 ? Math.round(el / hechas * resto / 60) : 0; progress && progress('Preparando voz del PC: ' + n + '/' + tot + ' frases' + (eta ? ' · quedan ~' + eta + ' min' : (hechas === 0 && el > 90 ? ' · esperando al PC (¿está iniciar_voces.bat abierto?)' : ''))); } catch (e) {} }
-      if (Date.now() - t0 > 3 * 3600 * 1000) throw new Error('el PC no ha respondido en 3 horas (¿está abierto iniciar_voces.bat?)');
+      if (Date.now() - ult > 6000) { ult = Date.now(); try { const n = await this.pcContar(), tot = (this.pcKeys || []).length, el = (Date.now() - this.pcT0) / 1000, hechas = n - this.pcDone0, resto = tot - n, eta = hechas > 0 ? Math.round(el / hechas * resto / 60) : 0; progress && progress('Preparando voz del PC: ' + n + '/' + tot + ' frases' + (eta ? ' · quedan ~' + eta + ' min' : (hechas === 0 && el > 90 ? ' · esperando a que arranque el servidor de voces (PC o GitHub, hasta ~10 min)' : ''))); } catch (e) {} }
+      if (Date.now() - t0 > 3 * 3600 * 1000) throw new Error('nadie ha generado las voces en 3 horas (¿PC apagado y GitHub sin configurar?)');
       await wait(2500);
     }
   },

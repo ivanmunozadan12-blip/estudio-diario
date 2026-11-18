@@ -1,0 +1,61 @@
+name: Voces (Qwen3-TTS en GitHub)
+# Si hay frases pendientes y el PC de casa no esta activo, un servidor de GitHub las convierte en voz.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: voz
+  cancel-in-progress: false
+jobs:
+  voz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - name: Hay frases pendientes y el PC no esta activo?
+        id: check
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "run=no" >> "$GITHUB_OUTPUT"
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "Faltan los secretos SUPABASE_URL y SUPABASE_KEY"; exit 0; fi
+          URL="${URL%/}"
+          H=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          LIM=$(date -u -d '25 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          curl -s -X PATCH "$URL/rest/v1/voz_jobs?status=eq.working&updated_at=lt.$LIM" "${H[@]}" -H 'Content-Type: application/json' -d '{"status":"pending"}' >/dev/null || true
+          PEND=$(curl -s "$URL/rest/v1/voz_jobs?select=key&status=eq.pending&key=neq.__latido__&limit=1" "${H[@]}" | jq 'if type=="array" then length else 0 end' 2>/dev/null || echo 0)
+          HB=$(curl -s "$URL/rest/v1/voz_jobs?select=updated_at&key=eq.__latido__" "${H[@]}" | jq -r 'if type=="array" then (.[0].updated_at // empty) else empty end' 2>/dev/null || true)
+          AGE=999999
+          if [ -n "$HB" ]; then AGE=$(( $(date +%s) - $(date -d "$HB" +%s) )); fi
+          echo "pendientes=$PEND, ultimo latido hace ${AGE}s"
+          if [ "${PEND:-0}" -ge 1 ] && [ "$AGE" -gt 60 ]; then echo "run=yes" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.run == 'yes'
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.run == 'yes'
+        with:
+          python-version: '3.12'
+      - name: Cache del modelo
+        if: steps.check.outputs.run == 'yes'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: qwen3-tts-1.7b-voicedesign-v1
+      - name: Instalar dependencias
+        if: steps.check.outputs.run == 'yes'
+        run: |
+          sudo apt-get install -y sox libsox-fmt-all >/dev/null 2>&1 || true
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet -U qwen-tts soundfile
+      - name: Generar voces
+        if: steps.check.outputs.run == 'yes'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ONCE: '1'
+          WORKER_NAME: GitHub
+          PYTHONUNBUFFERED: '1'
+        run: python pc-voz/worker.py
