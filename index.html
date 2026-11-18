@@ -128,7 +128,8 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
   <p class="meta">En Piso 3ºB cada personaje tiene su propia voz (Dani M2, Marta F4, casero M3, vecina F1, madre F5). La voz que elijas aquí es la del narrador (recomendado M4 o M5).</p>
   <label class="f">Voz de Supertonic
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4" selected>M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
-  <div class="row"><button id="testVoice">Probar voz</button></div><p class="meta" id="vmsg"></p>
+  <div class="row"><button id="testVoice">Probar voz</button><button id="testAllVoices">Escuchar todas las voces de España</button></div><p class="meta" id="vmsg"></p>
+  <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
   <div hidden>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
     <select id="voiceId"><option value="es_ES-davefx-medium">ES · davefx · medium</option></select></label>
@@ -2565,8 +2566,22 @@ function autoScenes(text, topic){
   return { titulo: topic || groups[0].split(' ').slice(0,8).join(' '), descripcion: '', hashtags: ['historia','curiosidades','shorts'], musica: 'tension', tema: topic, escenas: esc2 };
 }
 
+/* --- audio generado fuera (cuaderno de Colab con Qwen): un JSON con un trozo de audio por escena --- */
+let COLAB = null;
+function colabLoad(j){
+  if (!j || !Array.isArray(j.escenas) || !j.escenas.length || !(j.fs > 8000)) throw new Error('Ese archivo no es un audio del cuaderno de Colab.');
+  const sc = j.escenas.map(b => { const bin = atob(b), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); const i16 = new Int16Array(u.buffer, 0, u.length >> 1), f = new Float32Array(i16.length); for (let k = 0; k < i16.length; k++) f[k] = i16[k] / 32768; return f; });
+  COLAB = { fs: j.fs, sc }; return COLAB.sc.length;
+}
+function colabAudio(i, clean){
+  const f = COLAB.sc[i], fs = COLAB.fs, dur = f.length / fs, toks = clean.split(' ').filter(x => /[\p{L}\p{N}]/u.test(x));
+  const wts = toks.map(w => Math.max(2, w.replace(/[^\p{L}\p{N}]/gu, '').length) + (/[.!?…]["»”)]?$/.test(w) ? 5 : /[,;:]$/.test(w) ? 2.5 : 0)), tot = wts.reduce((a, b) => a + b, 0) || 1; let acc = 0;
+  const words = toks.map((w, k) => { const s0 = acc / tot * dur; acc += wts[k]; return { raw: w.replace(/[*_«»]/g, ''), s: s0, e: acc / tot * dur }; });
+  return { samples: f, fs, dur, words };
+}
 /* --- preparar proyecto (voz, tiempos, subtítulos) --- */
 async function prepare(script, S, progress){
+  if (COLAB && S.voice && COLAB.sc.length !== script.escenas.length) throw new Error(`El audio de Colab tiene ${COLAB.sc.length} escenas y el capítulo ${script.escenas.length}. Genera el audio con el mismo capítulo que has pegado (o quita el audio con «Quitar audio de Colab»).`);
   if (script) script._t0 = 0;
   setQ(S.quality === '1080' ? 1.5 : 1);
   let t = 0.1, nw = 0; const scenes = [];
@@ -2576,7 +2591,7 @@ async function prepare(script, S, progress){
     const clean = e.texto.replace(/\s+/g,' ').trim();
     let words, dur, audio = null; nw += clean.split(' ').filter(Boolean).length;
     if (S.voice) { const N = script.escenas.length, el = (Date.now() - (script._t0 || (script._t0 = Date.now()))) / 1000, eta = i >= 2 ? Math.round(el / i * (N - i)) : 0, tag = `Voz · escena ${i + 1}/${N}` + (eta ? ` · quedan ~${eta >= 90 ? Math.round(eta / 60) + ' min' : eta + ' s'}` : '');
-      progress && progress(tag, i / N); const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); audio = await Voice.speakCast(clean, S, m => progress && progress(/Descarg|Carg|Prepar/i.test(m) ? m : tag, i / N), e.habla, moods); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
+      progress && progress(tag, i / N); const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); audio = COLAB ? colabAudio(i, clean) : await Voice.speakCast(clean, S, m => progress && progress(/Descarg|Carg|Prepar/i.test(m) ? m : tag, i / N), e.habla, moods); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
     else {
       const toks = clean.split(' '), tot = toks.reduce((a, w) => a + w.length + 2, 0), span = Math.max(2.4, toks.length / 2.6 + .5); let acc = .15;
       words = toks.map(w => { const d = (w.length + 2) / tot * (span - .4); const o = { w: w.replace(/[*_]/g,''), s: acc, e: acc + d, hi: false }; acc += d; return o; }); dur = span;
@@ -2960,6 +2975,11 @@ function renderSimple(){
   const keep = document.activeElement && document.activeElement.id; el.innerHTML = h;
   if (keep) { const k = document.getElementById(keep); if (k && k.focus) { try { k.focus(); } catch (e) {} } }
 }
+document.addEventListener('change', async ev => {
+  if (!ev.target || ev.target.id !== 'simAudio') return; const f = ev.target.files && ev.target.files[0]; if (!f) return;
+  try { const n = colabLoad(JSON.parse(await f.text())); simpleNote = ''; renderSimple(); const m = $('#simAudioMsg'); if (m) m.firstChild.textContent = 'Audio cargado: ' + n + ' escenas. '; }
+  catch (e) { COLAB = null; simpleNote = 'No pude leer el audio: ' + ((e && e.message) || e); renderSimple(); }
+});
 async function simpleRecord(){
   if (running) return; running = true; refreshUI(); await guard(() => prepAndPlay(0, true), 0); running = false; refreshUI(); if (slots[0].url) notifyMe('Piso 3ºB', 'Tu vídeo está listo.');
 }
@@ -2989,6 +3009,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simFacts') return copyText(factsPrompt(0), b);
   if (b.id === 'simCover') { const bl = await coverBlob(0); if (bl) await saveOrShare(bl, 'portada-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg'); return; }
   if (b.id === 'simSheetSave') { if (!simpleSheetBlob) return; const f = new File([simpleSheetBlob], 'escenas-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg', { type: 'image/jpeg' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } const a = document.createElement('a'); a.href = simpleSheetUrl; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); return; }
+  if (b.id === 'simAudioOff') { COLAB = null; renderSimple(); return; }
   if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
   if (b.id === 'simNew') { simpleReset(true); return; }
   if (b.id === 'simRec') { simpleNote = ''; try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); }
@@ -3548,6 +3569,7 @@ const Voice = {
     try { const all = await this.mod.voices(); this.voices = Object.keys(all || {}).filter(k => /^es_/.test(k)).sort((a, b) => (/es_ES/.test(b) - /es_ES/.test(a)) || (/high|medium/.test(b) - /high|medium/.test(a))); } catch (e) { this.voices = ['es_ES-davefx-medium']; }
     if (!this.voices.length) this.voices = ['es_ES-davefx-medium'];
     const sel = $('#voiceId'); if (sel) { const cur = sel.value; sel.innerHTML = this.voices.map(v => `<option value="${esc(v)}">${esc(v.replace(/^es_/, '').replace(/-/g, ' · '))}</option>`).join(''); if (cur && this.voices.includes(cur)) sel.value = cur; }
+    try { this.fillPV(); } catch (e) {}
     return this.mod;
   },
   async natural(text, progress){
@@ -3592,7 +3614,7 @@ const Voice = {
     return ev;
   },
   async _natural(text, progress, setStage){
-    const mod = await this.load(progress), voiceId = $('#voiceId').value || this.voices[0]; setStage('descargar o ejecutar el modelo «' + voiceId + '»');
+    const mod = await this.load(progress), voiceId = this.curVoice || $('#voiceId').value || this.voices[0]; setStage('descargar o ejecutar el modelo «' + voiceId + '»');
     const clean = text.replace(/[_#]/g, '').replace(/\s+/g, ' ').trim();
     const sents = this.splitSentences(clean), ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 22050, 22050);
     const segs = []; let fs = 22050;
@@ -3620,7 +3642,39 @@ const Voice = {
   },
   VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5', ella: 'F2', abuelo: 'M5' },
   voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ_PERSONAJE[who] || narr; if (v === narr) v = ['M2', 'F4', 'M3', 'F1', 'M5', 'F5'].find(x => x !== narr && x !== this.VOZ_PERSONAJE.amigo) || 'F4'; return v; },
+  PERS: { amigo: 'Dani', amiga: 'Marta', jefe: 'El casero', abuela: 'La vecina', madre: 'La madre' },
+  PITCH: { yo: 1, amigo: .97, amiga: 1.05, jefe: .93, abuela: 1.08, madre: 1.04, ella: 1.05, abuelo: .92 },
+  MOODF: { cansado: .94, resignado: .95, triste: .95, dormido: .9, enfado: 1.05, panico: 1.1, asombro: 1.04, sonrisa: 1.02, risa: 1.04, asco: .97, serio: .97 },
+  esVoices(){ return (this.voices || []).filter(v => /^es_ES/.test(v)); },
+  fillPV(){
+    const box = $('#pvSel'); if (!box) return; const vs = this.esVoices(); if (!vs.length) return;
+    box.innerHTML = Object.keys(this.PERS).map(k => `<label class="f">${this.PERS[k]}<select data-pv="${k}"><option value="">Automática</option>${vs.map(v => `<option value="${esc(v)}">${esc(v.replace(/^es_ES-/, ''))}</option>`).join('')}</select></label>`).join('');
+    box.querySelectorAll('select[data-pv]').forEach(el => { const v = store.get('set:pv_' + el.dataset.pv, ''); if (v && vs.includes(v)) el.value = v; el.addEventListener('change', () => store.set('set:pv_' + el.dataset.pv, el.value)); });
+  },
+  tone(r, f){
+    if (!f || Math.abs(f - 1) < .01) return r; const n = Math.floor(r.samples.length / f), o = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = i * f, a = Math.floor(x), b = Math.min(a + 1, r.samples.length - 1), t = x - a; o[i] = r.samples[a] * (1 - t) + r.samples[b] * t; }
+    return { samples: o, fs: r.fs, dur: n / r.fs, words: (r.words || []).map(w => ({ raw: w.raw, s: w.s / f, e: w.e / f })) };
+  },
+  async speakCastPiper(text, S, progress, habla, moods){
+    moods = moods || {}; await this.load(progress);
+    const narrV = $('#voiceId').value || this.voices[0], parts = [];
+    text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
+    if (parts.length < 1) return this.speak(text, S, progress);
+    const pool = this.esVoices().filter(v => v !== narrV), auto = {};
+    Object.keys(this.PERS).concat(['ella', 'abuelo']).forEach((w, i) => { auto[w] = pool.length ? pool[i % pool.length] : narrV; });
+    const out = []; let fs = 22050;
+    for (const pt of parts) {
+      this.curVoice = pt.who === 'yo' ? narrV : (store.get('set:pv_' + pt.who, '') || auto[pt.who] || narrV);
+      let r; try { r = await this.speak(pt.t, S, progress); } finally { this.curVoice = null; }
+      r = this.tone(r, (this.PITCH[pt.who] || 1) * (this.MOODF[moods[pt.who]] || 1)); fs = r.fs; out.push(r);
+    }
+    const gap = Math.round(.12 * fs); let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? gap : 0); });
+    const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
+    return { samples, fs, dur: total / fs, words };
+  },
   async speakCast(text, S, progress, habla, moods){
+    if (S.engine === 'natural' && habla && habla !== 'yo' && !this.failed && /«/.test(text)) return this.speakCastPiper(text, S, progress, habla, moods);
     if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
     const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
     if (parts.length < 1) return this.speak(text, S, progress);
@@ -3693,11 +3747,27 @@ $('#testVoice').addEventListener('click', async () => {
   } catch (e) { $('#vmsg').textContent = (e && e.message) || errCopy(e); }
   b.disabled = false;
 });
+$('#testAllVoices').addEventListener('click', async () => {
+  const b = $('#testAllVoices'); b.disabled = true; const S = Object.assign(settings(), { engine: 'natural' }); Voice.failed = false;
+  try {
+    $('#vmsg').textContent = 'Cargando las voces de España…'; await Voice.load(msg); const vs = Voice.esVoices(); if (!vs.length) throw new Error('No hay voces es_ES disponibles.');
+    const ctx = new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume();
+    for (let i = 0; i < vs.length; i++) {
+      $('#vmsg').textContent = `Voz ${i + 1}/${vs.length}: ${vs[i].replace(/^es_ES-/, '')} (generando…)`; Voice.curVoice = vs[i];
+      let a; try { a = await Voice.speak('Tranquilo, tío, que sobra tiempo. ¿Vosotros habéis visto cómo ha subido la luz? Esto es un robo, vale.', S, msg); } finally { Voice.curVoice = null; }
+      $('#vmsg').textContent = `Voz ${i + 1}/${vs.length}: ${vs[i].replace(/^es_ES-/, '')} (sonando)`;
+      const buf = ctx.createBuffer(1, a.samples.length, a.fs); buf.copyToChannel(a.samples, 0); const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start();
+      await new Promise(res => { src.onended = res; });
+    }
+    $('#vmsg').textContent = 'Listo. Elige en «Voz de cada personaje» la que quieras para cada uno.';
+  } catch (e) { $('#vmsg').textContent = (e && e.message) || errCopy(e); }
+  b.disabled = false;
+});
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('#installBtn').hidden = false; });
 $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $('#installBtn').hidden = true; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-Object.assign(window.__studio, { pisoDiarioPrompt, textFixPrompt, Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
+Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, pisoDiarioPrompt, textFixPrompt, Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
 </script>
 </body></html>
