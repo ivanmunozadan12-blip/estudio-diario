@@ -130,6 +130,13 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4" selected>M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
   <div class="row"><button id="testVoice">Probar voz</button><button id="testAllVoices">Escuchar todas las voces de España</button></div><p class="meta" id="vmsg"></p>
   <p class="meta">Voces: Pocket TTS (Kyutai, CC-BY-4.0) con las voces clonadas de la carpeta <code>voces/</code> (protagonista, Dani, Marta, casero, vecina y madre). El vídeo usa siempre estas voces; si no se pueden cargar, se detiene con un aviso en vez de usar otra.</p>
+  <details id="pcBox"><summary>Voz del PC con emociones (Qwen3-TTS, gratis)</summary>
+    <p class="meta">El móvil manda las frases a una cola gratuita (Supabase) y tu ordenador las convierte en voz con emociones mientras tú haces otra cosa. Al terminar, el vídeo se monta aquí. Guía: carpeta <code>pc-voz/</code>.</p>
+    <label class="f">Supabase · Project URL<input id="sbUrl" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
+    <label class="f">Supabase · clave anon / publishable<input id="sbKey" type="text" placeholder="eyJ… o sb_publishable_…" autocomplete="off"></label>
+    <label class="f"><span><input type="checkbox" id="pcVoz" checked> Usar el PC para las voces (si está apagado, uso Pocket en el móvil)</span></label>
+    <div class="row"><button id="pcTest">Comprobar conexión con el PC</button></div><p class="meta" id="pcMsg"></p>
+  </details>
   <details id="vozInfo"><summary>Informe de voces del último vídeo</summary><pre id="vozInfoTxt" class="meta" style="white-space:pre-wrap;font-size:12px">Aún no se ha generado ningún vídeo en esta sesión.</pre></details>
   <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
   <div hidden>
@@ -2651,6 +2658,7 @@ async function prepare(script, S, progress){
   if (script) script._t0 = 0;
   setQ(S.quality === '1080' ? 1.5 : 1);
   let t = 0.1, nw = 0; const scenes = []; try { Voice.informeReset(); } catch (e) {}
+  if (S.voice && !COLAB && Voice.pcOn()) { progress && progress('Preparando voz del PC…', 0); await Voice.pcPlan(script, progress); }
   for (let i = 0; i < script.escenas.length; i++) {
     const e = script.escenas[i];
     const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
@@ -3877,7 +3885,83 @@ const Voice = {
     const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
     return this.polish({ samples, fs, dur: total / fs, words });
   },
+  /* Voz del PC: Qwen3-TTS en tu ordenador, a través de una cola en Supabase (tabla voz_jobs + bucket «voz»). */
+  PC_V: 'v1',
+  pcCfg(){ return { url: String(store.get('set:sbUrl', '') || '').trim().replace(/\/+$/, ''), key: String(store.get('set:sbKey', '') || '').trim() }; },
+  pcOn(){ const c = this.pcCfg(); return !!(c.url && c.key) && store.get('set:pcVoz', '1') !== '0' && store.get('set:pcVoz', '1') !== false; },
+  async pcApi(method, path, body, extra){
+    const c = this.pcCfg(), h = Object.assign({ apikey: c.key, Authorization: 'Bearer ' + c.key }, extra || {});
+    if (body !== undefined) h['Content-Type'] = 'application/json';
+    let r; try { r = await fetch(c.url + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }); } catch (e) { throw new Error('sin conexión con Supabase (' + (e && e.message || e) + ')'); }
+    if (!r.ok) { let t = ''; try { t = (await r.text()).slice(0, 200); } catch (e) {} throw new Error('Supabase ' + r.status + ' ' + t); }
+    const tx = await r.text(); return tx ? JSON.parse(tx) : null;
+  },
+  pcHash(str){ let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); },
+  pcParts(text, habla, moods){
+    moods = moods || {}; const parts = [];
+    if (/«/.test(text)) text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push(habla && habla !== 'yo' ? { t: q.trim(), who: habla } : { t: q.trim(), who: 'yo', alto: true }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
+    if (!parts.length) parts.push({ t: text, who: 'yo' });
+    return parts.map(pt => {
+      let t = pt.t.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim(); if (!/[.!?…]$/.test(t)) t += '.';
+      const mood = pt.who === 'yo' ? (pt.alto ? '' : (moods.yo || 'harto')) : (moods[pt.who] || '');
+      const alto = !!pt.alto, key = 'j' + this.pcHash([this.PC_V, pt.who, mood, alto ? 1 : 0, t].join('|'));
+      return { key, who: pt.who, mood, alto, text: t };
+    });
+  },
+  async pcVivo(){ try { const r = await this.pcApi('GET', '/rest/v1/voz_jobs?select=updated_at,worker&key=eq.__latido__'); if (!r || !r[0]) return null; const age = (Date.now() - new Date(r[0].updated_at).getTime()) / 1000; return age < 45 ? r[0].worker || 'PC' : null; } catch (e) { return null; } },
+  async pcPlan(script, progress){
+    const rows = {}; script.escenas.forEach(e => { const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); this.pcParts(e.texto.replace(/\s+/g, ' ').trim(), e.habla, moods).forEach(p => { rows[p.key] = { key: p.key, who: p.who, mood: p.mood, alto: p.alto, text: p.text, status: 'pending' }; }); });
+    const list = Object.values(rows); this.pcKeys = Object.keys(rows); this.pcT0 = Date.now(); this.pcDone0 = 0;
+    try { if (navigator.wakeLock) this.pcLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    for (let i = 0; i < list.length; i += 100) await this.pcApi('POST', '/rest/v1/voz_jobs?on_conflict=key', list.slice(i, i + 100), { Prefer: 'resolution=ignore-duplicates,return=minimal' });
+    // las que fallaron otra vez a la cola
+    for (let i = 0; i < this.pcKeys.length; i += 40) { const ks = this.pcKeys.slice(i, i + 40).map(encodeURIComponent).join(','); await this.pcApi('PATCH', '/rest/v1/voz_jobs?status=eq.error&key=in.(' + ks + ')', { status: 'pending', error: null }, { Prefer: 'return=minimal' }); }
+    const n = await this.pcContar(); this.pcDone0 = n;
+    const vivo = await this.pcVivo(); this.informeAdd('Voz del PC · ' + list.length + ' frases · ' + n + ' ya hechas' + (vivo ? ' · PC conectado (' + vivo + ')' : ' · PC SIN CONECTAR: abre iniciar_voces.bat'));
+    if (!vivo) msg('Preparando voz del PC: el ordenador no está conectado. Abre iniciar_voces.bat; las frases esperan en la cola.');
+    return list.length;
+  },
+  async pcContar(){ let n = 0; const ks = this.pcKeys || []; for (let i = 0; i < ks.length; i += 40) { const q = ks.slice(i, i + 40).map(encodeURIComponent).join(','); const r = await this.pcApi('GET', '/rest/v1/voz_jobs?select=key&status=eq.done&key=in.(' + q + ')'); n += (r || []).length; } return n; },
+  async pcSay(pt, progress){
+    const wait = ms => new Promise(r => setTimeout(r, ms)); let reintentos = 0, ult = 0, t0 = Date.now();
+    for (;;) {
+      const r = await this.pcApi('GET', '/rest/v1/voz_jobs?select=status,audio_path,dur,error&key=eq.' + encodeURIComponent(pt.key));
+      const j = r && r[0];
+      if (!j) { await this.pcApi('POST', '/rest/v1/voz_jobs?on_conflict=key', [{ key: pt.key, who: pt.who, mood: pt.mood, alto: pt.alto, text: pt.text, status: 'pending' }], { Prefer: 'resolution=ignore-duplicates,return=minimal' }); continue; }
+      if (j.status === 'done' && j.audio_path) {
+        const c = this.pcCfg(), resp = await fetch(c.url + '/storage/v1/object/public/voz/' + encodeURIComponent(j.audio_path));
+        if (!resp.ok) throw new Error('no se pudo descargar el audio de la voz (' + resp.status + ')');
+        const ac = new (window.AudioContext || window.webkitAudioContext)(); let buf; try { buf = await ac.decodeAudioData(await resp.arrayBuffer()); } finally { try { ac.close(); } catch (e) {} }
+        return this.pcTrim(buf.getChannelData(0), buf.sampleRate, pt.text);
+      }
+      if (j.status === 'error') { if (reintentos++ >= 1) throw new Error('el PC no pudo generar «' + pt.text.slice(0, 40) + '»: ' + (j.error || 'error')); await this.pcApi('PATCH', '/rest/v1/voz_jobs?key=eq.' + encodeURIComponent(pt.key), { status: 'pending', error: null }, { Prefer: 'return=minimal' }); }
+      if (Date.now() - ult > 6000) { ult = Date.now(); try { const n = await this.pcContar(), tot = (this.pcKeys || []).length, el = (Date.now() - this.pcT0) / 1000, hechas = n - this.pcDone0, resto = tot - n, eta = hechas > 0 ? Math.round(el / hechas * resto / 60) : 0; progress && progress('Preparando voz del PC: ' + n + '/' + tot + ' frases' + (eta ? ' · quedan ~' + eta + ' min' : (hechas === 0 && el > 90 ? ' · esperando al PC (¿está iniciar_voces.bat abierto?)' : ''))); } catch (e) {} }
+      if (Date.now() - t0 > 3 * 3600 * 1000) throw new Error('el PC no ha respondido en 3 horas (¿está abierto iniciar_voces.bat?)');
+      await wait(2500);
+    }
+  },
+  pcTrim(ch, fs, text){
+    let a = 0, b = ch.length - 1; const th = .006;
+    while (a < b && Math.abs(ch[a]) < th) a++; while (b > a && Math.abs(ch[b]) < th) b--;
+    a = Math.max(0, a - Math.round(.06 * fs)); b = Math.min(ch.length, b + Math.round(.14 * fs));
+    const samples = Float32Array.from(ch.subarray(a, b)), dur = samples.length / fs, ws = text.split(/\s+/).filter(Boolean), tot = ws.reduce((x, w) => x + w.length + 1, 0), words = []; let c = 0;
+    const fo = Math.round(.012 * fs); for (let q = 0; q < fo && q < samples.length; q++) samples[samples.length - 1 - q] *= q / fo;
+    ws.forEach(w => { const s0 = c / tot * dur; c += w.length + 1; words.push({ raw: w, s: s0, e: Math.min(dur, c / tot * dur) }); });
+    return { samples, fs, dur, words, pause: 1 };
+  },
+  async speakCastPc(text, S, progress, habla, moods){
+    const parts = this.pcParts(text, habla, moods), out = []; let fs = 24000;
+    for (const pt of parts) {
+      let r; try { r = await this.pcSay(pt, progress); } catch (e) { msg('Voz del PC falló: ' + (e && e.message || e)); throw new Error('No se pudo generar la voz de «' + pt.who + '» con el PC: ' + (e && e.message || e)); }
+      this.informeAdd('E' + (this.escenaActual || '?') + ' · ' + (pt.who === 'yo' ? (pt.alto ? 'yo (voz alta)' : 'yo (mente)') : pt.who) + ' · ' + (pt.mood || 'neutra') + ' · ' + r.dur.toFixed(1) + 's · ' + pt.text.slice(0, 38));
+      r.pause = (this.MOODT[pt.alto ? 'educado' : pt.mood] || {}).p || 1; fs = r.fs; out.push(r);
+    }
+    let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? Math.round(.12 * fs * Math.max(r.pause || 1, (out[i + 1] || {}).pause || 1)) : 0); });
+    const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
+    return { samples, fs, dur: total / fs, words };
+  },
   async speakCast(text, S, progress, habla, moods){
+    if (!this.forcePiper && this.pcOn()) return this.speakCastPc(text, S, progress, habla, moods);
     if (!this.forcePiper) return this.speakCastPocket(text, S, progress, habla, moods);
     if (S.engine === 'natural' && !this.failed) {
       if (habla && habla !== 'yo' && /«/.test(text)) return this.polish(await this.speakCastPiper(text, S, progress, habla, moods));
@@ -3980,5 +4064,21 @@ $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) re
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, pisoDiarioPrompt, textFixPrompt, Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
+
+/* Ajustes de la voz del PC */
+(function(){
+  const u = document.getElementById('sbUrl'), k = document.getElementById('sbKey'), on = document.getElementById('pcVoz'), b = document.getElementById('pcTest'), m = document.getElementById('pcMsg');
+  if (!u || !k || !on || !b) return;
+  u.value = store.get('set:sbUrl', '') || ''; k.value = store.get('set:sbKey', '') || ''; on.checked = store.get('set:pcVoz', '1') !== '0' && store.get('set:pcVoz', '1') !== false;
+  u.addEventListener('change', () => store.set('set:sbUrl', u.value.trim())); k.addEventListener('change', () => store.set('set:sbKey', k.value.trim())); on.addEventListener('change', () => store.set('set:pcVoz', on.checked ? '1' : '0'));
+  b.addEventListener('click', async () => {
+    store.set('set:sbUrl', u.value.trim()); store.set('set:sbKey', k.value.trim()); m.textContent = 'Comprobando…';
+    try {
+      await Voice.pcApi('GET', '/rest/v1/voz_jobs?select=key&limit=1');
+      const w = await Voice.pcVivo();
+      m.textContent = w ? '✔ Supabase responde y el PC («' + w + '») está conectado y esperando frases.' : '✔ Supabase responde, pero el PC no está conectado. Abre iniciar_voces.bat en el ordenador (las frases esperan en la cola).';
+    } catch (e) { m.textContent = '✖ ' + (e && e.message || e) + ' · ¿has ejecutado supabase.sql y pegado bien la URL y la clave?'; }
+  });
+})();
 </script>
 </body></html>
