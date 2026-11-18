@@ -123,7 +123,7 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
     <select id="humor"><option value="auto">Automático (recomendado): mucho en hipotéticos, un toque en explicaciones, nada en temas serios</option><option value="comedia" selected>🤣 Comedia total: vídeos de humor, hipotéticos disparatados, lleno de coñas (adultos)</option><option value="siempre">Siempre divertido (salvo temas sensibles)</option><option value="nunca">Nunca: tono serio</option></select></label>
   </div>
   <label class="f">Voz
-    <select id="voiceEngine"><option value="natural">Natural (neuronal, gratis, va dentro del vídeo)</option><option value="supertonic" selected>Supertonic (muy natural, sin claves; ~250 MB la primera vez)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
+    <select id="voiceEngine"><option value="natural" selected>Natural (neuronal, gratis, va dentro del vídeo)</option><option value="supertonic">Supertonic (muy natural, sin claves; ~250 MB la primera vez)</option><option value="robot">Sintética básica (rápida, suena a robot)</option><option value="none">Sin voz (música y subtítulos)</option></select></label>
   <div class="hint" id="stStatus" style="font-size:.85em;opacity:.85"></div>
   <p class="meta">En Piso 3ºB cada personaje tiene su propia voz (Dani M2, Marta F4, casero M3, vecina F1, madre F5). La voz que elijas aquí es la del narrador (recomendado M4 o M5).</p>
   <label class="f">Voz de Supertonic
@@ -1990,7 +1990,7 @@ const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[day
 const settings = () => ({ niche: $('#niche').value.trim(), voice: $('#voiceEngine').value !== 'none', rate: +$('#voiceRate').value, quality: ($('#quality') || {}).value || '720', music: $('#musicOn').checked, sfx: ($('#sfxOn') || {}).checked !== false, tacos: ($('#tacos') || {}).checked !== false, subs: $('#subsOn').checked, target: +$('#target').value, engine: $('#voiceEngine').value === 'none' ? 'none' : $('#voiceEngine').value, research: $('#research').checked, verify: $('#verify').checked, codeScenes: $('#codeScenes').checked, voiceId: $('#voiceId').value, stVoice: ($('#stVoice') || {}).value || 'M1', humor: ($('#humor') || {}).value || 'auto' });
 try { if (store.get('set:niche', null) === "Historias reales increíbles de supervivencia, misterios resueltos y curiosidades de ciencia e historia, contadas como un thriller breve.") localStorage.removeItem('set:niche'); } catch (e) {}
 try { ['azKey', 'azRegion', 'azVoice'].forEach(k => localStorage.removeItem('set:' + k)); if (store.get('set:voiceEngine', null) === 'azure') store.set('set:voiceEngine', 'supertonic'); } catch (e) {}
-try { if (store.get('set:voiceEngine', null) === 'natural' && !store.get('stMig', false)) { store.set('set:voiceEngine', 'supertonic'); store.set('stMig', true); } } catch (e) {}
+try { if (!store.get('pMig', false)) { store.set('set:voiceEngine', 'natural'); store.set('pMig', true); } } catch (e) {}
 ['niche','humor','quality','voiceEngine','voiceId','stVoice','voiceRate','musicOn','sfxOn','tacos','subsOn','target','research','verify','codeScenes','provider','apiKey','extraApiKeys','model','baseUrl','auto','t0','t1','t2'].forEach(id => { const el = $('#' + id), v = store.get('set:' + id, null); if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } el.addEventListener('change', () => store.set('set:' + id, el.type === 'checkbox' ? el.checked : el.value)); });
 
 try { const q = $('#quality'); if (q && store.get('set:quality', null) == null && !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) q.value = '1080'; } catch (e) {}
@@ -3645,6 +3645,38 @@ const Voice = {
   PERS: { amigo: 'Dani', amiga: 'Marta', jefe: 'El casero', abuela: 'La vecina', madre: 'La madre' },
   PITCH: { yo: 1, amigo: .97, amiga: 1.05, jefe: .93, abuela: 1.08, madre: 1.04, ella: 1.05, abuelo: .92 },
   MOODF: { cansado: .94, resignado: .95, triste: .95, dormido: .9, enfado: 1.05, panico: 1.1, asombro: 1.04, sonrisa: 1.02, risa: 1.04, asco: .97, serio: .97 },
+  // Ánimo: f = tono y velocidad (más grave y lento / más agudo y rápido), g = volumen, p = pausas
+  MOODT: { cansado: { f: .90, g: .85, p: 1.6 }, resignado: { f: .92, g: .88, p: 1.4 }, triste: { f: .91, g: .82, p: 1.5 }, dormido: { f: .86, g: .72, p: 1.8 },
+    enfado: { f: 1.08, g: 1.25, p: .7 }, panico: { f: 1.16, g: 1.2, p: .55 }, asombro: { f: 1.07, g: 1.1, p: 1.2 }, sonrisa: { f: 1.03, g: 1.05, p: .95 },
+    risa: { f: 1.08, g: 1.12, p: .8 }, asco: { f: .95, g: .95, p: 1.2 }, serio: { f: .96, g: 1.0, p: 1.2 } },
+  mood(r, name, who){
+    const M = this.MOODT[name] || {}, f = (this.PITCH[who] || 1) * (M.f || 1); r = this.tone(r, f);
+    if (M.g && M.g !== 1) { const sm = r.samples; for (let i = 0; i < sm.length; i++) sm[i] *= M.g; }
+    r.pause = M.p || 1; return r;
+  },
+  // Acabado de estudio: quita graves sordos, realza la voz, nivela el volumen y añade una habitación muy pequeña
+  async polish(r){
+    try {
+      const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OAC || !r || !r.samples || !r.samples.length) return r;
+      const fs = r.fs, tail = Math.round(.14 * fs), n = r.samples.length + tail, ctx = new OAC(1, n, fs);
+      const buf = ctx.createBuffer(1, r.samples.length, fs); buf.getChannelData(0).set(r.samples);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 70;
+      const warm = ctx.createBiquadFilter(); warm.type = 'lowshelf'; warm.frequency.value = 220; warm.gain.value = 1.8;
+      const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 3200; pres.Q.value = .9; pres.gain.value = 2.6;
+      const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 7500; air.gain.value = 1.5;
+      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -26; comp.knee.value = 18; comp.ratio.value = 3; comp.attack.value = .004; comp.release.value = .16;
+      const mk = ctx.createGain(); mk.gain.value = 1.5;
+      const il = Math.round(.2 * fs), imp = ctx.createBuffer(1, il, fs), d = imp.getChannelData(0); let a = 7;
+      for (let i = 0; i < il; i++) { a = (a * 1664525 + 1013904223) >>> 0; d[i] = ((a / 2147483648) - 1) * Math.exp(-i / (fs * .045)); }
+      const conv = ctx.createConvolver(); conv.buffer = imp; const wet = ctx.createGain(); wet.gain.value = .11; const dry = ctx.createGain(); dry.gain.value = 1;
+      src.connect(hp); hp.connect(warm); warm.connect(pres); pres.connect(air); air.connect(comp); comp.connect(mk);
+      mk.connect(dry); dry.connect(ctx.destination); mk.connect(conv); conv.connect(wet); wet.connect(ctx.destination);
+      src.start(); const out = await ctx.startRendering(), ch = Float32Array.from(out.getChannelData(0));
+      let pk = 0; for (let i = 0; i < ch.length; i++) pk = Math.max(pk, Math.abs(ch[i])); if (pk > .95) for (let i = 0; i < ch.length; i++) ch[i] *= .95 / pk;
+      return { samples: ch, fs, dur: ch.length / fs, words: r.words };
+    } catch (e) { console.warn('[polish]', e && e.message); return r; }
+  },
   esVoices(){ return (this.voices || []).filter(v => /^es_ES/.test(v)); },
   fillPV(){
     const box = $('#pvSel'); if (!box) return; const vs = this.esVoices(); if (!vs.length) return;
@@ -3667,14 +3699,17 @@ const Voice = {
     for (const pt of parts) {
       this.curVoice = pt.who === 'yo' ? narrV : (store.get('set:pv_' + pt.who, '') || auto[pt.who] || narrV);
       let r; try { r = await this.speak(pt.t, S, progress); } finally { this.curVoice = null; }
-      r = this.tone(r, (this.PITCH[pt.who] || 1) * (this.MOODF[moods[pt.who]] || 1)); fs = r.fs; out.push(r);
+      r = this.mood(r, moods[pt.who], pt.who); fs = r.fs; out.push(r);
     }
-    const gap = Math.round(.12 * fs); let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? gap : 0); });
+    let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? Math.round(.12 * fs * Math.max(r.pause || 1, (out[i + 1] || {}).pause || 1)) : 0); });
     const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
     return { samples, fs, dur: total / fs, words };
   },
   async speakCast(text, S, progress, habla, moods){
-    if (S.engine === 'natural' && habla && habla !== 'yo' && !this.failed && /«/.test(text)) return this.speakCastPiper(text, S, progress, habla, moods);
+    if (S.engine === 'natural' && !this.failed) {
+      if (habla && habla !== 'yo' && /«/.test(text)) return this.polish(await this.speakCastPiper(text, S, progress, habla, moods));
+      const r = await this.speak(text, S, progress); return this.polish(this.mood(r, (moods || {}).yo, 'yo'));
+    }
     if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
     const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
     if (parts.length < 1) return this.speak(text, S, progress);
