@@ -3556,11 +3556,15 @@ const Voice = {
       const ciLocal = location.hostname === 'localhost' && location.port === '8099';
       const hfPrefix = ciLocal ? (location.origin + '/voices/') : 'https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/';
       window.fetch = (resource, options) => {
-        const raw = typeof resource === 'string' ? resource : (resource && resource.url) || '';
+        const raw = typeof resource === 'string' ? resource : (resource && (resource.href || resource.url)) || '';
         const ov = /\/es\/es_ES\/(ovosmiro|ovosdii)\/medium\/es_ES-\1-medium\.onnx(\.json)?(?:\?.*)?$/.exec(raw);
         if (ov) return Voice.fetchOvos(ov[1] === 'ovosmiro' ? 'miro' : 'dii', !!ov[2], options, nativeFetch);
         const fixed = raw.replace(/^https:\/\/huggingface\.co\/(?:diffusionstudio|rhasspy)\/piper-voices\/resolve\/(?:main|v1\.0\.0)\//, hfPrefix);
-        return nativeFetch(fixed || resource, options);
+        const isPV = /^https:\/\/huggingface\.co\/(?:diffusionstudio|rhasspy)\/piper-voices\/resolve\//.test(raw);
+        if (!isPV) return nativeFetch(fixed || resource, options);
+        const alts = [hfPrefix, 'https://huggingface.co/rhasspy/piper-voices/resolve/main/', 'https://huggingface.co/diffusionstudio/piper-voices/resolve/main/'];
+        const tail = raw.replace(/^https:\/\/huggingface\.co\/(?:diffusionstudio|rhasspy)\/piper-voices\/resolve\/(?:main|v1\.0\.0)\//, '');
+        return (async () => { let last; for (const base of alts) { try { const r = await nativeFetch(base + tail, options); if (r.ok) return r; last = r; } catch (e) { last = last || null; } } if (last) return last; return nativeFetch(fixed, options); })();
       };
       this.fetchPatched = true;
     }
