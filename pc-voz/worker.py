@@ -83,6 +83,20 @@ EMO = {
   'asco': 'disgusted, grimacing, drawn-out words',
   'serio': 'serious, firm and controlled',
   'educado': 'polite and calm on the surface but with zero enthusiasm, flat and indifferent, like he does not care about anything at all',
+  'seco': 'dry, blunt, deadpan, matter-of-fact, no emotion at all',
+  'sarcastico': 'sarcastic, dripping with irony, exaggerated sweetness with a bite, slow on the key word',
+  'falso_dulce': 'falsely sweet and polite, a smile in the voice, passive-aggressive, calm but cutting',
+  'tranquilo': 'completely relaxed and unbothered, slow and confident, calm low energy, in no hurry',
+  'burlon': 'teasing and mocking, playful smirk in the voice, casual',
+  'nervioso': 'nervous and fussing, a bit fast and high, over-explaining, anxious',
+}
+# emocion por defecto de cada personaje cuando la escena no indica "voz" (el mood de animacion como 'hablar' no es una emocion)
+DEFECTO = {
+  'amiga': 'sarcastic and falsely sweet, quick and precise, passive-aggressive',
+  'amigo': 'relaxed and unbothered, calm and confident, slow and low',
+  'jefe': 'falsely friendly like a salesman in a hurry, smooth and evasive',
+  'madre': 'warm and worried, nagging with love, a bit dramatic',
+  'abuela': 'grumpy and complaining, reproachful, slow and cracked',
 }
 def instruct_para(who, mood, alto):
     base = PERSONAJES.get(who) or PERSONAJES['yo']
@@ -91,7 +105,7 @@ def instruct_para(who, mood, alto):
         elif mood and mood != 'harto' and mood in EMO: emo = 'mostly tired and fed up, but with a touch of this: ' + EMO[mood]
         else: emo = EMO['harto']
     else:
-        emo = EMO.get(mood or '', 'natural and expressive, matching the personality')
+        emo = EMO.get(mood or '') or DEFECTO.get(who) or 'natural and expressive, matching the personality'
     return ESP + base + ' Emotion and delivery: ' + emo + '. Natural pace, realistic human speech.'
 
 # ---------- modelo ----------
