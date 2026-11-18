@@ -2566,8 +2566,22 @@ function autoScenes(text, topic){
   return { titulo: topic || groups[0].split(' ').slice(0,8).join(' '), descripcion: '', hashtags: ['historia','curiosidades','shorts'], musica: 'tension', tema: topic, escenas: esc2 };
 }
 
+/* --- audio generado fuera (cuaderno de Colab con Qwen): un JSON con un trozo de audio por escena --- */
+let COLAB = null;
+function colabLoad(j){
+  if (!j || !Array.isArray(j.escenas) || !j.escenas.length || !(j.fs > 8000)) throw new Error('Ese archivo no es un audio del cuaderno de Colab.');
+  const sc = j.escenas.map(b => { const bin = atob(b), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); const i16 = new Int16Array(u.buffer, 0, u.length >> 1), f = new Float32Array(i16.length); for (let k = 0; k < i16.length; k++) f[k] = i16[k] / 32768; return f; });
+  COLAB = { fs: j.fs, sc }; return COLAB.sc.length;
+}
+function colabAudio(i, clean){
+  const f = COLAB.sc[i], fs = COLAB.fs, dur = f.length / fs, toks = clean.split(' ').filter(x => /[\p{L}\p{N}]/u.test(x));
+  const wts = toks.map(w => Math.max(2, w.replace(/[^\p{L}\p{N}]/gu, '').length) + (/[.!?…]["»”)]?$/.test(w) ? 5 : /[,;:]$/.test(w) ? 2.5 : 0)), tot = wts.reduce((a, b) => a + b, 0) || 1; let acc = 0;
+  const words = toks.map((w, k) => { const s0 = acc / tot * dur; acc += wts[k]; return { raw: w.replace(/[*_«»]/g, ''), s: s0, e: acc / tot * dur }; });
+  return { samples: f, fs, dur, words };
+}
 /* --- preparar proyecto (voz, tiempos, subtítulos) --- */
 async function prepare(script, S, progress){
+  if (COLAB && S.voice && COLAB.sc.length !== script.escenas.length) throw new Error(`El audio de Colab tiene ${COLAB.sc.length} escenas y el capítulo ${script.escenas.length}. Genera el audio con el mismo capítulo que has pegado (o quita el audio con «Quitar audio de Colab»).`);
   if (script) script._t0 = 0;
   setQ(S.quality === '1080' ? 1.5 : 1);
   let t = 0.1, nw = 0; const scenes = [];
@@ -2577,7 +2591,7 @@ async function prepare(script, S, progress){
     const clean = e.texto.replace(/\s+/g,' ').trim();
     let words, dur, audio = null; nw += clean.split(' ').filter(Boolean).length;
     if (S.voice) { const N = script.escenas.length, el = (Date.now() - (script._t0 || (script._t0 = Date.now()))) / 1000, eta = i >= 2 ? Math.round(el / i * (N - i)) : 0, tag = `Voz · escena ${i + 1}/${N}` + (eta ? ` · quedan ~${eta >= 90 ? Math.round(eta / 60) + ' min' : eta + ' s'}` : '');
-      progress && progress(tag, i / N); const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); audio = await Voice.speakCast(clean, S, m => progress && progress(/Descarg|Carg|Prepar/i.test(m) ? m : tag, i / N), e.habla, moods); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
+      progress && progress(tag, i / N); const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); audio = COLAB ? colabAudio(i, clean) : await Voice.speakCast(clean, S, m => progress && progress(/Descarg|Carg|Prepar/i.test(m) ? m : tag, i / N), e.habla, moods); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
     else {
       const toks = clean.split(' '), tot = toks.reduce((a, w) => a + w.length + 2, 0), span = Math.max(2.4, toks.length / 2.6 + .5); let acc = .15;
       words = toks.map(w => { const d = (w.length + 2) / tot * (span - .4); const o = { w: w.replace(/[*_]/g,''), s: acc, e: acc + d, hi: false }; acc += d; return o; }); dur = span;
@@ -2951,6 +2965,8 @@ function renderSimple(){
       h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>`;
     }
     h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
+    <label class="f">🔊 Audio de Colab (opcional)<input type="file" id="simAudio" accept=".json,application/json"></label>
+    <p class="meta" id="simAudioMsg">${COLAB ? 'Audio cargado: ' + COLAB.sc.length + ' escenas. ' : 'Sin audio de Colab: se usa la voz de la web. '}${COLAB ? '<button id="simAudioOff">Quitar audio de Colab</button>' : ''}</p>
     <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
     <details style="margin-top:8px"><summary>Prompt para ChatGPT</summary><div class="row"><button id="simCopyDia">Copiar prompt diario</button></div><p class="meta">Pégalo en ChatGPT: te devuelve el capítulo del día en JSON.</p></details>`;
   }
@@ -2961,6 +2977,11 @@ function renderSimple(){
   const keep = document.activeElement && document.activeElement.id; el.innerHTML = h;
   if (keep) { const k = document.getElementById(keep); if (k && k.focus) { try { k.focus(); } catch (e) {} } }
 }
+document.addEventListener('change', async ev => {
+  if (!ev.target || ev.target.id !== 'simAudio') return; const f = ev.target.files && ev.target.files[0]; if (!f) return;
+  try { const n = colabLoad(JSON.parse(await f.text())); simpleNote = ''; renderSimple(); const m = $('#simAudioMsg'); if (m) m.firstChild.textContent = 'Audio cargado: ' + n + ' escenas. '; }
+  catch (e) { COLAB = null; simpleNote = 'No pude leer el audio: ' + ((e && e.message) || e); renderSimple(); }
+});
 async function simpleRecord(){
   if (running) return; running = true; refreshUI(); await guard(() => prepAndPlay(0, true), 0); running = false; refreshUI(); if (slots[0].url) notifyMe('Piso 3ºB', 'Tu vídeo está listo.');
 }
@@ -2990,6 +3011,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simFacts') return copyText(factsPrompt(0), b);
   if (b.id === 'simCover') { const bl = await coverBlob(0); if (bl) await saveOrShare(bl, 'portada-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg'); return; }
   if (b.id === 'simSheetSave') { if (!simpleSheetBlob) return; const f = new File([simpleSheetBlob], 'escenas-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg', { type: 'image/jpeg' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } const a = document.createElement('a'); a.href = simpleSheetUrl; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); return; }
+  if (b.id === 'simAudioOff') { COLAB = null; renderSimple(); return; }
   if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
   if (b.id === 'simNew') { simpleReset(true); return; }
   if (b.id === 'simRec') { simpleNote = ''; try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); }
@@ -3748,6 +3770,6 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferr
 $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; $('#installBtn').hidden = true; });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-Object.assign(window.__studio, { pisoDiarioPrompt, textFixPrompt, Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
+Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, pisoDiarioPrompt, textFixPrompt, Supertonic, factsPrompt, coverBlob, contactSheet, fixPrompt, SFX, Voice, PROV, AIstate, SceneProg, pickDirection, buildPrograms, parsePrograms, topicSim, ART, SCENE_EXAMPLES, exampleBody, masterPrompt, importPackage, pendingDir, nextBatchPrompt, reviewPrompt });
 </script>
 </body></html>
