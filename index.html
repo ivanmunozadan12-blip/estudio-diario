@@ -3553,6 +3553,8 @@ const Voice = {
       const hfPrefix = ciLocal ? (location.origin + '/voices/') : 'https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/';
       window.fetch = (resource, options) => {
         const raw = typeof resource === 'string' ? resource : (resource && resource.url) || '';
+        const ov = /\/es\/es_ES\/(ovosmiro|ovosdii)\/medium\/es_ES-\1-medium\.onnx(\.json)?(?:\?.*)?$/.exec(raw);
+        if (ov) return Voice.fetchOvos(ov[1] === 'ovosmiro' ? 'miro' : 'dii', !!ov[2], options, nativeFetch);
         const fixed = raw.replace(/^https:\/\/huggingface\.co\/(?:diffusionstudio|rhasspy)\/piper-voices\/resolve\/(?:main|v1\.0\.0)\//, hfPrefix);
         return nativeFetch(fixed || resource, options);
       };
@@ -3646,13 +3648,41 @@ const Voice = {
   PERS: { amigo: 'Dani', amiga: 'Marta', jefe: 'El casero', abuela: 'La vecina', madre: 'La madre' },
   PITCH: { yo: .94, amigo: 1.0, amiga: 1.2, jefe: .9, abuela: 1.26, madre: 1.14, ella: 1.2, abuelo: .9 },
   MOODF: { cansado: .94, resignado: .95, triste: .95, dormido: .9, enfado: 1.05, panico: 1.1, asombro: 1.04, sonrisa: 1.02, risa: 1.04, asco: .97, serio: .97 },
+  // Voces de OpenVoiceOS (compatibles con Piper): miro (hombre) y dii (mujer) en es-ES. Se prueban varias direcciones por si cambia el nombre del repositorio.
+  OV: { m: 'es_ES-ovosmiro-medium', d: 'es_ES-ovosdii-medium' },
+  OVURL: {
+    miro: { repos: ['phoonnx_es-ES_miro_espeak', 'pipertts_es-ES_miro'], f: 'miro_es-ES' },
+    dii:  { repos: ['phoonnx_es-ES_dii_espeak', 'pipertts_es-ES_dii'], f: 'dii_es-ES' }
+  },
+  isOv(v){ return v === this.OV.m || v === this.OV.d; },
+  ovOn(){ return store.get('set:ovos', '1') !== '0' && !this.ovFail; },
+  async fetchOvos(who, isJson, options, nativeFetch){
+    const d = this.OVURL[who], exts = isJson ? ['.piper.json', '.onnx.json'] : ['.onnx']; let last = null;
+    for (const repo of d.repos) for (const ext of exts) {
+      try { const r = await nativeFetch('https://huggingface.co/OpenVoiceOS/' + repo + '/resolve/main/' + d.f + ext, options); if (r.ok) return r; last = r; } catch (e) { last = last || e; }
+    }
+    if (last && last.status) return last; throw (last || new Error('voz OpenVoiceOS no disponible'));
+  },
+  // tono por personaje con las voces de OpenVoiceOS (miro: hombres; dii: mujeres) para que no suenen igual
+  PITCH_OV: { yo: 1.02, amigo: 1.12, jefe: .88, abuelo: .9, amiga: 1.04, madre: .95, abuela: 1.14, ella: 1.04 },
+  OV_VOZ: { yo: 'm', amigo: 'm', jefe: 'm', abuelo: 'm', amiga: 'd', madre: 'd', abuela: 'd', ella: 'd' },
+  // Dice un texto con una voz; si es de OpenVoiceOS y falla, avisa y sigue con las voces normales de Piper
+  async say(text, S, progress, voiceId){
+    const ov = this.isOv(voiceId); this.curVoice = voiceId;
+    try { return ov ? await this.natural(text, progress) : await this.speak(text, S, progress); }
+    catch (e) {
+      if (!ov) throw e; this.ovFail = true; this.curVoice = null;
+      msg('No pude cargar la voz «' + voiceId.replace(/^es_ES-ovos/, '').replace(/-medium$/, '') + '» de OpenVoiceOS (' + ((e && e.message) || e) + '). Sigo con las voces normales de Piper.');
+      return await this.speak(text, S, progress);
+    } finally { this.curVoice = null; }
+  },
   // Ánimo: f = tono y velocidad (más grave y lento / más agudo y rápido), g = volumen, p = pausas
   MOODT: { harto: { f: .93, g: .9, p: 1.4 }, cansado: { f: .90, g: .85, p: 1.6 }, resignado: { f: .92, g: .88, p: 1.4 }, triste: { f: .91, g: .82, p: 1.5 }, dormido: { f: .86, g: .72, p: 1.8 },
     enfado: { f: 1.08, g: 1.25, p: .7 }, panico: { f: 1.16, g: 1.2, p: .55 }, asombro: { f: 1.07, g: 1.1, p: 1.2 }, sonrisa: { f: 1.03, g: 1.05, p: .95 },
     risa: { f: 1.08, g: 1.12, p: .8 }, asco: { f: .95, g: .95, p: 1.2 }, serio: { f: .96, g: 1.0, p: 1.2 } },
   FLAT: { harto: .35, cansado: .4, resignado: .4, triste: .45, dormido: .3, serio: .55, enfado: 1.25, panico: 1.35, asombro: 1.2, risa: 1.2, sonrisa: 1.1 },
-  mood(r, name, who){
-    const M = this.MOODT[name] || {}, f = (this.PITCH[who] || 1) * (M.f || 1); r = this.tone(r, f);
+  mood(r, name, who, tbl){
+    const M = this.MOODT[name] || {}, f = ((tbl || this.PITCH)[who] || 1) * (M.f || 1); r = this.tone(r, f);
     if (M.g && M.g !== 1) { const sm = r.samples; for (let i = 0; i < sm.length; i++) sm[i] *= M.g; }
     r.pause = M.p || 1; return r;
   },
@@ -3679,10 +3709,12 @@ const Voice = {
       return { samples: ch, fs, dur: ch.length / fs, words: r.words };
     } catch (e) { console.warn('[polish]', e && e.message); return r; }
   },
-  esVoices(){ return (this.voices || []).filter(v => /^es_ES/.test(v)); },
+  esVoices(){ const l = (this.voices || []).filter(v => /^es_ES/.test(v) && !this.isOv(v)); return l.concat([this.OV.m, this.OV.d]); },
   fillPV(){
     const box = $('#pvSel'); if (!box) return; const vs = this.esVoices(); if (!vs.length) return;
-    box.innerHTML = Object.keys(this.PERS).map(k => `<label class="f">${this.PERS[k]}<select data-pv="${k}"><option value="">Automática</option>${vs.map(v => `<option value="${esc(v)}">${esc(v.replace(/^es_ES-/, ''))}</option>`).join('')}</select></label>`).join('');
+    const ovOnBox = `<label class="f"><span><input type="checkbox" id="ovosOn" ${store.get('set:ovos', '1') !== '0' ? 'checked' : ''}> Usar las voces miro (hombre) y dii (mujer) de OpenVoiceOS</span></label>`;
+    box.innerHTML = ovOnBox + Object.keys(this.PERS).map(k => `<label class="f">${this.PERS[k]}<select data-pv="${k}"><option value="">Automática</option>${vs.map(v => `<option value="${esc(v)}">${esc(v.replace(/^es_ES-ovosmiro-medium$/, 'miro (hombre, OpenVoiceOS)').replace(/^es_ES-ovosdii-medium$/, 'dii (mujer, OpenVoiceOS)').replace(/^es_ES-/, ''))}</option>`).join('')}</select></label>`).join('');
+    const ck = box.querySelector('#ovosOn'); if (ck) ck.addEventListener('change', () => { store.set('set:ovos', ck.checked ? '1' : '0'); this.ovFail = false; });
     box.querySelectorAll('select[data-pv]').forEach(el => { const v = store.get('set:pv_' + el.dataset.pv, ''); if (v && vs.includes(v)) el.value = v; el.addEventListener('change', () => store.set('set:pv_' + el.dataset.pv, el.value)); });
   },
   tone(r, f){
@@ -3695,14 +3727,15 @@ const Voice = {
     const narrV = $('#voiceId').value || this.voices[0], parts = [];
     text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
     if (parts.length < 1) return this.speak(text, S, progress);
-    const pool = this.esVoices().filter(v => v !== narrV), auto = {};
+    const pool = this.esVoices().filter(v => v !== narrV && !this.isOv(v)), auto = {};
     Object.keys(this.PERS).concat(['ella', 'abuelo']).forEach((w, i) => { auto[w] = pool.length ? pool[i % pool.length] : narrV; });
     const out = []; let fs = 22050;
     for (const pt of parts) {
-      this.curVoice = pt.who === 'yo' ? narrV : (store.get('set:pv_' + pt.who, '') || auto[pt.who] || narrV);
+      const ovOn = this.ovOn(), own = pt.who === 'yo' ? '' : store.get('set:pv_' + pt.who, '');
+      const vid = (own && (ovOn || !this.isOv(own))) ? own : ovOn ? this.OV[this.OV_VOZ[pt.who] || 'm'] : (pt.who === 'yo' ? narrV : (auto[pt.who] || narrV));
       const mn = moods[pt.who] || (pt.who === 'yo' ? 'harto' : ''); this.flatK = this.FLAT[mn];
-      let r; try { r = await this.speak(pt.t, S, progress); } finally { this.curVoice = null; this.flatK = null; }
-      r = this.mood(r, mn, pt.who); fs = r.fs; out.push(r);
+      let r; try { r = await this.say(pt.t, S, progress, vid); } finally { this.flatK = null; }
+      r = this.mood(r, mn, pt.who, (this.isOv(vid) && !this.ovFail) ? this.PITCH_OV : this.PITCH); fs = r.fs; out.push(r);
     }
     let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? Math.round(.12 * fs * Math.max(r.pause || 1, (out[i + 1] || {}).pause || 1)) : 0); });
     const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
@@ -3711,9 +3744,9 @@ const Voice = {
   async speakCast(text, S, progress, habla, moods){
     if (S.engine === 'natural' && !this.failed) {
       if (habla && habla !== 'yo' && /«/.test(text)) return this.polish(await this.speakCastPiper(text, S, progress, habla, moods));
-      const mn = (moods || {}).yo || 'harto'; this.flatK = this.FLAT[mn];
-      let r; try { r = await this.speak(text, S, progress); } finally { this.flatK = null; }
-      return this.polish(this.mood(r, mn, 'yo'));
+      const mn = (moods || {}).yo || 'harto'; this.flatK = this.FLAT[mn]; const ov = this.ovOn();
+      let r; try { r = ov ? await this.say(text, S, progress, this.OV.m) : await this.speak(text, S, progress); } finally { this.flatK = null; }
+      return this.polish(this.mood(r, mn, 'yo', (ov && !this.ovFail) ? this.PITCH_OV : this.PITCH));
     }
     if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
     const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
