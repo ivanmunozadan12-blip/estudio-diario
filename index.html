@@ -3736,6 +3736,12 @@ const Voice = {
   async pocketLoad(progress){
     if (this.pocketTTS) return this.pocketTTS;
     progress && progress('Cargando Pocket TTS (primera vez ~150 MB)…');
+    // La librería crea un Worker desde otro dominio (esm.sh) y el navegador lo bloquea: lo envolvemos en un worker local que lo importa.
+    if (!window.__wkPatched) {
+      const W = window.Worker; window.__wkPatched = true;
+      window.Worker = function(u, o){ try { const href = String((u && u.href) || u); if (/^https?:/i.test(href) && new URL(href).origin !== location.origin) { u = URL.createObjectURL(new Blob(['import ' + JSON.stringify(href) + ';'], { type: 'text/javascript' })); o = Object.assign({}, o, { type: 'module' }); } } catch (e) {} return new W(u, o); };
+      window.Worker.prototype = W.prototype;
+    }
     let mod, last; for (const u of ['https://esm.sh/pocket-tts-js@0.1.0', 'https://cdn.jsdelivr.net/npm/pocket-tts-js@0.1.0/+esm']) { try { mod = await import(u); break; } catch (e) { last = e; } }
     if (!mod) throw new Error('no se pudo cargar la librería: ' + (last && last.message || last));
     const P = mod.PocketTTS || mod.default; if (!P) throw new Error('librería sin PocketTTS');
