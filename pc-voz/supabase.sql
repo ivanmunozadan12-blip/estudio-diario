@@ -7,6 +7,8 @@ create table if not exists public.voz_jobs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+grant usage on schema public to anon;
+grant select, insert, update, delete on public.voz_jobs to anon;
 alter table public.voz_jobs enable row level security;
 drop policy if exists "voz_jobs_todo" on public.voz_jobs;
 create policy "voz_jobs_todo" on public.voz_jobs for all to anon using (true) with check (true);
