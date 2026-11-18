@@ -3214,7 +3214,7 @@ document.addEventListener('click', async ev => {
     if (b.id === 'simEnc') {
       if (!s.script || !s.script.escenas.length) { renderSimple(); return; }
       if (!Voice.pcOn()) { simpleNote = 'Para encargar voces configura antes «Voz del PC» en Ajustes (URL y clave de Supabase).'; renderSimple(); return; }
-      try { Voice.informeReset(); const n = await Voice.pcPlan(s.script, null, true); simpleNote = 'Voces encargadas (' + n + ' frases). Se hacen solas en el PC o en GitHub; cuando estén listas te llegará el aviso. Entonces abre la web y pulsa «Grabar el cargado».'; }
+      try { Voice.informeReset(); const n = await Voice.pcPlan(s.script, null, true); const hechas = Voice.pcDone0 || 0; simpleNote = hechas >= n ? '✅ Las ' + n + ' frases ya están listas (' + hechas + ' de ' + n + '). Pulsa «Grabar el cargado» para montar el vídeo.' : 'Voces encargadas: ' + hechas + ' de ' + n + ' frases ya hechas, el resto se hace solo en el PC o en GitHub; cuando estén listas te llegará el aviso. Entonces abre la web y pulsa «Grabar el cargado».'; }
       catch (e) { simpleNote = 'No pude encargar las voces: ' + (e && e.message || e); }
       renderSimple(); return;
     }
