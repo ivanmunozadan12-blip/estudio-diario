@@ -3745,8 +3745,11 @@ const Voice = {
     let mod, last; for (const u of ['https://esm.sh/pocket-tts-js@0.1.0', 'https://cdn.jsdelivr.net/npm/pocket-tts-js@0.1.0/+esm']) { try { mod = await import(u); break; } catch (e) { last = e; } }
     if (!mod) throw new Error('no se pudo cargar la librería: ' + (last && last.message || last));
     const P = mod.PocketTTS || mod.default; if (!P) throw new Error('librería sin PocketTTS');
-    const langs = P.LANGUAGES || {}, ks = Object.keys(langs), key = ks.find(k => /^(es|spanish)$/i.test(k)) || ks.find(k => /span|^es/i.test(k));
-    const t = new P(key ? { language: key } : {}); await t.load(); this.pocketTTS = t; return t;
+    // El idioma por defecto de la librería es el inglés: hay que pedir el paquete en español, o suena a extranjero.
+    const L = P.LANGUAGES, names = (Array.isArray(L) ? L : Object.keys(L || {})).map(x => typeof x === 'string' ? x : (x && (x.id || x.name || x.key || x.value)) || '').filter(Boolean);
+    const lang = names.length ? (['spanish', 'es', 'spanish_24l'].find(n => names.includes(n)) || names.find(n => /^(spanish|es\b)/i.test(n))) : 'spanish';
+    if (!lang) throw new Error('esta versión de Pocket no trae el paquete en español (idiomas: ' + names.join(', ') + ')');
+    const t = new P({ language: lang }); await t.load(); this.pocketTTS = t; this.pocketLang = lang; msg('Pocket TTS cargado en idioma: ' + lang); return t;
   },
   async pocketVoice(who, progress){
     if (this.pocketRefs[who]) return this.pocketRefs[who];
