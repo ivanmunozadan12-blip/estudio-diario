@@ -3593,6 +3593,7 @@ const Voice = {
     else if (last) { r0 = 1.03; r1 = .94; }
     else { r0 = 1.06; r1 = .955; }
     r0 += wob; r1 += wob;
+    const fk = this.flatK == null ? 1 : this.flatK; r0 = 1 + (r0 - 1) * fk; r1 = 1 + (r1 - 1) * fk; ev = (ev || []).map(e => Object.assign({}, e, { amp: e.amp * fk }));
     const n = ch.length, est = Math.round(n / ((r0 + r1) / 2)), out = new Float32Array(est + 8); let pos = 0, k = 0;
     const gs = (u, c, w) => Math.exp(-((u - c) * (u - c)) / (2 * w * w));
     const baseGain = kind === 'e' ? 1.15 : 1;
@@ -3643,12 +3644,13 @@ const Voice = {
   VOZ_PERSONAJE: { amigo: 'M2', amiga: 'F4', jefe: 'M3', abuela: 'F1', madre: 'F5', ella: 'F2', abuelo: 'M5' },
   voiceFor(who, narr){ if (!who || who === 'yo') return narr; let v = this.VOZ_PERSONAJE[who] || narr; if (v === narr) v = ['M2', 'F4', 'M3', 'F1', 'M5', 'F5'].find(x => x !== narr && x !== this.VOZ_PERSONAJE.amigo) || 'F4'; return v; },
   PERS: { amigo: 'Dani', amiga: 'Marta', jefe: 'El casero', abuela: 'La vecina', madre: 'La madre' },
-  PITCH: { yo: 1, amigo: .97, amiga: 1.05, jefe: .93, abuela: 1.08, madre: 1.04, ella: 1.05, abuelo: .92 },
+  PITCH: { yo: .94, amigo: 1.0, amiga: 1.2, jefe: .8, abuela: 1.26, madre: 1.14, ella: 1.2, abuelo: .84 },
   MOODF: { cansado: .94, resignado: .95, triste: .95, dormido: .9, enfado: 1.05, panico: 1.1, asombro: 1.04, sonrisa: 1.02, risa: 1.04, asco: .97, serio: .97 },
   // Ánimo: f = tono y velocidad (más grave y lento / más agudo y rápido), g = volumen, p = pausas
-  MOODT: { cansado: { f: .90, g: .85, p: 1.6 }, resignado: { f: .92, g: .88, p: 1.4 }, triste: { f: .91, g: .82, p: 1.5 }, dormido: { f: .86, g: .72, p: 1.8 },
+  MOODT: { harto: { f: .93, g: .9, p: 1.4 }, cansado: { f: .90, g: .85, p: 1.6 }, resignado: { f: .92, g: .88, p: 1.4 }, triste: { f: .91, g: .82, p: 1.5 }, dormido: { f: .86, g: .72, p: 1.8 },
     enfado: { f: 1.08, g: 1.25, p: .7 }, panico: { f: 1.16, g: 1.2, p: .55 }, asombro: { f: 1.07, g: 1.1, p: 1.2 }, sonrisa: { f: 1.03, g: 1.05, p: .95 },
     risa: { f: 1.08, g: 1.12, p: .8 }, asco: { f: .95, g: .95, p: 1.2 }, serio: { f: .96, g: 1.0, p: 1.2 } },
+  FLAT: { harto: .35, cansado: .4, resignado: .4, triste: .45, dormido: .3, serio: .55, enfado: 1.25, panico: 1.35, asombro: 1.2, risa: 1.2, sonrisa: 1.1 },
   mood(r, name, who){
     const M = this.MOODT[name] || {}, f = (this.PITCH[who] || 1) * (M.f || 1); r = this.tone(r, f);
     if (M.g && M.g !== 1) { const sm = r.samples; for (let i = 0; i < sm.length; i++) sm[i] *= M.g; }
@@ -3698,8 +3700,9 @@ const Voice = {
     const out = []; let fs = 22050;
     for (const pt of parts) {
       this.curVoice = pt.who === 'yo' ? narrV : (store.get('set:pv_' + pt.who, '') || auto[pt.who] || narrV);
-      let r; try { r = await this.speak(pt.t, S, progress); } finally { this.curVoice = null; }
-      r = this.mood(r, moods[pt.who], pt.who); fs = r.fs; out.push(r);
+      const mn = moods[pt.who] || (pt.who === 'yo' ? 'harto' : ''); this.flatK = this.FLAT[mn];
+      let r; try { r = await this.speak(pt.t, S, progress); } finally { this.curVoice = null; this.flatK = null; }
+      r = this.mood(r, mn, pt.who); fs = r.fs; out.push(r);
     }
     let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? Math.round(.12 * fs * Math.max(r.pause || 1, (out[i + 1] || {}).pause || 1)) : 0); });
     const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
@@ -3708,7 +3711,9 @@ const Voice = {
   async speakCast(text, S, progress, habla, moods){
     if (S.engine === 'natural' && !this.failed) {
       if (habla && habla !== 'yo' && /«/.test(text)) return this.polish(await this.speakCastPiper(text, S, progress, habla, moods));
-      const r = await this.speak(text, S, progress); return this.polish(this.mood(r, (moods || {}).yo, 'yo'));
+      const mn = (moods || {}).yo || 'harto'; this.flatK = this.FLAT[mn];
+      let r; try { r = await this.speak(text, S, progress); } finally { this.flatK = null; }
+      return this.polish(this.mood(r, mn, 'yo'));
     }
     if (!habla || habla === 'yo' || S.engine !== 'supertonic' || this.forcePiper || !/«/.test(text)) return this.speak(text, S, progress);
     const parts = []; text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push({ t: q.trim(), who: habla }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
