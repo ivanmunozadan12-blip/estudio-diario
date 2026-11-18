@@ -2520,6 +2520,10 @@ function sanitizeScript(raw, topic, dir){
     const texto = fixUno(String(e.texto || '').trim()); if (!texto) return null;
     const sc = { texto, fondo: BG[e.fondo] ? e.fondo : guessBg(texto), tono: VALID_TONO.includes(e.tono) ? e.tono : 'dia', camara: VALID_CAM.includes(e.camara) ? e.camara : VALID_CAM[i % 5], efectos: (Array.isArray(e.efectos) ? e.efectos : []).filter(x => VALID_FX.includes(x)).slice(0,3), tipo: VALID_TIPO.includes(e.tipo) ? e.tipo : 'normal', dato: e.dato && typeof e.dato === 'object' ? e.dato : null };
     if (PISO_QUIEN.includes(e.habla) && e.habla !== 'yo') sc.habla = e.habla;
+    if (!sc.habla && /«/.test(texto)) { // capítulo con prompt antiguo: sin «habla»; se deduce del personaje que sale en el plano
+      const pp = (e.plano && Array.isArray(e.plano.pers)) ? e.plano.pers.filter(x => x && PISO_QUIEN.includes(x.quien) && x.quien !== 'yo') : [], hb = pp.filter(x => x.mood === 'hablar');
+      const pick = hb.length === 1 ? hb[0] : (pp.length === 1 ? pp[0] : null); if (pick) sc.habla = pick.quien;
+    }
     if (['puerta','notif','golpe','timbre','alarma','fallo'].includes(e.sfx)) sc.sfx = e.sfx;
     { const pl = sanitizePlano(e.plano); if (pl && pl.pers && /duch(a|ar|o|arme|arse|ando)\b|ba[ñn](ar|arme|arse|ando|era)\b|bajo la ducha|en la ducha|en toalla/i.test(texto)) pl.pers.forEach(q => { if (q.toalla !== false) q.toalla = true; }); if (pl && (e.tipo || 'normal') === 'normal') { if (pl.objeto && !PISO_OBJ_RE[pl.objeto[0]].test(texto + ' ' + (pl.objeto[1] || '') + ' ' + String(raw.titulo || '') + ' ' + String(raw.concepto || ''))) { const alt = PISO_OBJ.find(k => PISO_OBJ_RE[k].test(texto)); if (alt) { pl.objeto = [alt, '', '']; pl.vacio = false; } else { delete pl.objeto; delete pl.vacio; if (pl.plano === 'objeto' && !pl.whatsapp) { pl.plano = 'general'; if (!pl.pers || !pl.pers.length) pl.pers = [{ quien: 'yo', mood: 'neutro' }]; } } }
       sc.plano = pl; sc.codigo = planoCode(pl); } }
@@ -2964,7 +2968,10 @@ function renderSimple(){
     } else {
       h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>`;
     }
-    h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
+    if (sc) { const dlg = sc.escenas.filter(e => /«/.test(e.texto || '')).length, con = sc.escenas.filter(e => e.habla).length;
+      if (!con) h += `<p class="meta" style="color:#b45309"><b>Aviso:</b> este capítulo no indica quién habla en cada frase (falta el campo «habla»), así que todo se lee con la voz del narrador y suena igual. ${dlg ? 'Hay ' + dlg + ' frases entre «…» que deberían ser de otros personajes. ' : 'Tampoco trae diálogos entre «…». '}Copia de nuevo el «Prompt para ChatGPT» de esta web y actualízalo en ChatGPT.</p>`;
+      else if (dlg > con) h += `<p class="meta">${con} de ${dlg} frases con diálogo tienen voz de personaje; el resto las lee el narrador.</p>`; }
+        h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
     <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
     <details style="margin-top:8px"><summary>Prompt para ChatGPT</summary><div class="row"><button id="simCopyDia">Copiar prompt diario</button></div><p class="meta">Pégalo en ChatGPT: te devuelve el capítulo del día en JSON.</p></details>`;
   }
