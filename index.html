@@ -130,6 +130,7 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4" selected>M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
   <div class="row"><button id="testVoice">Probar voz</button><button id="testAllVoices">Escuchar todas las voces de España</button></div><p class="meta" id="vmsg"></p>
   <p class="meta">Voces: Pocket TTS (Kyutai, CC-BY-4.0) con las voces clonadas de la carpeta <code>voces/</code> (protagonista, Dani, Marta, casero, vecina y madre). El vídeo usa siempre estas voces; si no se pueden cargar, se detiene con un aviso en vez de usar otra.</p>
+  <details id="vozInfo"><summary>Informe de voces del último vídeo</summary><pre id="vozInfoTxt" class="meta" style="white-space:pre-wrap;font-size:12px">Aún no se ha generado ningún vídeo en esta sesión.</pre></details>
   <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
   <div hidden>
   <label class="f">Voz concreta de Piper (se rellena al cargar la voz natural)
@@ -2649,14 +2650,14 @@ async function prepare(script, S, progress){
   if (COLAB && S.voice && COLAB.sc.length !== script.escenas.length) throw new Error(`El audio de Colab tiene ${COLAB.sc.length} escenas y el capítulo ${script.escenas.length}. Genera el audio con el mismo capítulo que has pegado (o quita el audio con «Quitar audio de Colab»).`);
   if (script) script._t0 = 0;
   setQ(S.quality === '1080' ? 1.5 : 1);
-  let t = 0.1, nw = 0; const scenes = [];
+  let t = 0.1, nw = 0; const scenes = []; try { Voice.informeReset(); } catch (e) {}
   for (let i = 0; i < script.escenas.length; i++) {
     const e = script.escenas[i];
     const sc = Object.assign({}, e, { _seed: i * 7 + 3, _dir: script.direccion || null, _n: i, _total: script.escenas.length });
     const clean = e.texto.replace(/\s+/g,' ').trim();
     let words, dur, audio = null; nw += clean.split(' ').filter(Boolean).length;
     if (S.voice) { const N = script.escenas.length, el = (Date.now() - (script._t0 || (script._t0 = Date.now()))) / 1000, eta = i >= 2 ? Math.round(el / i * (N - i)) : 0, tag = `Voz · escena ${i + 1}/${N}` + (eta ? ` · quedan ~${eta >= 90 ? Math.round(eta / 60) + ' min' : eta + ' s'}` : '');
-      progress && progress(tag, i / N); const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); audio = COLAB ? colabAudio(i, clean) : await Voice.speakCast(clean, S, m => progress && progress(/Descarg|Carg|Prepar/i.test(m) ? m : tag, i / N), e.habla, moods); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
+      progress && progress(tag, i / N); Voice.escenaActual = i + 1; const moods = {}; ((e.plano && e.plano.pers) || []).forEach(q => { if (q && q.quien) moods[q.quien] = q.mood; }); audio = COLAB ? colabAudio(i, clean) : await Voice.speakCast(clean, S, m => progress && progress(/Descarg|Carg|Prepar/i.test(m) ? m : tag, i / N), e.habla, moods); words = audio.words.map(w => ({ w: w.raw, s: w.s + .12, e: w.e + .12, hi: false })); dur = Math.max(2.4, audio.dur + .12 + .35); }
     else {
       const toks = clean.split(' '), tot = toks.reduce((a, w) => a + w.length + 2, 0), span = Math.max(2.4, toks.length / 2.6 + .5); let acc = .15;
       words = toks.map(w => { const d = (w.length + 2) / tot * (span - .4); const o = { w: w.replace(/[*_]/g,''), s: acc, e: acc + d, hi: false }; acc += d; return o; }); dur = span;
@@ -3858,6 +3859,9 @@ const Voice = {
     const samples = new Float32Array(total), words = []; out.forEach(r => { samples.set(r.samples, r.off); r.words.forEach(w => words.push({ raw: w.raw, s: w.s + r.off / fs, e: w.e + r.off / fs })); });
     return { samples, fs, dur: total / fs, words };
   },
+  informe: [], escenaActual: 0,
+  informeReset(){ this.informe = []; const el = document.getElementById('vozInfoTxt'); if (el) el.textContent = 'Generando…'; },
+  informeAdd(l){ this.informe.push(l); const el = document.getElementById('vozInfoTxt'); if (el) el.textContent = this.informe.join('\n'); },
   async speakCastPocket(text, S, progress, habla, moods){
     moods = moods || {}; const parts = [];
     if (/«/.test(text)) text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push(habla && habla !== 'yo' ? { t: q.trim(), who: habla } : { t: q.trim(), who: 'yo', alto: true }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
@@ -3866,6 +3870,7 @@ const Voice = {
     for (const pt of parts) {
       const mn = pt.alto ? 'educado' : (pt.who === 'yo' ? 'harto' : '');
       let r = await this.pocketSay(pt.t.replace(/[*_#]/g, ''), pt.who, progress);
+      const dr = (r.samples.length / r.fs).toFixed(1), est = (pt.t.length / 14).toFixed(1); this.informeAdd('E' + (this.escenaActual || '?') + ' · ' + (pt.who === 'yo' ? (pt.alto ? 'yo (voz alta)' : 'yo (mente)') : pt.who) + ' · ' + dr + 's' + (dr < est * .55 ? ' · ¿CORTADA?' : '') + ' · ' + pt.t.slice(0, 38));
       r = this.mood(r, mn, pt.who, this.PITCH_PK); fs = r.fs; out.push(r);
     }
     let total = 0; out.forEach((r, i) => { r.off = total; total += r.samples.length + (i < out.length - 1 ? Math.round(.12 * fs * Math.max(r.pause || 1, (out[i + 1] || {}).pause || 1)) : 0); });
