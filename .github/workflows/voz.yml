@@ -48,8 +48,11 @@ jobs:
         if: steps.check.outputs.run == 'yes'
         run: |
           sudo apt-get install -y sox libsox-fmt-all >/dev/null 2>&1 || true
-          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
-          pip install --quiet -U qwen-tts soundfile
+          pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet qwen-tts soundfile
+          # si qwen-tts cambió torch/torchaudio por otra build, los dejamos emparejados otra vez (CPU)
+          python -c "import torch, torchaudio" || pip install --quiet --force-reinstall --no-deps torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python -c "import torch, torchaudio; print('torch', torch.__version__, 'torchaudio', torchaudio.__version__)"
       - name: Generar voces
         if: steps.check.outputs.run == 'yes'
         env:
