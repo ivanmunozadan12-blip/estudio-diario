@@ -2965,8 +2965,6 @@ function renderSimple(){
       h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>`;
     }
     h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
-    <label class="f">🔊 Audio de Colab (opcional)<input type="file" id="simAudio" accept=".json,application/json"></label>
-    <p class="meta" id="simAudioMsg">${COLAB ? 'Audio cargado: ' + COLAB.sc.length + ' escenas. ' : 'Sin audio de Colab: se usa la voz de la web. '}${COLAB ? '<button id="simAudioOff">Quitar audio de Colab</button>' : ''}</p>
     <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
     <details style="margin-top:8px"><summary>Prompt para ChatGPT</summary><div class="row"><button id="simCopyDia">Copiar prompt diario</button></div><p class="meta">Pégalo en ChatGPT: te devuelve el capítulo del día en JSON.</p></details>`;
   }
