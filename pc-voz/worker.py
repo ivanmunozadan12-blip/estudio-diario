@@ -114,9 +114,10 @@ def instruct_para(who, mood, alto):
 # MODO 'diseno': el sistema antiguo (voz nueva en cada frase).
 import gc, threading
 import numpy as np, soundfile as sf, torch
-from qwen_tts import Qwen3TTSModel
+try: from qwen_tts import Qwen3TTSModel
+except Exception: Qwen3TTSModel = None   # en modo 'cb' (Chatterbox) solo hace falta para crear anclas que falten
 torch.set_num_threads(os.cpu_count() or 4)
-MODO = (os.environ.get('VOZ_MODO') or cfg.get('MODO') or 'clon').lower()
+MODO = (os.environ.get('VOZ_MODO') or cfg.get('MODO') or 'cb').lower()
 PRUEBA = os.environ.get('PRUEBA') == '1'
 REF_V = 'r1'                                   # cambia esto para crear voces nuevas (se vuelven a crear las anclas)
 ALTO_ANCLA = (os.environ.get('ALTO_ANCLA') or cfg.get('ALTO_ANCLA') or '0') == '1'   # 1 = el narrador en voz alta usa un ancla propia
@@ -137,6 +138,7 @@ def hilo_latido():
         except Exception: pass
         time.sleep(10)
 def cargar(nombre):
+    if Qwen3TTSModel is None: raise RuntimeError('qwen-tts no esta instalado (hace falta para crear voces ancla nuevas)')
     if nombre not in _modelos:
         log('Cargando modelo', nombre, '(1-2 min)...'); t0 = time.time()
         _modelos[nombre] = Qwen3TTSModel.from_pretrained(nombre, device_map='cpu', dtype=torch.float32)
@@ -196,6 +198,27 @@ def ancla_wav(nombre):
     if a.ndim > 1: a = a.mean(axis=1)
     ANCLAS[nombre] = (a, sr); return ANCLAS[nombre]
 
+# ---------- motor Chatterbox multilingue (MODO 'cb'): clona la voz de referencia de cada personaje ----------
+EXA = {'enfado': .8, 'panico': .85, 'asombro': .7, 'risa': .7, 'sonrisa': .55, 'nervioso': .65, 'sarcastico': .6, 'burlon': .6}   # 0.5 = normal
+REFS_CB = {}
+def cb_modelo():
+    if 'cb' not in _modelos:
+        log('Cargando Chatterbox multilingue (1-2 min)...'); t0 = time.time()
+        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+        _modelos['cb'] = ChatterboxMultilingualTTS.from_pretrained(device='cpu'); log('Modelo listo en', round(time.time() - t0), 's')
+    return _modelos['cb']
+def ref_cb(nombre):
+    """ruta del wav de referencia: la que subiste tu (ref_u_<nombre>.wav) o, si no hay, el ancla de Qwen"""
+    if nombre in REFS_CB: return REFS_CB[nombre]
+    os.makedirs('/tmp/refs_cb' if os.name != 'nt' else os.path.join(HERE, 'refs_cb'), exist_ok=True)
+    ruta = os.path.join('/tmp/refs_cb' if os.name != 'nt' else os.path.join(HERE, 'refs_cb'), nombre + '.wav'); b = None
+    try: b = api('GET', '/storage/v1/object/voz/ref_u_%s.wav' % nombre, raw=True)
+    except Exception: b = None
+    if b: log('   referencia propia para', nombre)
+    else:
+        a, sr = ancla_wav(nombre); b, _ = a_wav(a, sr); log('   referencia automatica (ancla) para', nombre)
+    open(ruta, 'wb').write(b); REFS_CB[nombre] = ruta; return ruta
+
 def nombre_ancla(who, alto):
     if who == 'yo': return 'yo_alto' if (alto and ALTO_ANCLA) else 'yo'
     return who if who in REF_TEXT else 'yo'
@@ -207,6 +230,9 @@ def prompt_de(nombre):
     return PROMPTS[nombre]
 
 def preparar():
+    if MODO == 'cb':
+        for n in ['yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela']: ref_cb(n)
+        cb_modelo(); return
     """crea/descarga las anclas que falten y deja cargado solo el modelo que hace falta (asi no se llena la memoria)"""
     if MODO != 'clon': cargar(M_DISENO); return
     nombres = ['yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'] + (['yo_alto'] if (ALTO_ANCLA or PRUEBA) else [])
@@ -218,6 +244,10 @@ def preparar():
 def generar(j, modo=None):
     who = j.get('who') or 'yo'; alto = bool(j.get('alto')); modo = modo or MODO
     txt = ' '.join(str(j.get('text') or '').split()); sembrar(who)
+    if modo == 'cb':
+        m = cb_modelo(); exa = 0.5 if who == 'yo' else EXA.get(j.get('mood') or '', 0.5)
+        w = m.generate(txt, language_id='es', audio_prompt_path=ref_cb(nombre_ancla(who, alto)), exaggeration=exa, cfg_weight=0.4)
+        return a_wav(limpiar_audio(w.squeeze().cpu().numpy(), m.sr), m.sr)
     if modo == 'clon':
         wavs, sr = cargar(M_CLON).generate_voice_clone(text=txt, language='Spanish', voice_clone_prompt=prompt_de(nombre_ancla(who, alto)))
     else:
@@ -240,7 +270,7 @@ def hacer_pruebas():
         a, sr = ancla_wav(n); wav, _ = a_wav(a, sr)
         api('POST', '/storage/v1/object/voz/prueba_00_ancla_%s.wav' % n, wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
     for i, (who, tag, txt, alto) in enumerate(PRUEBAS):
-        t = time.time(); wav, dur = generar({'who': who, 'text': txt, 'alto': alto}, 'clon')
+        t = time.time(); wav, dur = generar({'who': who, 'text': txt, 'alto': alto})
         api('POST', '/storage/v1/object/voz/prueba_%02d_%s_%s.wav' % (i + 1, who, tag), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
         log('   prueba %d/%d %s/%s: %.1f s de audio en %.0f s' % (i + 1, len(PRUEBAS), who, tag, dur, time.time() - t))
     avisar_pruebas()

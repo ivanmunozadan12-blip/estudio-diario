@@ -135,7 +135,9 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
     <label class="f">Supabase · Project URL<input id="sbUrl" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
     <label class="f">Supabase · clave anon / publishable<input id="sbKey" type="text" placeholder="eyJ… o sb_publishable_…" autocomplete="off"></label>
     <label class="f"><span><input type="checkbox" id="pcVoz" checked> Usar el PC para las voces (si está apagado, uso Pocket en el móvil)</span></label>
-    <div class="row"><button id="pcTest">Comprobar conexión con el PC</button><button id="pcPruebas">Escuchar pruebas de voz</button></div><p class="meta" id="pcMsg"></p><div id="pcPruebasLista" class="meta"></div>
+    <div class="row"><button id="pcTest">Comprobar conexión con el PC</button><button id="pcPruebas">Escuchar pruebas de voz</button></div><p class="meta" id="pcMsg"></p>
+    <p class="meta"><b>Voces de referencia propias</b> (5 a 10 s hablando natural, sin ruido; se usan para clonar la voz de ese personaje).</p>
+    <div class="row"><select id="refWho"><option value="yo">Narrador (mente)</option><option value="amigo">Dani</option><option value="amiga">Marta</option><option value="jefe">Casero</option><option value="abuela">Vecina</option><option value="madre">Madre</option></select><input type="file" id="refFile" accept="audio/*,video/*"><button id="refSubir">Subir voz de referencia</button></div><p class="meta" id="refMsg"></p><div id="pcPruebasLista" class="meta"></div>
   </details>
   <details id="vozInfo"><summary>Informe de voces del último vídeo</summary><pre id="vozInfoTxt" class="meta" style="white-space:pre-wrap;font-size:12px">Aún no se ha generado ningún vídeo en esta sesión.</pre></details>
   <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
@@ -4005,7 +4007,7 @@ const Voice = {
     return this.polish({ samples, fs, dur: total / fs, words });
   },
   /* Voz del PC: Qwen3-TTS en tu ordenador, a través de una cola en Supabase (tabla voz_jobs + bucket «voz»). */
-  PC_V: 'v3',
+  PC_V: 'v4',
   pcCfg(){ return { url: String(store.get('set:sbUrl', '') || '').trim().replace(/\/+$/, ''), key: String(store.get('set:sbKey', '') || '').trim() }; },
   pcOn(){ const c = this.pcCfg(); return !!(c.url && c.key) && store.get('set:pcVoz', '1') !== '0' && store.get('set:pcVoz', '1') !== false; },
   async pcApi(method, path, body, extra){
@@ -4198,6 +4200,26 @@ Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, p
       const w = await Voice.pcVivo();
       m.textContent = w ? '✔ Supabase responde y el PC («' + w + '») está conectado y esperando frases.' : '✔ Supabase responde, pero el PC no está conectado. Abre iniciar_voces.bat en el ordenador (las frases esperan en la cola).';
     } catch (e) { m.textContent = '✖ ' + (e && e.message || e) + ' · ¿has ejecutado supabase.sql y pegado bien la URL y la clave?'; }
+  });
+  const rb = document.getElementById('refSubir'), rm = document.getElementById('refMsg');
+  if (rb) rb.addEventListener('click', async () => {
+    const f = document.getElementById('refFile').files[0], who = document.getElementById('refWho').value;
+    if (!f) { rm.textContent = 'Elige primero el archivo de audio.'; return; }
+    store.set('set:sbUrl', u.value.trim()); store.set('set:sbKey', k.value.trim()); rm.textContent = 'Procesando…';
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
+      const buf = await ctx.decodeAudioData(await f.arrayBuffer()); ctx.close();
+      const SR = 24000, len = Math.min(Math.ceil(buf.duration * SR), SR * 12);
+      const oc = new OfflineAudioContext(1, len, SR), src = oc.createBufferSource(); src.buffer = buf; src.connect(oc.destination); src.start();
+      const d = (await oc.startRendering()).getChannelData(0);
+      const out = new DataView(new ArrayBuffer(44 + d.length * 2)), W = (o, t) => { for (let i = 0; i < t.length; i++) out.setUint8(o + i, t.charCodeAt(i)); };
+      W(0, 'RIFF'); out.setUint32(4, 36 + d.length * 2, true); W(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true); out.setUint32(24, SR, true); out.setUint32(28, SR * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); W(36, 'data'); out.setUint32(40, d.length * 2, true);
+      let pk = 0; for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); const g = pk > 0 ? .89 / pk : 1;
+      for (let i = 0; i < d.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i] * g)) * 32767, true);
+      const c = Voice.pcCfg(); const r = await fetch(c.url + '/storage/v1/object/voz/ref_u_' + who + '.wav', { method: 'POST', headers: { apikey: c.key, Authorization: 'Bearer ' + c.key, 'Content-Type': 'audio/wav', 'x-upsert': 'true' }, body: out.buffer });
+      if (!r.ok) throw new Error('Supabase ' + r.status + ' ' + (await r.text()).slice(0, 120));
+      rm.textContent = '✔ Voz de referencia subida (' + (d.length / SR).toFixed(1) + ' s). Se usa desde la próxima tanda de voces.';
+    } catch (e) { rm.textContent = '✖ ' + (e && e.message || e); }
   });
   const bp = document.getElementById('pcPruebas'), lp = document.getElementById('pcPruebasLista');
   if (bp && lp) bp.addEventListener('click', () => {

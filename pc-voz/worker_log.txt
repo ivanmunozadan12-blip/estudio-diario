@@ -1,0 +1,33 @@
+08:36:57 Preparando voces (modo cb)...
+08:36:57    referencia propia para yo
+08:36:57 Creando la voz fija de amigo ...
+08:36:57 Cargando modelo Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign (1-2 min)...
+08:36:57 Modelo listo en 0 s
+08:36:57    ancla subida: ref_r1_amigo.wav
+08:36:57    referencia automatica (ancla) para amigo
+08:36:57 Creando la voz fija de amiga ...
+08:36:57    ancla subida: ref_r1_amiga.wav
+08:36:57    referencia automatica (ancla) para amiga
+08:36:57 Creando la voz fija de jefe ...
+08:36:57    ancla subida: ref_r1_jefe.wav
+08:36:57    referencia automatica (ancla) para jefe
+08:36:57 Creando la voz fija de madre ...
+08:36:57    ancla subida: ref_r1_madre.wav
+08:36:57    referencia automatica (ancla) para madre
+08:36:57 Creando la voz fija de abuela ...
+08:36:57    ancla subida: ref_r1_abuela.wav
+08:36:57    referencia automatica (ancla) para abuela
+08:36:57 Cargando Chatterbox multilingue (1-2 min)...
+08:36:57 Modelo listo en 0 s
+08:36:57 Listo. Esperando frases de la cola. NO CIERRES ESTA VENTANA.
+08:36:57 [yo] Abres la nevera.
+08:36:57    listo: 1.5 s de audio en 0 s (media x0.0) · frases hechas: 1
+08:36:57 [amigo] Que no.
+08:36:57    listo: 0.9 s de audio en 0 s (media x0.0) · frases hechas: 2
+08:36:57 [yo] Me ha cerrado hasta la compra.
+08:36:57    listo: 2.3 s de audio en 0 s (media x0.0) · frases hechas: 3
+08:36:57 [amiga] No pasa nada. Norma once.
+08:36:57    listo: 2.0 s de audio en 0 s (media x0.0) · frases hechas: 4
+08:36:57 [yo/alto] Por supuesto, pase.
+08:36:57    listo: 1.6 s de audio en 0 s (media x0.0) · frases hechas: 5
+08:38:27 Cola vacia. Termino.
