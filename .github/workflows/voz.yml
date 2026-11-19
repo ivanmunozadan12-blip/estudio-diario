@@ -9,6 +9,10 @@ on:
         description: 'Solo generar muestras de voz de prueba'
         type: boolean
         default: false
+      motor:
+        description: 'Probar otro motor (chatterbox)'
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -25,9 +29,11 @@ jobs:
           URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_KEY }}
           PRUEBA: ${{ inputs.prueba }}
+          MOTOR: ${{ inputs.motor }}
         run: |
           echo "run=no" >> "$GITHUB_OUTPUT"
           if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "Faltan los secretos SUPABASE_URL y SUPABASE_KEY"; exit 0; fi
+          if [ -n "$MOTOR" ]; then echo "run=no" >> "$GITHUB_OUTPUT"; echo "motor=$MOTOR" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$PRUEBA" = "true" ]; then echo "run=yes" >> "$GITHUB_OUTPUT"; echo 'modo prueba'; exit 0; fi
           URL="${URL%/}"
           H=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY")
@@ -71,3 +77,20 @@ jobs:
           PRUEBA: ${{ inputs.prueba && '1' || '' }}
           PYTHONUNBUFFERED: '1'
         run: python pc-voz/worker.py
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.motor == 'chatterbox'
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.motor == 'chatterbox'
+        with:
+          python-version: '3.11'
+      - name: Probar Chatterbox multilingue
+        if: steps.check.outputs.motor == 'chatterbox'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PYTHONUNBUFFERED: '1'
+        run: |
+          python -m venv /tmp/cb && . /tmp/cb/bin/activate
+          pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet chatterbox-tts soundfile
+          python pc-voz/prueba_motores.py
