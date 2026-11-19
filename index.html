@@ -135,7 +135,7 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
     <label class="f">Supabase · Project URL<input id="sbUrl" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
     <label class="f">Supabase · clave anon / publishable<input id="sbKey" type="text" placeholder="eyJ… o sb_publishable_…" autocomplete="off"></label>
     <label class="f"><span><input type="checkbox" id="pcVoz" checked> Usar el PC para las voces (si está apagado, uso Pocket en el móvil)</span></label>
-    <div class="row"><button id="pcTest">Comprobar conexión con el PC</button></div><p class="meta" id="pcMsg"></p>
+    <div class="row"><button id="pcTest">Comprobar conexión con el PC</button><button id="pcPruebas">Escuchar pruebas de voz</button></div><p class="meta" id="pcMsg"></p><div id="pcPruebasLista" class="meta"></div>
   </details>
   <details id="vozInfo"><summary>Informe de voces del último vídeo</summary><pre id="vozInfoTxt" class="meta" style="white-space:pre-wrap;font-size:12px">Aún no se ha generado ningún vídeo en esta sesión.</pre></details>
   <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
@@ -2473,9 +2473,9 @@ COHERENCIA Y GRACIA (errores que NO puedes cometer):
 - Sin chistes a costa de una discapacidad ni de rasgos físicos de nadie («parezco un ciego», etc.): el humor sale de la situación.
 
 REGLAS DE DIRECCIÓN:
-- LONGITUD DE ESCENA: máximo 12 palabras por escena en total (narración + diálogo). Si un personaje dice una frase larga, esa frase va en su propia escena. Las escenas de más de 7 segundos aburren.
+- LONGITUD DE ESCENA: máximo 10 palabras por escena en total (narración + diálogo). Si un personaje dice una frase larga, esa frase va en su propia escena. Las escenas de más de 7 segundos aburren.
 - RITMO: cada 15 o 20 segundos (4 o 5 escenas) tiene que pasar algo NUEVO: entra un personaje, cambia de estancia, llega un mensaje, aparece un objeto, hay un giro. Nunca más de 2 escenas seguidas con el mismo plano. Alterna: plano general, primer plano de cara, objeto enorme, chat. Menos primeros planos de cara (máximo 1 de cada 3 escenas).
-- DURACIÓN OBLIGATORIA: el vídeo dura MÍNIMO 90 segundos (objetivo 100 a 120). Eso son de 28 a 34 escenas (cada una dura unos 3 a 4 segundos). Un vídeo con menos de 28 escenas se rechaza. Cada escena 1 o 2 frases de 3 a 12 palabras.
+- DURACIÓN OBLIGATORIA: el vídeo dura MÍNIMO 90 segundos y MÁXIMO 120 (objetivo 105). Se habla a unas 2,4 palabras por segundo y cada escena suma más de 1 s de pausa, así que son de 26 a 30 escenas y entre 170 y 200 palabras EN TOTAL (media 6 o 7 por escena, ninguna con más de 10). Menos de 165 palabras se queda corto y más de 210 se pasa de 120 s: cuéntalas antes de entregar.
 - Estructura en 4 actos: (1) gancho y problema, escenas 1-5; (2) investigación o escalada con 3 o 4 giros cada vez más incómodos, escenas 6-20; (3) el giro que lo cambia todo, escenas 21-27; (4) remate seco y vuelta al gancho, últimas 3 escenas. Cada acto con situaciones DISTINTAS (no repitas el mismo chiste). Estilo de la cuenta: el narrador cuenta en primera persona, con frases entrecortadas y golpes secos.
 - Alterna plano general y plano «cerca» (reacciones enormes). Máximo 2 escenas seguidas con el mismo set y el mismo plano. Cambia "mood" en cada escena según lo que se cuenta.
 - Mete 1 o 2 «hud», 1 «noticia» o 1 «sello» y 1 o 2 «etiqueta» en todo el vídeo (no en todas las escenas).
@@ -2511,7 +2511,7 @@ EJEMPLO DE FORMATO (solo para que veas la forma exacta; NO copies su contenido):
 
 ════ PASO 3: REVISIÓN ANTES DE ENTREGAR (hazla en silencio, no la escribas) ════
 Comprueba y corrige hasta que TODO se cumpla:
-- Mínimo 28 escenas (entre 28 y 34). Dura 100 a 120 s. Si tienes menos, añade escenas con situaciones nuevas, no estires las mismas.
+- Entre 26 y 30 escenas y entre 170 y 200 palabras en total: dura entre 90 y 120 s. Si te falta, añade escenas con situaciones nuevas, no estires las mismas; si te pasas, recorta frases.
 - Las escenas 1 y 2 van limpias (sin palabrotas) y la 1 es un gancho de 6 a 12 palabras que mete en el problema sin presentar nada.
 - Palabrotas dosificadas: entre 3 y 5 en todo el capítulo (CUÉNTALAS una a una: si hay más de 5, quita las sobrantes; si caen a intervalos regulares, muévelas), integradas en la frase y no pegadas al final, ninguna en las escenas 1 y 2, nunca en dos escenas seguidas, ninguna repetida, cada una justo después de un golpe de la situación y dirigida a la cosa concreta que ha pasado; alguna vez el narrador aguanta sin soltarla y eso también hace gracia.
 - El giro explica lo anterior sin contradecirlo, el remate cierra el chiste central del capítulo (no un comentario genérico) y en los chats los mensajes de otros personajes no llevan «Yo:».
@@ -2525,7 +2525,7 @@ Comprueba y corrige hasta que TODO se cumpla:
 - ENCUADRE: al menos 3 escenas con plano "cerca" (primer plano del narrador o de quien habla, en los momentos de más emoción) y el resto "general"; en las escenas donde el narrador habla en voz alta a alguien, ese alguien sale en "pers" (si habla con Dani, Dani está en la escena).
 - ESCENAS VISIBLES: si el texto dice que alguien hace algo, ese personaje sale en "pers" de esa escena; «objeto» solo se usa con plano "objeto" y con un nombre de la lista (no inventes «sudadera» ni similares; si el objeto no está en la lista, cuéntalo con el texto, la etiqueta o el hud).
 - DECORADO = DONDE OCURRE: la acción pasa en el sitio donde está la cosa (la puerta de entrada → pasillo o portal; el grifo → bano; la comida → cocina). No pongas «dormitorio» o «terraza» a una escena que habla de la puerta, el jabón o el microondas solo por variar: varía poniendo a los personajes en los sitios donde ese objeto tiene sentido.
-- DURACIÓN: 100 a 120 s = como MÁXIMO 280 palabras en total (unas 9 por escena). Si pasas, recorta frases largas y quita escenas de relleno; nunca dos frases seguidas en el mismo texto de escena.
+- DURACIÓN: 90 a 120 s = entre 170 y 200 palabras en total (unas 6 o 7 por escena). Si pasas de 200, recorta frases largas y quita escenas de relleno; nunca dos frases seguidas en el mismo texto de escena.
 - NADA DE TACOS DENTRO DE «…» DEL NARRADOR: lo que dice en voz alta es siempre educado; las palabrotas van en su pensamiento, fuera de las comillas.
 - CONTEO FINAL: cuenta palabrotas (de 3 a 5; si hay 2, añade una justificada), sfx (de 8 a 10; si hay más, quita), escenas con «…» del narrador (3 o más) y primeros planos (3 o más) antes de entregar.
 - UNA SOLA CAUSA: el misterio o problema tiene UNA causa física concreta (un aparato, una persona, una norma) y el giro la revela sin cambiarla por otra. Si el problema es el microondas, la explicación no puede ser «eran alarmas del móvil»; si empieza con una cosa, el giro la explica con esa misma cosa.
@@ -2562,7 +2562,7 @@ ${PISO_TACOS}
 
 FORMATO DE ENTREGA (OBLIGATORIO): responde SOLO con UN bloque de código (\`\`\`json … \`\`\`) que contenga un único objeto JSON válido, sin comentarios, sin texto fuera y sin más bloques de código. NO escribas código de escenas ni «### ESCENA». Forma exacta:
 {"titulo":"","descripcion":"","hashtags":["pisocompartido","humor"],"musica":"alegre","concepto":"","protagonista":null,"escenas":[{"texto":"","habla":"","voz":"harto","plano":{"set":"cocina","plano":"general","pers":[{"quien":"yo","mood":"asombro","look":-1}]},"camara":"zoomin"}]}
-Recuerda: mínimo 28 escenas (90 s). Entrega TODAS las escenas de una vez, sin pararte, sin preguntar y sin resumir.`;
+Recuerda: entre 26 y 30 escenas y 170 a 200 palabras en total (90 a 120 s). Entrega TODAS las escenas de una vez, sin pararte, sin preguntar y sin resumir.`;
 }
 function masterPrompt(i, S, mode){
   const sl = slots[i]; let topic = (sl.topic || '').trim();
@@ -2631,7 +2631,7 @@ function importPackage(text, i){
   if (keep) script.escenas.forEach((e, k) => { if ((e.tipo || 'normal') === 'normal' && old.escenas[k].codigo) { e.codigo = old.escenas[k].codigo; ok++; } });
   script.programadas = ok; script.conPlantilla = at < 0 && !keep ? script.escenas.filter(e => (e.tipo || 'normal') === 'normal').length - ok : script.escenas.filter(e => (e.tipo || 'normal') === 'normal').length - ok; script.sinFuentes = true;
   if (!sl.topic) sl.topic = script.titulo;
-  { const dur = script.escenas.reduce((a, e) => a + estSceneDur(e), 0); script.durEst = dur; if (dur < 90) errs.push(`AVISO: el vídeo dura unos ${Math.round(dur)} s y tiene que durar mínimo 90 s. Pídele a ChatGPT más escenas (28 o más) con: «Faltan escenas: el vídeo debe durar mínimo 90 s. Entrégalo de nuevo con 30 escenas.»`); }
+  { const dur = script.escenas.reduce((a, e) => a + estSceneDur(e), 0); script.durEst = dur; if (dur < 90) errs.push(`AVISO: el vídeo dura unos ${Math.round(dur)} s y tiene que durar mínimo 90 s. Pídele a ChatGPT más escenas con: «Faltan escenas: el vídeo debe durar mínimo 90 s. Entrégalo de nuevo con 28 escenas.»`); else if (dur > 125) errs.push(`AVISO: el vídeo dura unos ${Math.round(dur)} s y tiene que durar máximo 120 s. Pídele a ChatGPT: «Te pasas de 120 s: recorta a 200 palabras en total y 28 escenas, frases más cortas.»`); }
   sl.script = script; sl.err = ''; persist();
   return { ok, errs, total: script.escenas.length };
 }
@@ -4003,7 +4003,7 @@ const Voice = {
     return this.polish({ samples, fs, dur: total / fs, words });
   },
   /* Voz del PC: Qwen3-TTS en tu ordenador, a través de una cola en Supabase (tabla voz_jobs + bucket «voz»). */
-  PC_V: 'v2',
+  PC_V: 'v3',
   pcCfg(){ return { url: String(store.get('set:sbUrl', '') || '').trim().replace(/\/+$/, ''), key: String(store.get('set:sbKey', '') || '').trim() }; },
   pcOn(){ const c = this.pcCfg(); return !!(c.url && c.key) && store.get('set:pcVoz', '1') !== '0' && store.get('set:pcVoz', '1') !== false; },
   async pcApi(method, path, body, extra){
@@ -4196,6 +4196,15 @@ Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, p
       const w = await Voice.pcVivo();
       m.textContent = w ? '✔ Supabase responde y el PC («' + w + '») está conectado y esperando frases.' : '✔ Supabase responde, pero el PC no está conectado. Abre iniciar_voces.bat en el ordenador (las frases esperan en la cola).';
     } catch (e) { m.textContent = '✖ ' + (e && e.message || e) + ' · ¿has ejecutado supabase.sql y pegado bien la URL y la clave?'; }
+  });
+  const bp = document.getElementById('pcPruebas'), lp = document.getElementById('pcPruebasLista');
+  if (bp && lp) bp.addEventListener('click', () => {
+    store.set('set:sbUrl', u.value.trim()); store.set('set:sbKey', k.value.trim());
+    const base = u.value.trim().replace(/\/+$/, '') + '/storage/v1/object/public/voz/';
+    if (!/^https?:/.test(base)) { lp.textContent = 'Primero pega la URL de Supabase.'; return; }
+    const L = [['Voz fija de cada personaje (la referencia)', ['yo', 'yo_alto', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'].map(n => ['ancla ' + n, 'prueba_00_ancla_' + n + '.wav'])],
+      ['Frases de ejemplo', [['yo 1','prueba_01_yo_mente.wav'],['yo 2','prueba_02_yo_mente2.wav'],['yo en voz alta','prueba_03_yo_alto.wav'],['yo asombro','prueba_04_yo_asombro.wav'],['Marta 1','prueba_05_amiga_a.wav'],['Marta 2','prueba_06_amiga_b.wav'],['Dani 1','prueba_07_amigo_a.wav'],['Dani 2','prueba_08_amigo_b.wav'],['casero 1','prueba_09_jefe_a.wav'],['casero 2','prueba_10_jefe_b.wav'],['vecina 1','prueba_11_abuela_a.wav'],['vecina 2','prueba_12_abuela_b.wav'],['madre 1','prueba_13_madre_a.wav'],['madre 2','prueba_14_madre_b.wav']]]];
+    lp.innerHTML = L.map(g => '<p><b>' + g[0] + '</b></p>' + g[1].map(x => '<div style="margin:4px 0">' + x[0] + '<br><audio controls preload="none" src="' + base + x[1] + '?t=' + Date.now() + '" style="width:100%"></audio></div>').join('')).join('');
   });
 })();
 </script>

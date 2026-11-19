@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      prueba:
+        description: 'Solo generar muestras de voz de prueba'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -19,9 +24,11 @@ jobs:
         env:
           URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_KEY }}
+          PRUEBA: ${{ inputs.prueba }}
         run: |
           echo "run=no" >> "$GITHUB_OUTPUT"
           if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "Faltan los secretos SUPABASE_URL y SUPABASE_KEY"; exit 0; fi
+          if [ "$PRUEBA" = "true" ]; then echo "run=yes" >> "$GITHUB_OUTPUT"; echo 'modo prueba'; exit 0; fi
           URL="${URL%/}"
           H=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY")
           LIM=$(date -u -d '25 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
@@ -43,7 +50,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: qwen3-tts-1.7b-voicedesign-v1
+          key: qwen3-tts-1.7b-voz-fija-v1
       - name: Instalar dependencias
         if: steps.check.outputs.run == 'yes'
         run: |
@@ -61,5 +68,6 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           ONCE: '1'
           WORKER_NAME: GitHub
+          PRUEBA: ${{ inputs.prueba && '1' || '' }}
           PYTHONUNBUFFERED: '1'
         run: python pc-voz/worker.py
