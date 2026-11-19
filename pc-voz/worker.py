@@ -131,7 +131,7 @@ def con_cola(a, sr, seg=0.6):
     return np.concatenate([np.zeros(int(sr * 0.15), np.float32), a, np.zeros(int(sr * seg), np.float32)])
 
 # eco de la sala de cada referencia: 'suave' o 'fuerte' (resta de la reverberacion). Cambia aqui si hace falta
-SECA = {'abuela': (0.7, 0.05, 0.12)}
+SECA = {'abuela': (1.0, 0.03, 0.08)}   # eco muy reducido (elegido por el usuario)
 SECA_PRUEBAS = {'abuela_orig': None, 'abuela_fuerte': (1.0, 0.03, 0.08)}
 
 def a_wav(a, sr):
