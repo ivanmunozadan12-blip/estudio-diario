@@ -3023,19 +3023,23 @@ function refreshUI(){
   [0,1,2].forEach(renderSlot); renderSimple(); $('#allBtn').disabled = running; $('#stopBtn').hidden = !running && !current;
 }
 function toMarkdownScript(s){ return s.escenas.map(e => e.texto.replace(/\*/g,'')).join('\n'); }
+function capNum(s){ return (s && s.cap) || (store.get('capN', 1) + 1); }
 function captions(s, k){
-  const tags = s.hashtags.map(h => '#' + h);
+  const tags = s.hashtags.map(h => '#' + h), n = capNum(s), titulo = String(s.titulo || '').replace(/\s*[·\-–:]?\s*cap[ií]tulo\s*\d+\.?\s*$/i, '').trim(),
+    desc = String(s.descripcion || '').replace(/^\s*cap[ií]tulo\s*\d+\.?\s*/i, ''), conCap = `Capítulo ${n}. ${desc}`.trim();
   if (k === 'guion') return toMarkdownScript(s);
-  if (k === 'yt') return `${s.titulo.slice(0, 90)} #Shorts\n\n${s.descripcion}\n\n${tags.concat(['#Shorts']).join(' ')}`;
-  if (k === 'tt') return `${s.titulo.slice(0, 110)} ${tags.slice(0, 4).join(' ')} #fyp`;
-  return `${s.titulo}\n\n${s.descripcion}\n\n${tags.join(' ')}`;
+  if (k === 'yt') return `${titulo.slice(0, 90)} #Shorts\n\n${conCap}\n\n${tags.concat(['#Shorts']).join(' ')}`;
+  if (k === 'tt') return `${titulo.slice(0, 100)}. Capítulo ${n} ${tags.slice(0, 4).join(' ')} #fyp`;
+  return `${titulo}\n\n${conCap}\n\n${tags.join(' ')}`;
 }
+async function copiarTT(s){ if (!s || !s.script) return; try { const t = captions(s.script, 'tt'); try { await navigator.clipboard.writeText(t); } catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) {} ta.remove(); } aviso('Descripción de TikTok copiada: pégala al subir el vídeo.'); } catch (e) {} }
 async function copyText(t, btn){
   try { await navigator.clipboard.writeText(t); } catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) {} ta.remove(); }
   const o = btn.textContent; btn.textContent = 'Copiado'; setTimeout(() => btn.textContent = o, 1200);
 }
 async function shareVideo(i){
   const s = slots[i]; if (!s.blob) return;
+  copiarTT(s);
   const file = new File([s.blob], fileName(i), { type: (s.blob.type || '').split(';')[0] || (s.ext === 'mp4' ? 'video/mp4' : 'video/webm') });
   const intentos = [{ files: [file] }, { files: [file], title: s.script ? s.script.titulo : '', text: s.script ? captions(s.script, 'tt') : '' }];
   if (navigator.share) for (const d of intentos) {
@@ -3063,6 +3067,7 @@ async function prepAndPlay(i, record){
   finally { await keepAwake(false); sl.busy = ''; sl.pct = 0; $('#stopBtn').hidden = true; }
   if (record && res && res.blob && res.blob.size > 1000) {
     if (sl.url) URL.revokeObjectURL(sl.url); sl.blob = res.blob; sl.url = URL.createObjectURL(res.blob); sl.ext = /mp4/.test(res.blob.type) ? 'mp4' : 'webm'; setDone(i);
+    if (i === 0 && sl.script && !sl.script.cap) { sl.script.cap = store.get('capN', 1) + 1; store.set('capN', sl.script.cap); persist(); }
     if (i === 0 && simpleOn() && sl.script && typeof queueAdd === 'function') queueAdd(sl).catch(() => {});
   } else if (record && res === null) sl.err = '';
   renderSlot(i); refreshUI(); idleFrame(record && sl.url ? 'Vídeo grabado' : 'Fin de la vista previa'); $('#stageInfo').textContent = record && sl.url ? `Vídeo ${i+1} grabado. Guárdalo abajo.` : 'Listo';
@@ -3397,7 +3402,7 @@ async function renderQueue(){
 }
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('button[data-q]'); if (!b) return; const id = +b.dataset.id, items = await qAll(), it = items.find(x => x.id === id); if (!it) return;
-  if (b.dataset.q === 'share') return saveOrShare(it.blob, qFile(it));
+  if (b.dataset.q === 'share') { try { await navigator.clipboard.writeText(it.tt); aviso('Descripción de TikTok copiada: pégala al subir el vídeo.'); } catch (e) {} return saveOrShare(it.blob, qFile(it)); }
   if (b.dataset.q === 'yt') return copyText(it.yt, b);
   if (b.dataset.q === 'tt') return copyText(it.tt, b);
   if (b.dataset.q === 'done') { it.done = !it.done; await qPut(it); return renderQueue(); }
