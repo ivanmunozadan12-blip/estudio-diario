@@ -155,12 +155,16 @@ def ref(nombre):
 
 def nombre_ref(who):
     if who in SECA_PRUEBAS or who in REF_CORTE: return who
-    return who if who in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'yo'   # el narrador en voz alta usa la misma voz que su mente
+    return who if who in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela', 'novia') else 'yo'   # el narrador en voz alta usa la misma voz que su mente
 
 def prompt_de(nombre):
     if nombre not in PROMPTS:
-        base = REF_CORTE[nombre][0] if nombre in REF_CORTE else nombre if nombre in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'abuela'
-        p, t = ref(base); a, sr = sf.read(p, dtype='float32')
+        base = REF_CORTE[nombre][0] if nombre in REF_CORTE else nombre if nombre in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela', 'novia') else 'abuela'
+        try: p, t = ref(base)
+        except Exception:
+            if base != 'novia': raise
+            p, t = ref('madre')   # hasta que exista voz-ref/novia.wav+txt, la novia usa temporalmente la voz de la madre
+        a, sr = sf.read(p, dtype='float32')
         if a.ndim > 1: a = a.mean(axis=1)
         if nombre in REF_CORTE: a = a[:int(REF_CORTE[nombre][1] * sr)]; t = REF_CORTE[nombre][2]
         cfg = SECA_PRUEBAS[nombre] if nombre in SECA_PRUEBAS else SECA.get(nombre)
@@ -171,7 +175,7 @@ def prompt_de(nombre):
 
 def preparar():
     modelo()
-    for n in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'): prompt_de(n)
+    for n in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela', 'novia'): prompt_de(n)
 
 def generar(j):
     who = j.get('who') or 'yo'; txt = ' '.join(str(j.get('text') or '').split()); m = modelo(); pr = prompt_de(nombre_ref(who))
