@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Piso 3ºB · trabajador de voces. Se queda abierto en el PC: coge frases de la cola de Supabase,
-# las convierte en voz con Qwen3-TTS (1.7B, CPU; voz fija por personaje clonada desde un ancla) y sube el audio. Solo usa la libreria estandar + torch/qwen-tts.
+# las convierte en voz con Chatterbox multilingue (CPU; voz fija de cada personaje clonada desde voz-ref/) y sube el audio.
 import os, sys, time, json, io, socket, traceback, datetime, urllib.request, urllib.error, urllib.parse
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOGF = os.path.join(HERE, 'worker_log.txt')
@@ -59,93 +59,28 @@ def avisar(texto):
 
 def now_iso(): return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-# ---------- voces: ficha fija por personaje + emocion por escena (en ingles, es lo que mejor entiende el modelo) ----------
-ESP = 'Native Castilian Spanish accent from Madrid, Spain (not Latin American, not Mexican, not Portuguese, not English-accented). '
-PERSONAJES = {
-  'yo':     'Young man about 22, lazy dry low-to-mid voice, slightly hoarse, speaks slowly with very little pitch variation, always tired and fed up with everything, sarcastic but never shouting.',
-  'amigo':  'Young man about 23 (Dani), relaxed friendly mid-pitch voice, casual and a bit goofy, quick and easygoing, speaks like a flatmate and best friend.',
-  'amiga':  'Young woman about 22 (Marta), clear mid-high voice, fast and precise, sharp and sarcastic, confident, falsely sweet when she is bossy.',
-  'jefe':   'Spanish man about 55, the grumpy landlord: gruff gravelly low voice with a smoker rasp, impatient, stubborn, speaks in a short blunt way.',
-  'madre':  'Spanish woman about 52, a worried and nagging mother: warm mid voice, talks fast, slightly dramatic and reproachful, loving but overbearing.',
-  'abuela': 'Spanish woman about 70, the nosy grumpy neighbour: harsh raspy shrill voice, fast and bossy, shouts complaints and insults everyone.',
-}
-EMO = {
-  'harto': 'exhausted and fed up, flat deadpan monotone, resigned, a small sigh before the line',
-  'cansado': 'very tired, low energy, drained, slow',
-  'resignado': 'resigned and defeated, flat, giving up',
-  'triste': 'sad and subdued, quiet, a little broken',
-  'dormido': 'half asleep, mumbling, extremely low energy',
-  'enfado': 'angry and irritated, sharp, raised voice, clipped words',
-  'panico': 'panicked and frantic, fast, breathless, voice rising',
-  'asombro': 'astonished and incredulous, rising intonation, eyes wide',
-  'sonrisa': 'amused, light, smiling while speaking',
-  'risa': 'laughing while speaking, amused, breaking into giggles',
-  'asco': 'disgusted, grimacing, drawn-out words',
-  'serio': 'serious, firm and controlled',
-  'educado': 'polite and calm on the surface but with zero enthusiasm, flat and indifferent, like he does not care about anything at all',
-  'seco': 'dry, blunt, deadpan, matter-of-fact, no emotion at all',
-  'sarcastico': 'sarcastic, dripping with irony, exaggerated sweetness with a bite, slow on the key word',
-  'falso_dulce': 'falsely sweet and polite, a smile in the voice, passive-aggressive, calm but cutting',
-  'tranquilo': 'completely relaxed and unbothered, slow and confident, calm low energy, in no hurry',
-  'burlon': 'teasing and mocking, playful smirk in the voice, casual',
-  'nervioso': 'nervous and fussing, a bit fast and high, over-explaining, anxious',
-}
-# emocion por defecto de cada personaje cuando la escena no indica "voz" (el mood de animacion como 'hablar' no es una emocion)
-DEFECTO = {
-  'amiga': 'sarcastic and falsely sweet, quick and precise, passive-aggressive',
-  'amigo': 'relaxed and unbothered, calm and confident, slow and low',
-  'jefe': 'falsely friendly like a salesman in a hurry, smooth and evasive',
-  'madre': 'warm and worried, nagging with love, a bit dramatic',
-  'abuela': 'grumpy and complaining, reproachful, slow and cracked',
-}
-def instruct_para(who, mood, alto):
-    base = PERSONAJES.get(who) or PERSONAJES['yo']
-    if who == 'yo':
-        if alto: emo = EMO['educado']
-        elif mood and mood != 'harto' and mood in EMO: emo = 'mostly tired and fed up, but with a touch of this: ' + EMO[mood]
-        else: emo = EMO['harto']
-    else:
-        emo = EMO.get(mood or '') or DEFECTO.get(who) or 'natural and expressive, matching the personality'
-    return ESP + base + ' Emotion and delivery: ' + emo + '. Natural pace, realistic human speech.'
 
-# ---------- modelo ----------
-# MODO 'clon' (por defecto): cada personaje tiene UNA voz fija (un "ancla" creada una vez con VoiceDesign y guardada en Supabase);
-# todas sus frases se generan clonando esa ancla con el modelo Base, asi suena igual en todas las frases, capitulos y trabajadores.
-# MODO 'diseno': el sistema antiguo (voz nueva en cada frase).
-import gc, threading
-import numpy as np, soundfile as sf, torch
-try: from qwen_tts import Qwen3TTSModel
-except Exception: Qwen3TTSModel = None   # en modo 'cb' (Chatterbox) solo hace falta para crear anclas que falten
+# ---------- motor de voz: Chatterbox multilingue (MIT, CPU). Clona la voz de referencia de cada personaje (carpeta voz-ref/) ----------
+import gc, threading, numpy as np, soundfile as sf, torch
 torch.set_num_threads(os.cpu_count() or 4)
-MODO = (os.environ.get('VOZ_MODO') or cfg.get('MODO') or 'cb').lower()
 PRUEBA = os.environ.get('PRUEBA') == '1'
-REF_V = 'r1'                                   # cambia esto para crear voces nuevas (se vuelven a crear las anclas)
-ALTO_ANCLA = (os.environ.get('ALTO_ANCLA') or cfg.get('ALTO_ANCLA') or '0') == '1'   # 1 = el narrador en voz alta usa un ancla propia
-M_DISENO = 'Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign'; M_CLON = 'Qwen/Qwen3-TTS-12Hz-1.7B-Base'
-REF_TEXT = {   # texto de cada ancla (unos 8-10 s de habla natural en el tono del personaje)
-  'yo':     'Vale, Dani. Otra vez lo mismo. No pasa nada, de verdad, ya me acostumbraré a todo esto, como siempre.',
-  'yo_alto':'Claro, por supuesto, no hay ningún problema. Me parece una idea estupenda, de verdad, muchas gracias por avisar.',
-  'amigo':  'Tranquilo, tío, es lo que hay. Yo solo estoy entrenando un poquito, no te rayes, que luego te invito a algo.',
-  'amiga':  'Os lo dije en el grupo, literal. Hay normas y se cumplen, así que a partir de hoy todo funciona por turnos.',
-  'jefe':   'Buenas, voy a echar un vistazo. Esto lo arreglo yo en dos minutos, que lo he hecho mil veces, no se preocupe.',
-  'madre':  'Pero hijo, tú comes bien, ¿verdad? Te noto muy delgado, y esa casa tiene que estar hecha un desastre.',
-  'abuela': 'En mis tiempos esto no pasaba, hijo. Vengo a quejarme, que hay un ruido terrible y yo no puedo dormir.',
-}
-_modelos = {}; PROMPTS = {}; ANCLAS = {}
+RAW = 'https://raw.githubusercontent.com/ivanmunozadan12-blip/estudio-diario/main/voz-ref/'
+EXA = {'enfado': .8, 'panico': .85, 'asombro': .7, 'risa': .7, 'sonrisa': .55, 'nervioso': .65, 'sarcastico': .6, 'burlon': .6}   # 0.5 = emocion normal (el narrador siempre 0.5)
+_modelo = None; REFS = {}
+
 def hilo_latido():
     while True:
         try: latido()
         except Exception: pass
         time.sleep(10)
-def cargar(nombre):
-    if Qwen3TTSModel is None: raise RuntimeError('qwen-tts no esta instalado (hace falta para crear voces ancla nuevas)')
-    if nombre not in _modelos:
-        log('Cargando modelo', nombre, '(1-2 min)...'); t0 = time.time()
-        _modelos[nombre] = Qwen3TTSModel.from_pretrained(nombre, device_map='cpu', dtype=torch.float32)
-        log('Modelo listo en', round(time.time() - t0), 's')
-    return _modelos[nombre]
-def descargar(nombre):
-    _modelos.pop(nombre, None); gc.collect()
+
+def modelo():
+    global _modelo
+    if _modelo is None:
+        log('Cargando Chatterbox multilingue (1-2 min)...'); t0 = time.time()
+        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+        _modelo = ChatterboxMultilingualTTS.from_pretrained(device='cpu'); log('Modelo listo en', round(time.time() - t0), 's')
+    return _modelo
 
 def sembrar(who):
     s = sum((i + 1) * ord(c) for i, c in enumerate(who or 'yo')) % 100000
@@ -178,101 +113,51 @@ def a_wav(a, sr):
     if pk > 0: a = a * (0.89 / pk)
     buf = io.BytesIO(); sf.write(buf, a, sr, format='WAV', subtype='PCM_16'); return buf.getvalue(), len(a) / sr
 
-def ancla_wav(nombre):
-    """devuelve (audio, sr) del ancla; si no existe la crea con VoiceDesign y la sube a Supabase (la primera que llega gana)"""
-    if nombre in ANCLAS: return ANCLAS[nombre]
-    fich = 'ref_%s_%s.wav' % (REF_V, nombre); b = None
-    try: b = api('GET', '/storage/v1/object/voz/' + fich, raw=True)
-    except Exception as e: b = None
-    if not b:
-        base = 'yo' if nombre == 'yo_alto' else nombre
-        ins = instruct_para(base, '', nombre == 'yo_alto')
-        log('Creando la voz fija de', nombre, '...')
-        sembrar(base); wavs, sr = cargar(M_DISENO).generate_voice_design(text=REF_TEXT[nombre], language='Spanish', instruct=ins)
-        a = limpiar_audio(wavs[0], sr); b, _ = a_wav(a, sr)
-        try: api('POST', '/storage/v1/object/voz/' + fich, b, {'Content-Type': 'audio/wav', 'x-upsert': 'false'}); log('   ancla subida:', fich)
-        except Exception as e:
-            log('   otra ejecucion creo antes el ancla, uso esa:', str(e)[:80])
-            b = api('GET', '/storage/v1/object/voz/' + fich, raw=True)
-    a, sr = sf.read(io.BytesIO(b), dtype='float32')
-    if a.ndim > 1: a = a.mean(axis=1)
-    ANCLAS[nombre] = (a, sr); return ANCLAS[nombre]
+def ref(nombre):
+    """ruta de la voz de referencia del personaje: voz-ref/<nombre>.wav del repositorio (o descargada de GitHub si no esta)"""
+    if nombre in REFS: return REFS[nombre]
+    for d in (os.path.join(HERE, '..', 'voz-ref'), os.path.join(HERE, 'voz-ref')):
+        p = os.path.join(d, nombre + '.wav')
+        if os.path.exists(p): REFS[nombre] = p; return p
+    d = os.path.join(HERE, 'voz-ref'); os.makedirs(d, exist_ok=True); p = os.path.join(d, nombre + '.wav')
+    with urllib.request.urlopen(RAW + nombre + '.wav', timeout=60) as r: open(p, 'wb').write(r.read())
+    REFS[nombre] = p; return p
 
-# ---------- motor Chatterbox multilingue (MODO 'cb'): clona la voz de referencia de cada personaje ----------
-EXA = {'enfado': .8, 'panico': .85, 'asombro': .7, 'risa': .7, 'sonrisa': .55, 'nervioso': .65, 'sarcastico': .6, 'burlon': .6}   # 0.5 = normal
-REFS_CB = {}
-def cb_modelo():
-    if 'cb' not in _modelos:
-        log('Cargando Chatterbox multilingue (1-2 min)...'); t0 = time.time()
-        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-        _modelos['cb'] = ChatterboxMultilingualTTS.from_pretrained(device='cpu'); log('Modelo listo en', round(time.time() - t0), 's')
-    return _modelos['cb']
-def ref_cb(nombre):
-    """ruta del wav de referencia: la que subiste tu (ref_u_<nombre>.wav) o, si no hay, el ancla de Qwen"""
-    if nombre in REFS_CB: return REFS_CB[nombre]
-    os.makedirs('/tmp/refs_cb' if os.name != 'nt' else os.path.join(HERE, 'refs_cb'), exist_ok=True)
-    ruta = os.path.join('/tmp/refs_cb' if os.name != 'nt' else os.path.join(HERE, 'refs_cb'), nombre + '.wav'); b = None
-    try: b = api('GET', '/storage/v1/object/voz/ref_u_%s.wav' % nombre, raw=True)
-    except Exception: b = None
-    if b: log('   referencia propia para', nombre)
-    else:
-        a, sr = ancla_wav(nombre); b, _ = a_wav(a, sr); log('   referencia automatica (ancla) para', nombre)
-    open(ruta, 'wb').write(b); REFS_CB[nombre] = ruta; return ruta
-
-def nombre_ancla(who, alto):
-    if who == 'yo': return 'yo_alto' if (alto and ALTO_ANCLA) else 'yo'
-    return who if who in REF_TEXT else 'yo'
-
-def prompt_de(nombre):
-    if nombre not in PROMPTS:
-        a, sr = ancla_wav(nombre)
-        PROMPTS[nombre] = cargar(M_CLON).create_voice_clone_prompt(ref_audio=(a, sr), ref_text=REF_TEXT[nombre])
-    return PROMPTS[nombre]
+def nombre_ref(who):
+    return who if who in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'yo'   # el narrador en voz alta usa la misma voz que su mente
 
 def preparar():
-    if MODO == 'cb':
-        for n in ['yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela']: ref_cb(n)
-        cb_modelo(); return
-    """crea/descarga las anclas que falten y deja cargado solo el modelo que hace falta (asi no se llena la memoria)"""
-    if MODO != 'clon': cargar(M_DISENO); return
-    nombres = ['yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'] + (['yo_alto'] if (ALTO_ANCLA or PRUEBA) else [])
-    for n in nombres: ancla_wav(n)
-    descargar(M_DISENO)
-    cargar(M_CLON)
-    for n in nombres: prompt_de(n)
+    for n in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'): ref(n)
+    modelo()
 
-def generar(j, modo=None):
-    who = j.get('who') or 'yo'; alto = bool(j.get('alto')); modo = modo or MODO
-    txt = ' '.join(str(j.get('text') or '').split()); sembrar(who)
-    if modo == 'cb':
-        m = cb_modelo(); exa = 0.5 if who == 'yo' else EXA.get(j.get('mood') or '', 0.5)
-        w = m.generate(txt, language_id='es', audio_prompt_path=ref_cb(nombre_ancla(who, alto)), exaggeration=exa, cfg_weight=0.4)
-        return a_wav(limpiar_audio(w.squeeze().cpu().numpy(), m.sr), m.sr)
-    if modo == 'clon':
-        wavs, sr = cargar(M_CLON).generate_voice_clone(text=txt, language='Spanish', voice_clone_prompt=prompt_de(nombre_ancla(who, alto)))
-    else:
-        wavs, sr = cargar(M_DISENO).generate_voice_design(text=txt, language='Spanish', instruct=instruct_para(who, j.get('mood'), alto))
-    return a_wav(limpiar_audio(wavs[0], sr), sr)
+def generar(j):
+    who = j.get('who') or 'yo'; txt = ' '.join(str(j.get('text') or '').split()); sembrar(who)
+    m = modelo(); exa = 0.5 if who == 'yo' else EXA.get(j.get('mood') or '', 0.5)
+    w = m.generate(txt, language_id='es', audio_prompt_path=ref(nombre_ref(who)), exaggeration=exa, cfg_weight=0.4)
+    return a_wav(limpiar_audio(w.squeeze().cpu().numpy(), m.sr), m.sr)
 
-# frases de prueba para comparar voces a oido (solo con PRUEBA=1)
+# frases de prueba de la serie, con el nombre de cada personaje (solo con PRUEBA=1)
 PRUEBAS = [
-  ('yo', 'mente', 'Me ha cerrado hasta la compra. Qué ilusión.', False), ('yo', 'mente2', 'Ahora el edificio entero conoce mi puerta.', False),
-  ('yo', 'alto', 'Por supuesto, pase. La puerta está encantada con las visitas.', True), ('yo', 'asombro', '¿Otra vez? Esto tiene que ser una broma.', False),
-  ('amiga', 'a', 'No pasa nada. Norma once: entrada silenciosa.', False), ('amiga', 'b', 'Literal, ya lo dije en el grupo.', False),
-  ('amigo', 'a', 'Tranquilo, tío, es lo que hay. Cierra sola.', False), ('amigo', 'b', 'Eso es de niños. Yo entreno con puertas más pesadas.', False),
-  ('jefe', 'a', 'Voy a echar un vistazo.', False), ('jefe', 'b', 'Ahora cierra mucho mejor. Eso es calidad.', False),
-  ('abuela', 'a', 'Vengo a quejarme. Me ha temblado el techo.', False), ('abuela', 'b', 'En mis tiempos esto no pasaba.', False),
-  ('madre', 'a', 'Pero tú comes, ¿verdad? Te noto muy delgado.', False), ('madre', 'b', 'Ay, hijo, no me cuentes más cosas.', False),
+  ('yo', 'narrador', 'harto', 'Abres la nevera y tu yogur de fresa ya no está.', False),
+  ('yo', 'narrador', 'seco', 'Llevas diez minutos esperando el baño. Y tú, claro, te rindes.', False),
+  ('yo', 'narrador', '', 'Por supuesto, Marta. Ningún problema.', True),
+  ('amigo', 'dani', 'tranquilo', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
+  ('amigo', 'dani', 'burlon', 'No te rayes, que luego te invito a algo.', False),
+  ('amiga', 'marta', 'falso_dulce', 'No pasa nada. Norma número once: prohibido el yogur ajeno.', False),
+  ('amiga', 'marta', 'sarcastico', 'Literal, lo dije en el grupo. Tres veces.', False),
+  ('jefe', 'casero', 'falso_dulce', 'Eso es humedad. Voy a echar un vistazo, no se preocupe.', False),
+  ('jefe', 'casero', 'nervioso', 'Esto lo arreglo yo en dos minutos, que lo he hecho mil veces.', False),
+  ('abuela', 'vecina', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
+  ('abuela', 'vecina', 'enfado', 'Menuda gentuza, hijo, menuda gentuza. Voy a llamar a la comunidad.', False),
+  ('madre', 'madre', 'nervioso', 'Pero hijo, ¿tú comes bien? Te noto muy delgado.', False),
+  ('madre', 'madre', 'falso_dulce', 'Esa casa tiene que estar hecha un desastre, seguro.', False),
 ]
 def hacer_pruebas():
-    log('MODO PRUEBA: anclas + frases de ejemplo (no toca la cola)')
-    for n in ['yo', 'yo_alto', 'amigo', 'amiga', 'jefe', 'madre', 'abuela']:
-        a, sr = ancla_wav(n); wav, _ = a_wav(a, sr)
-        api('POST', '/storage/v1/object/voz/prueba_00_ancla_%s.wav' % n, wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
-    for i, (who, tag, txt, alto) in enumerate(PRUEBAS):
-        t = time.time(); wav, dur = generar({'who': who, 'text': txt, 'alto': alto})
-        api('POST', '/storage/v1/object/voz/prueba_%02d_%s_%s.wav' % (i + 1, who, tag), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
-        log('   prueba %d/%d %s/%s: %.1f s de audio en %.0f s' % (i + 1, len(PRUEBAS), who, tag, dur, time.time() - t))
+    log('MODO PRUEBA: frases de la serie con la voz de cada personaje (no toca la cola)')
+    for i, (who, nombre, mood, txt, alto) in enumerate(PRUEBAS):
+        t = time.time(); wav, dur = generar({'who': who, 'mood': mood, 'text': txt, 'alto': alto})
+        api('POST', '/storage/v1/object/voz/prueba_%02d_%s.wav' % (i + 1, nombre), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
+        log('   prueba %d/%d %s: %.1f s de audio en %.0f s' % (i + 1, len(PRUEBAS), nombre, dur, time.time() - t))
     avisar_pruebas()
 
 def avisar_pruebas():
@@ -298,7 +183,7 @@ def limpiar():
         log('Limpiadas', len(viejos), 'frases de hace mas de 3 dias')
 
 threading.Thread(target=hilo_latido, daemon=True).start()
-log('Preparando voces (modo %s)...' % MODO)
+log('Preparando voces...')
 preparar()
 log('Listo. Esperando frases de la cola. NO CIERRES ESTA VENTANA.')
 if PRUEBA:

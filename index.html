@@ -130,14 +130,13 @@ body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.
     <select id="stVoice"><option value="M1">M1 · hombre enérgico y claro</option><option value="M2">M2 · hombre grave y serio</option><option value="M3">M3 · hombre firme y seguro</option><option value="M4" selected>M4 · hombre suave y joven</option><option value="M5">M5 · hombre cálido y tranquilo</option><option value="F1">F1 · mujer serena, tono grave</option><option value="F2">F2 · mujer alegre y juguetona</option><option value="F3">F3 · mujer locutora</option><option value="F4">F4 · mujer nítida y expresiva</option><option value="F5">F5 · mujer amable y suave</option></select></label>
   <div class="row"><button id="testVoice">Probar voz</button><button id="testAllVoices">Escuchar todas las voces de España</button></div><p class="meta" id="vmsg"></p>
   <p class="meta">Voces: Pocket TTS (Kyutai, CC-BY-4.0) con las voces clonadas de la carpeta <code>voces/</code> (protagonista, Dani, Marta, casero, vecina y madre). El vídeo usa siempre estas voces; si no se pueden cargar, se detiene con un aviso en vez de usar otra.</p>
-  <details id="pcBox"><summary>Voz del PC con emociones (Qwen3-TTS, gratis)</summary>
+  <details id="pcBox"><summary>Voz del PC con emociones (Chatterbox, gratis)</summary>
     <p class="meta">El móvil manda las frases a una cola gratuita (Supabase) y tu ordenador las convierte en voz con emociones mientras tú haces otra cosa. Al terminar, el vídeo se monta aquí. Guía: carpeta <code>pc-voz/</code>.</p>
     <label class="f">Supabase · Project URL<input id="sbUrl" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
     <label class="f">Supabase · clave anon / publishable<input id="sbKey" type="text" placeholder="eyJ… o sb_publishable_…" autocomplete="off"></label>
     <label class="f"><span><input type="checkbox" id="pcVoz" checked> Usar el PC para las voces (si está apagado, uso Pocket en el móvil)</span></label>
     <div class="row"><button id="pcTest">Comprobar conexión con el PC</button><button id="pcPruebas">Escuchar pruebas de voz</button></div><p class="meta" id="pcMsg"></p>
-    <p class="meta"><b>Voces de referencia propias</b> (5 a 10 s hablando natural, sin ruido; se usan para clonar la voz de ese personaje).</p>
-    <div class="row"><select id="refWho"><option value="yo">Narrador (mente)</option><option value="amigo">Dani</option><option value="amiga">Marta</option><option value="jefe">Casero</option><option value="abuela">Vecina</option><option value="madre">Madre</option></select><input type="file" id="refFile" accept="audio/*,video/*"><button id="refSubir">Subir voz de referencia</button></div><p class="meta" id="refMsg"></p><div id="pcPruebasLista" class="meta"></div>
+    <div id="pcPruebasLista" class="meta"></div>
   </details>
   <details id="vozInfo"><summary>Informe de voces del último vídeo</summary><pre id="vozInfoTxt" class="meta" style="white-space:pre-wrap;font-size:12px">Aún no se ha generado ningún vídeo en esta sesión.</pre></details>
   <details id="pvBox"><summary>Voz de cada personaje (motor «Natural»)</summary><div id="pvSel" class="meta">Pulsa «Escuchar todas las voces de España» para cargar la lista.</div></details>
@@ -4007,7 +4006,7 @@ const Voice = {
     return this.polish({ samples, fs, dur: total / fs, words });
   },
   /* Voz del PC: Qwen3-TTS en tu ordenador, a través de una cola en Supabase (tabla voz_jobs + bucket «voz»). */
-  PC_V: 'v4',
+  PC_V: 'v5',
   pcCfg(){ return { url: String(store.get('set:sbUrl', '') || '').trim().replace(/\/+$/, ''), key: String(store.get('set:sbKey', '') || '').trim() }; },
   pcOn(){ const c = this.pcCfg(); return !!(c.url && c.key) && store.get('set:pcVoz', '1') !== '0' && store.get('set:pcVoz', '1') !== false; },
   async pcApi(method, path, body, extra){
@@ -4201,35 +4200,13 @@ Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, p
       m.textContent = w ? '✔ Supabase responde y el PC («' + w + '») está conectado y esperando frases.' : '✔ Supabase responde, pero el PC no está conectado. Abre iniciar_voces.bat en el ordenador (las frases esperan en la cola).';
     } catch (e) { m.textContent = '✖ ' + (e && e.message || e) + ' · ¿has ejecutado supabase.sql y pegado bien la URL y la clave?'; }
   });
-  const rb = document.getElementById('refSubir'), rm = document.getElementById('refMsg');
-  if (rb) rb.addEventListener('click', async () => {
-    const f = document.getElementById('refFile').files[0], who = document.getElementById('refWho').value;
-    if (!f) { rm.textContent = 'Elige primero el archivo de audio.'; return; }
-    store.set('set:sbUrl', u.value.trim()); store.set('set:sbKey', k.value.trim()); rm.textContent = 'Procesando…';
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
-      const buf = await ctx.decodeAudioData(await f.arrayBuffer()); ctx.close();
-      const SR = 24000, len = Math.min(Math.ceil(buf.duration * SR), SR * 12);
-      const oc = new OfflineAudioContext(1, len, SR), src = oc.createBufferSource(); src.buffer = buf; src.connect(oc.destination); src.start();
-      const d = (await oc.startRendering()).getChannelData(0);
-      const out = new DataView(new ArrayBuffer(44 + d.length * 2)), W = (o, t) => { for (let i = 0; i < t.length; i++) out.setUint8(o + i, t.charCodeAt(i)); };
-      W(0, 'RIFF'); out.setUint32(4, 36 + d.length * 2, true); W(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true); out.setUint32(24, SR, true); out.setUint32(28, SR * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); W(36, 'data'); out.setUint32(40, d.length * 2, true);
-      let pk = 0; for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); const g = pk > 0 ? .89 / pk : 1;
-      for (let i = 0; i < d.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i] * g)) * 32767, true);
-      const c = Voice.pcCfg(); const r = await fetch(c.url + '/storage/v1/object/voz/ref_u_' + who + '.wav', { method: 'POST', headers: { apikey: c.key, Authorization: 'Bearer ' + c.key, 'Content-Type': 'audio/wav', 'x-upsert': 'true' }, body: out.buffer });
-      if (!r.ok) throw new Error('Supabase ' + r.status + ' ' + (await r.text()).slice(0, 120));
-      rm.textContent = '✔ Voz de referencia subida (' + (d.length / SR).toFixed(1) + ' s). Se usa desde la próxima tanda de voces.';
-    } catch (e) { rm.textContent = '✖ ' + (e && e.message || e); }
-  });
   const bp = document.getElementById('pcPruebas'), lp = document.getElementById('pcPruebasLista');
   if (bp && lp) bp.addEventListener('click', () => {
     store.set('set:sbUrl', u.value.trim()); store.set('set:sbKey', k.value.trim());
     const base = u.value.trim().replace(/\/+$/, '') + '/storage/v1/object/public/voz/';
     if (!/^https?:/.test(base)) { lp.textContent = 'Primero pega la URL de Supabase.'; return; }
-    const L = [['Voz fija de cada personaje (la referencia)', ['yo', 'yo_alto', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'].map(n => ['ancla ' + n, 'prueba_00_ancla_' + n + '.wav'])],
-      ['Frases de ejemplo', [['yo 1','prueba_01_yo_mente.wav'],['yo 2','prueba_02_yo_mente2.wav'],['yo en voz alta','prueba_03_yo_alto.wav'],['yo asombro','prueba_04_yo_asombro.wav'],['Marta 1','prueba_05_amiga_a.wav'],['Marta 2','prueba_06_amiga_b.wav'],['Dani 1','prueba_07_amigo_a.wav'],['Dani 2','prueba_08_amigo_b.wav'],['casero 1','prueba_09_jefe_a.wav'],['casero 2','prueba_10_jefe_b.wav'],['vecina 1','prueba_11_abuela_a.wav'],['vecina 2','prueba_12_abuela_b.wav'],['madre 1','prueba_13_madre_a.wav'],['madre 2','prueba_14_madre_b.wav']]]];
-    const CB = [['yo 1','01_yo_mente'],['yo en voz alta','03_yo_alto'],['yo asombro','04_yo_asombro'],['Marta 1','05_amiga_a'],['Dani 1','07_amigo_a'],['Dani 2','08_amigo_b'],['casero 1','09_jefe_a'],['vecina 1','11_abuela_a'],['madre 1','13_madre_a']];
-    L.push(['Motor alternativo Chatterbox · emoción normal (e5) y fuerte (e9)', CB.reduce((r, x) => r.concat([[x[0] + ' · e5', 'prueba_cb_' + x[1] + '_e5.wav'], [x[0] + ' · e9', 'prueba_cb_' + x[1] + '_e9.wav']]), [])]);
+    const N = [['Narrador (mente)','01_narrador','02_narrador','03_narrador'],['Dani','04_dani','05_dani'],['Marta','06_marta','07_marta'],['Casero','08_casero','09_casero'],['Vecina','10_vecina','11_vecina'],['Madre','12_madre','13_madre']];
+    const L = N.map(g => [g[0], g.slice(1).map((f, i) => ['frase ' + (i + 1), 'prueba_' + f + '.wav'])]);
     lp.innerHTML = L.map(g => '<p><b>' + g[0] + '</b></p>' + g[1].map(x => '<div style="margin:4px 0">' + x[0] + '<br><audio controls preload="none" src="' + base + x[1] + '?t=' + Date.now() + '" style="width:100%"></audio></div>').join('')).join('');
   });
 })();
