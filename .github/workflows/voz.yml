@@ -1,4 +1,4 @@
-name: Voces (Qwen3-TTS en GitHub)
+name: Voces (Chatterbox en GitHub)
 # Si hay frases pendientes y el PC de casa no esta activo, un servidor de GitHub las convierte en voz.
 on:
   schedule:
@@ -9,10 +9,6 @@ on:
         description: 'Solo generar muestras de voz de prueba'
         type: boolean
         default: false
-      motor:
-        description: 'Probar otro motor (chatterbox)'
-        type: string
-        default: ''
 permissions:
   contents: read
 concurrency:
@@ -29,11 +25,9 @@ jobs:
           URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_KEY }}
           PRUEBA: ${{ inputs.prueba }}
-          MOTOR: ${{ inputs.motor }}
         run: |
           echo "run=no" >> "$GITHUB_OUTPUT"
           if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "Faltan los secretos SUPABASE_URL y SUPABASE_KEY"; exit 0; fi
-          if [ -n "$MOTOR" ]; then echo "run=no" >> "$GITHUB_OUTPUT"; echo "motor=$MOTOR" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$PRUEBA" = "true" ]; then echo "run=yes" >> "$GITHUB_OUTPUT"; echo 'modo prueba'; exit 0; fi
           URL="${URL%/}"
           H=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY")
@@ -50,21 +44,20 @@ jobs:
       - uses: actions/setup-python@v5
         if: steps.check.outputs.run == 'yes'
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - name: Cache del modelo
         if: steps.check.outputs.run == 'yes'
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: qwen3-tts-1.7b-voz-fija-v1
+          key: chatterbox-mtl-v1
       - name: Instalar dependencias
         if: steps.check.outputs.run == 'yes'
         run: |
-          sudo apt-get install -y sox libsox-fmt-all >/dev/null 2>&1 || true
+          python -m venv /tmp/cb
+          . /tmp/cb/bin/activate
           pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install --quiet qwen-tts soundfile
-          # si qwen-tts cambió torch/torchaudio por otra build, los dejamos emparejados otra vez (CPU)
-          python -c "import torch, torchaudio" || pip install --quiet --force-reinstall --no-deps torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet chatterbox-tts soundfile
           python -c "import torch, torchaudio; print('torch', torch.__version__, 'torchaudio', torchaudio.__version__)"
       - name: Generar voces
         if: steps.check.outputs.run == 'yes'
@@ -76,21 +69,6 @@ jobs:
           WORKER_NAME: GitHub
           PRUEBA: ${{ inputs.prueba && '1' || '' }}
           PYTHONUNBUFFERED: '1'
-        run: python pc-voz/worker.py
-      - uses: actions/checkout@v4
-        if: steps.check.outputs.motor == 'chatterbox'
-      - uses: actions/setup-python@v5
-        if: steps.check.outputs.motor == 'chatterbox'
-        with:
-          python-version: '3.11'
-      - name: Probar Chatterbox multilingue
-        if: steps.check.outputs.motor == 'chatterbox'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          PYTHONUNBUFFERED: '1'
         run: |
-          python -m venv /tmp/cb && . /tmp/cb/bin/activate
-          pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install --quiet chatterbox-tts soundfile
-          python pc-voz/prueba_motores.py
+          . /tmp/cb/bin/activate
+          python pc-voz/worker.py

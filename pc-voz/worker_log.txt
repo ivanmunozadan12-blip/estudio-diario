@@ -1,0 +1,34 @@
+11:04:55 Preparando voces...
+11:04:55 Cargando Chatterbox multilingue (1-2 min)...
+11:04:55 Modelo listo en 0 s
+11:04:55 Listo. Esperando frases de la cola. NO CIERRES ESTA VENTANA.
+11:04:55 MODO PRUEBA: frases de la serie con la voz de cada personaje (no toca la cola)
+11:04:55    prueba 1/13 narrador: 3.3 s de audio en 0 s
+11:04:55    prueba 2/13 narrador: 4.2 s de audio en 0 s
+11:04:55    prueba 3/13 narrador: 2.6 s de audio en 0 s
+11:04:55    prueba 4/13 dani: 3.6 s de audio en 0 s
+11:04:55    prueba 5/13 dani: 2.9 s de audio en 0 s
+11:04:55    prueba 6/13 marta: 4.0 s de audio en 0 s
+11:04:55    prueba 7/13 marta: 3.0 s de audio en 0 s
+11:04:55    prueba 8/13 casero: 3.8 s de audio en 0 s
+11:04:55    prueba 9/13 casero: 4.2 s de audio en 0 s
+11:04:55    prueba 10/13 vecina: 4.3 s de audio en 0 s
+11:04:56    prueba 11/13 vecina: 4.5 s de audio en 0 s
+11:04:56    prueba 12/13 madre: 3.3 s de audio en 0 s
+11:04:56    prueba 13/13 madre: 3.6 s de audio en 0 s
+11:04:56 Pruebas terminadas.
+11:04:56 Preparando voces...
+11:04:56 Cargando Chatterbox multilingue (1-2 min)...
+11:04:56 Modelo listo en 0 s
+11:04:56 Listo. Esperando frases de la cola. NO CIERRES ESTA VENTANA.
+11:04:56 [yo] Abres la nevera.
+11:04:56    listo: 1.5 s de audio en 0 s (media x0.0) · frases hechas: 1
+11:04:56 [amigo] Que no.
+11:04:56    listo: 0.9 s de audio en 0 s (media x0.0) · frases hechas: 2
+11:04:56 [yo] Me ha cerrado hasta la compra.
+11:04:56    listo: 2.3 s de audio en 0 s (media x0.0) · frases hechas: 3
+11:04:56 [amiga] No pasa nada. Norma once.
+11:04:56    listo: 2.0 s de audio en 0 s (media x0.0) · frases hechas: 4
+11:04:56 [yo/alto] Por supuesto, pase.
+11:04:56    listo: 1.6 s de audio en 0 s (media x0.0) · frases hechas: 5
+11:06:26 Cola vacia. Termino.
