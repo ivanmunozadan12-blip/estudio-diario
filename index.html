@@ -2987,6 +2987,7 @@ async function genScript(i, S){
 
 /* --- interfaz --- */
 const msg = t => { $('#msg').textContent = t || ''; };
+const aviso = t => { msg(t); try { let d = document.getElementById('toastAviso'); if (!d) { d = document.createElement('div'); d.id = 'toastAviso'; d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:18px;z-index:99999;background:#14161c;color:#fff;padding:14px 16px;border-radius:12px;font:600 15px Poppins,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.45)'; document.body.appendChild(d); } d.textContent = t; d.hidden = false; clearTimeout(d._t); d._t = setTimeout(() => { d.hidden = true; }, 9000); } catch (e) {} };
 function estDur(sc){ return Math.round(sc.escenas.reduce((a, e) => a + e.texto.split(/\s+/).length / 2.5 + .6, 0)); }
 function slotHTML(i){
   const s = slots[i], busy = !!s.busy, done = doneToday()[i];
@@ -3037,8 +3038,8 @@ async function shareVideo(i){
   if (navigator.share) for (const d of intentos) {
     try { if (navigator.canShare && !navigator.canShare(d)) continue; await navigator.share(d); return; } catch (e) { if (e && e.name === 'AbortError') return; }
   }
-  try { const u = URL.createObjectURL(s.blob), a = document.createElement('a'); a.href = u; a.download = fileName(i); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); msg('Este navegador no deja abrir «Compartir»: he descargado el vídeo (mira en Descargas o Archivos).'); }
-  catch (e) { msg('No se puede compartir desde aquí. Usa «Descargar» o «Abrir» y mantén pulsado el vídeo.'); }
+  try { const u = URL.createObjectURL(s.blob), a = document.createElement('a'); a.href = u; a.download = fileName(i); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); aviso('Este navegador no deja abrir «Compartir»: he descargado el vídeo (mira en Descargas o Archivos).'); }
+  catch (e) { aviso('No se puede compartir desde aquí. Usa «Descargar» o «Abrir» y mantén pulsado el vídeo.'); }
 }
 function fileName(i){ const s = slots[i]; return (s.script ? s.script.titulo : 'video-' + (i+1)).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50) + '.' + s.ext; }
 async function saveVideo(i){
@@ -3377,7 +3378,7 @@ async function queueAdd(sl){
   const slug = String(sl.script.titulo || 'video').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'video';
   try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
   const guardado = await qPut({ id: Date.now() * 10 + (queueSeq++ % 10), title: sl.script.titulo, slug, ext: sl.ext || 'webm', blob: sl.blob, yt: captions(sl.script, 'yt'), tt: captions(sl.script, 'tt'), when, done: false, created: Date.now() });
-  if (!guardado) msg('⚠️ No he podido guardar el vídeo en la cola del móvil (el navegador no deja). Descárgalo ahora con «Descargar» o «Compartir» antes de cerrar la web.');
+  if (!guardado) aviso('⚠️ No he podido guardar el vídeo en la cola del móvil (el navegador no deja). Descárgalo ahora con «Descargar» o «Compartir» antes de cerrar la web.');
   renderQueue();
 }
 async function renderQueue(){
