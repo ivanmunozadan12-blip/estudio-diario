@@ -118,6 +118,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           PYTHONUNBUFFERED: '1'
+          SOLO: casero,vecina,madre
         run: |
           python -m venv /tmp/q && . /tmp/q/bin/activate
           pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu

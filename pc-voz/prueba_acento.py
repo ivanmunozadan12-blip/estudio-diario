@@ -12,6 +12,8 @@ def subir(nombre, wav, sr):
 def norm(a): a = np.asarray(a, dtype=np.float32); return a / (float(np.max(np.abs(a))) or 1) * 0.89
 FRASE = 'Vale, gracias. Hazme un favor: coge la cerveza de la nevera y cierra la puerta, que hace mucho frío.'
 VOCES = [('yo', 'narrador'), ('amigo', 'dani'), ('amiga', 'marta'), ('jefe', 'casero'), ('abuela', 'vecina'), ('madre', 'madre')]
+SOLO = [x for x in os.environ.get('SOLO', '').split(',') if x]
+if SOLO: VOCES = [v for v in VOCES if v[1] in SOLO]
 REF = lambda n: os.path.join(HERE, '..', 'voz-ref', n + '.wav')
 if ENGINE == 'cb':
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
@@ -22,7 +24,7 @@ if ENGINE == 'cb':
             subir('prueba_a_%s_cb%d.wav' % (nombre, int(cfg * 10)), norm(a), m.sr); log('cb', nombre, cfg, 'en %.0f s' % (time.time() - t0))
 elif ENGINE == 'qwen2':
     from faster_whisper import WhisperModel
-    asr = WhisperModel('medium', device='cpu', compute_type='int8'); TXT = {}
+    asr = WhisperModel('small', device='cpu', compute_type='int8'); TXT = {}
     for w, nombre in VOCES:
         seg, _ = asr.transcribe(REF(w), language='es', beam_size=5); TXT[w] = ' '.join(x.text.strip() for x in seg).strip(); log('TRANSCRIPCION', nombre, '=>', TXT[w])
     del asr
