@@ -3214,6 +3214,23 @@ function pickSimpleTopic(){
 }
 let simpleFixNums = '', simpleFixWhy = '';
 let simpleText = '', simpleNote = '', simpleSheetUrl = '', simpleSheetBlob = null;
+let vozEstado = '', vozTimer = null, vozT0 = 0, vozN0 = -1;
+function vozParar(){ if (vozTimer) { clearInterval(vozTimer); vozTimer = null; } }
+async function vozProgreso(script){
+  vozParar(); if (!script || !Voice.pcOn()) return; vozT0 = Date.now(); vozN0 = -1;
+  try { Voice.pcKeys = Voice.pcClaves(script); } catch (e) { return; }
+  const pinta = () => { const el = $('#simVoz'); if (el) el.textContent = vozEstado; };
+  const tick = async () => {
+    try {
+      const tot = Voice.pcKeys.length, n = await Voice.pcContar(); if (vozN0 < 0) vozN0 = n; const pct = tot ? Math.round(n * 100 / tot) : 0, barra = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
+      if (n >= tot) { vozEstado = `✅ Voces listas: ${n} de ${tot} frases. Ya puedes pulsar «Grabar el cargado».`; store.set('vozEsperando', false); vozParar(); pinta(); renderSimple(); return; }
+      const ahora = await Voice.pcAhora(), el = (Date.now() - vozT0) / 60000, hechas = n - vozN0, falta = hechas > 0 ? Math.round((tot - n) * el / hechas) : 0;
+      vozEstado = `🎙 Voces: ${n} de ${tot} frases (${pct} %)\n${barra}\n` + (ahora ? `Ahora: «${String(ahora.text || '').slice(0, 60)}»\n` : 'Esperando a que arranque el servidor de voces (GitHub tarda unos minutos).\n') + (falta > 0 ? `Faltan unos ${falta} min.` : '');
+      pinta();
+    } catch (e) { vozEstado = '⚠️ No puedo consultar el progreso ahora mismo. Reintentando…'; pinta(); }
+  };
+  await tick(); if (!vozTimer && !/Voces listas/.test(vozEstado)) { vozTimer = setInterval(tick, 8000); renderSimple(); }
+}
 const simpleOn = () => document.body.classList.contains('simple');
 function pacingReport(script){
   const es = (script && script.escenas) || [], out = [];
@@ -3242,11 +3259,12 @@ function renderSimple(){
       h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>`;
     }
     h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
-    <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button><button id="simEnc">🎙 Encargar voces</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
+    <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button><button id="simEnc">🎙 Encargar voces</button>${sc ? `<button id="simProg">📊 Ver progreso de voces</button><button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
     <details style="margin-top:8px"><summary>Prompt para ChatGPT</summary><div class="row"><button id="simCopyDia">Copiar prompt diario</button></div><p class="meta">Pégalo en ChatGPT: te devuelve el capítulo del día en JSON.</p></details>`;
   }
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
+  if (vozEstado) h += `<p class="meta" id="simVoz" style="white-space:pre-line;font-weight:700">${esc(vozEstado)}</p>`;
   if (s.err) h += `<p class="meta" style="color:var(--red)">${esc(s.err)}</p>`;
   if (s.err && /voz neuronal/i.test(s.err) && !busy) h += /Supertonic/.test(s.err) ? `<div class="row"><button class="pri" id="simRetry">Reintentar Supertonic</button><button id="simPiper">Grabar con Piper esta vez</button></div>` : `<div class="row"><button id="simRetry">Reintentar voz natural</button><button class="pri" id="simRobot">Grabar con voz sintética (sin descargas)</button></div>`;
   const keep = document.activeElement && document.activeElement.id; el.innerHTML = h;
@@ -3287,6 +3305,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simCover') { const bl = await coverBlob(0); if (bl) await saveOrShare(bl, 'portada-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg'); return; }
   if (b.id === 'simSheetSave') { if (!simpleSheetBlob) return; const f = new File([simpleSheetBlob], 'escenas-' + fileName(0).replace(/\.[a-z0-9]+$/, '') + '.jpg', { type: 'image/jpeg' }); try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } const a = document.createElement('a'); a.href = simpleSheetUrl; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); return; }
   if (b.id === 'simAudioOff') { COLAB = null; renderSimple(); return; }
+  if (b.id === 'simProg') { if (!s.script) return; if (!Voice.pcOn()) { simpleNote = 'Configura antes «Voz del PC» en Ajustes.'; renderSimple(); return; } vozEstado = 'Consultando…'; renderSimple(); return vozProgreso(s.script); }
   if (b.id === 'simReset') { if (confirm('¿Descartar este vídeo y empezar con otro tema?')) simpleReset(true); return; }
   if (b.id === 'simNew') { simpleReset(true); return; }
   if (b.id === 'simRec') { simpleNote = ''; try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); }
@@ -3309,12 +3328,13 @@ document.addEventListener('click', async ev => {
       if (!Voice.pcOn()) { simpleNote = 'Para encargar voces configura antes «Voz del PC» en Ajustes (URL y clave de Supabase).'; renderSimple(); return; }
       try { Voice.informeReset(); const n = await Voice.pcPlan(s.script, null, true); const hechas = Voice.pcDone0 || 0; simpleNote = hechas >= n ? '✅ Las ' + n + ' frases ya están listas (' + hechas + ' de ' + n + '). Pulsa «Grabar el cargado» para montar el vídeo.' : 'Voces encargadas: ' + hechas + ' de ' + n + ' frases ya hechas, el resto se hace solo en el PC o en GitHub; cuando estén listas te llegará el aviso. Entonces abre la web y pulsa «Grabar el cargado».'; }
       catch (e) { simpleNote = 'No pude encargar las voces: ' + (e && e.message || e); }
-      renderSimple(); return;
+      renderSimple(); if (!/No pude/.test(simpleNote)) { store.set('vozEsperando', true); vozProgreso(s.script); } return;
     }
     if (b.id === 'simGo' && s.script && s.script.escenas.length) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); } return;
   }
 });
 (function(){ document.body.classList.add('simple'); })();
+try { if (store.get('vozEsperando', false) && slots[0] && slots[0].script) setTimeout(() => vozProgreso(slots[0].script), 1500); } catch (e) {}
 /* --- horarios y temáticas por hora + registro de vídeos (no repetir nunca) --- */
 var SLOT_TYPES = {
   curiosidades: { n: 'Curiosidades', desc: 'cómo funcionan las cosas y por qué pasan (¿Por qué…? / ¿Cómo funciona…?)', ej: '¿Por qué los gatos ronronean?' },
@@ -4121,6 +4141,8 @@ const Voice = {
     });
   },
   async pcVivo(){ try { const r = await this.pcApi('GET', '/rest/v1/voz_jobs?select=updated_at,worker&key=eq.__latido__'); if (!r || !r[0]) return null; const age = (Date.now() - new Date(r[0].updated_at).getTime()) / 1000; return age < 45 ? r[0].worker || 'PC' : null; } catch (e) { return null; } },
+  pcClaves(script){ const rows = {}; script.escenas.forEach(e => { const moods = this.pcMoods(e); this.pcParts(e.texto.replace(/\s+/g, ' ').trim(), e.habla, moods).forEach(p => { rows[p.key] = 1; }); }); return Object.keys(rows); },
+  async pcAhora(){ try { const r = await this.pcApi('GET', '/rest/v1/voz_jobs?select=text,who&status=eq.working&key=neq.__latido__&limit=1'); return r && r[0] ? r[0] : null; } catch (e) { return null; } },
   async pcPlan(script, progress, sinBloqueo){
     const rows = {}; script.escenas.forEach(e => { const moods = this.pcMoods(e); this.pcParts(e.texto.replace(/\s+/g, ' ').trim(), e.habla, moods).forEach(p => { rows[p.key] = { key: p.key, who: p.who, mood: p.mood, alto: p.alto, text: p.text, status: 'pending' }; }); });
     const list = Object.values(rows); this.pcKeys = Object.keys(rows); this.pcT0 = Date.now(); this.pcDone0 = 0;
