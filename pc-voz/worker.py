@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Piso 3ºB · trabajador de voces. Se queda abierto en el PC: coge frases de la cola de Supabase,
-# las convierte en voz con Chatterbox multilingue (CPU; voz fija de cada personaje clonada desde voz-ref/) y sube el audio.
+# las convierte en voz con Qwen3-TTS (CPU; voz fija de cada personaje clonada desde voz-ref/ con su texto) y sube el audio.
 import os, sys, time, json, io, socket, traceback, datetime, urllib.request, urllib.error, urllib.parse
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOGF = os.path.join(HERE, 'worker_log.txt')
@@ -60,13 +60,14 @@ def avisar(texto):
 def now_iso(): return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-# ---------- motor de voz: Chatterbox multilingue (MIT, CPU). Clona la voz de referencia de cada personaje (carpeta voz-ref/) ----------
+# ---------- motor de voz: Qwen3-TTS Base (CPU). Clona la voz de referencia de cada personaje (voz-ref/<nombre>.wav + .txt con lo que dice) ----------
 import gc, threading, numpy as np, soundfile as sf, torch
+from qwen_tts import Qwen3TTSModel
 torch.set_num_threads(os.cpu_count() or 4)
 PRUEBA = os.environ.get('PRUEBA') == '1'
 RAW = 'https://raw.githubusercontent.com/ivanmunozadan12-blip/estudio-diario/main/voz-ref/'
-EXA = {'enfado': .8, 'panico': .85, 'asombro': .75, 'risa': .7, 'sonrisa': .55, 'nervioso': .65, 'sarcastico': .6, 'burlon': .6, 'triste': .7, 'falso_dulce': .6}   # 0.5 = emocion normal (el narrador siempre 0.5)
-_modelo = None; REFS = {}
+M_BASE = 'Qwen/Qwen3-TTS-12Hz-1.7B-Base'
+_modelo = None; REFS = {}; PROMPTS = {}
 
 def hilo_latido():
     while True:
@@ -77,9 +78,8 @@ def hilo_latido():
 def modelo():
     global _modelo
     if _modelo is None:
-        log('Cargando Chatterbox multilingue (1-2 min)...'); t0 = time.time()
-        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-        _modelo = ChatterboxMultilingualTTS.from_pretrained(device='cpu'); log('Modelo listo en', round(time.time() - t0), 's')
+        log('Cargando Qwen3-TTS (1-2 min)...'); t0 = time.time()
+        _modelo = Qwen3TTSModel.from_pretrained(M_BASE, device_map='cpu', dtype=torch.float32); log('Modelo listo en', round(time.time() - t0), 's')
     return _modelo
 
 def sembrar(who):
@@ -114,27 +114,40 @@ def a_wav(a, sr):
     buf = io.BytesIO(); sf.write(buf, a, sr, format='WAV', subtype='PCM_16'); return buf.getvalue(), len(a) / sr
 
 def ref(nombre):
-    """ruta de la voz de referencia del personaje: voz-ref/<nombre>.wav del repositorio (o descargada de GitHub si no esta)"""
+    """(ruta del wav, texto que dice) de la voz de referencia del personaje: voz-ref/ del repositorio, o descargada de GitHub si no esta"""
     if nombre in REFS: return REFS[nombre]
     for d in (os.path.join(HERE, '..', 'voz-ref'), os.path.join(HERE, 'voz-ref')):
-        p = os.path.join(d, nombre + '.wav')
-        if os.path.exists(p): REFS[nombre] = p; return p
-    d = os.path.join(HERE, 'voz-ref'); os.makedirs(d, exist_ok=True); p = os.path.join(d, nombre + '.wav')
-    with urllib.request.urlopen(RAW + nombre + '.wav', timeout=60) as r: open(p, 'wb').write(r.read())
-    REFS[nombre] = p; return p
+        p = os.path.join(d, nombre + '.wav'); t = os.path.join(d, nombre + '.txt')
+        if os.path.exists(p) and os.path.exists(t): REFS[nombre] = (p, open(t, encoding='utf-8').read().strip()); return REFS[nombre]
+    d = os.path.join(HERE, 'voz-ref'); os.makedirs(d, exist_ok=True)
+    for ext in ('wav', 'txt'):
+        with urllib.request.urlopen(RAW + nombre + '.' + ext, timeout=60) as r: open(os.path.join(d, nombre + '.' + ext), 'wb').write(r.read())
+    REFS[nombre] = (os.path.join(d, nombre + '.wav'), open(os.path.join(d, nombre + '.txt'), encoding='utf-8').read().strip()); return REFS[nombre]
 
 def nombre_ref(who):
     return who if who in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'yo'   # el narrador en voz alta usa la misma voz que su mente
 
+def prompt_de(nombre):
+    if nombre not in PROMPTS:
+        p, t = ref(nombre); a, sr = sf.read(p, dtype='float32')
+        if a.ndim > 1: a = a.mean(axis=1)
+        PROMPTS[nombre] = modelo().create_voice_clone_prompt(ref_audio=(a, sr), ref_text=t)
+    return PROMPTS[nombre]
+
 def preparar():
-    for n in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'): ref(n)
     modelo()
+    for n in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'): prompt_de(n)
 
 def generar(j):
-    who = j.get('who') or 'yo'; txt = ' '.join(str(j.get('text') or '').split()); sembrar(who)
-    m = modelo(); exa = 0.5 if who == 'yo' else EXA.get(j.get('mood') or '', 0.65 if who == 'amiga' else 0.5)   # Marta, la dramatica, nunca por debajo de 0.65 si no hay emocion indicada
-    w = m.generate(txt, language_id='es', audio_prompt_path=ref(nombre_ref(who)), exaggeration=exa, cfg_weight=0.4)
-    return a_wav(limpiar_audio(w.squeeze().cpu().numpy(), m.sr), m.sr)
+    who = j.get('who') or 'yo'; txt = ' '.join(str(j.get('text') or '').split()); m = modelo(); pr = prompt_de(nombre_ref(who))
+    seg_max = len(txt) / 9.0 + 4.0                       # limite de duracion razonable: si el modelo se pierde generando, se corta
+    for intento in range(3):
+        sembrar(who + str(intento))
+        w, sr = m.generate_voice_clone(text=txt, language='Spanish', voice_clone_prompt=pr, max_new_tokens=int(seg_max * 12.5 * 1.5))
+        a = limpiar_audio(w[0], sr)
+        if 0.25 < len(a) / sr < seg_max * 1.25: break    # duracion plausible
+        log('   audio raro (%.1f s para %d letras), reintento' % (len(a) / sr, len(txt)))
+    return a_wav(a, sr)
 
 # frases de prueba de la serie, con el nombre de cada personaje (solo con PRUEBA=1)
 PRUEBAS = [
