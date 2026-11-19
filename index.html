@@ -2748,6 +2748,7 @@ function importPackage(text, i){
   const raw = parseJSON(head), old = sl.script, keep = !!(old && at < 0 && Array.isArray(raw.escenas) && raw.escenas.length === old.escenas.length);
   const dir = keep ? old.direccion : (pendingDir[i] || pickDirection(sl.topic || raw.titulo || '', store.get('sigs', []), comediaOn(settings(), sl.topic || raw.titulo || '')));
   const script = sanitizeScript(raw, sl.topic || raw.titulo || 'Vídeo', dir);
+  try { script.revision = validarCapitulo(raw); } catch (e) { script.revision = []; }
   const progs = parsePrograms(at < 0 ? '' : text.slice(at)), errs = []; let ok = 0;
   script.escenas.forEach((e, k) => {
     if (e.tipo && e.tipo !== 'normal') return;
@@ -3277,6 +3278,49 @@ function pickSimpleTopic(){
 let simpleFixNums = '', simpleFixWhy = '';
 let simpleText = '', simpleNote = '', simpleSheetUrl = '', simpleSheetBlob = null;
 const simpleOn = () => document.body.classList.contains('simple');
+/* Revisión automática del capítulo pegado: cuenta de verdad (los modelos cuentan mal) y avisa de lo que incumple las reglas del prompt. */
+function validarCapitulo(raw){
+  const es = Array.isArray(raw && raw.escenas) ? raw.escenas : [], out = [];
+  if (!es.length) return out;
+  const plain = t => String(t || '').replace(/\*/g, ''), nw = t => plain(t).split(/\s+/).filter(Boolean).length;
+  const TACO = /joder|mierda|gilipollas|me cago|hostia|coño|puta\b|puto\b|cabr[oó]n/i;
+  const n = es.length, words = es.map(e => nw(e.texto)), tot = words.reduce((a, b) => a + b, 0), seg = Math.round(tot / 2.4 + n * 1.3), maxW = Math.max(...words);
+  const pl = e => (e && e.plano) || {};
+  const sfx = es.filter(e => e.sfx).length, cerca = es.filter(e => pl(e).plano === 'cerca').length;
+  const tacos = es.map((e, i) => TACO.test(plain(e.texto)) ? i + 1 : 0).filter(Boolean);
+  const voz = es.filter(e => /«/.test(e.texto || '') && !e.habla).length;
+  const bad = (t, nums) => out.push({ ok: false, txt: t + (nums && nums.length ? ' (escena' + (nums.length > 1 ? 's ' : ' ') + nums.join(', ') + ')' : '') });
+  out.push({ ok: true, txt: `${n} escenas · ${tot} palabras · ≈ ${seg} s · ${sfx} sonidos · ${cerca} primeros planos · ${tacos.length} palabrotas · ${voz} frases en voz alta` });
+  if (n < 19 || n > 23) bad(`Escenas: ${n} (lo ideal son 19-23)`);
+  if (tot < 120 || tot > 150) bad(`Palabras: ${tot} (lo ideal son 120-150)`);
+  if (seg > 95) bad(`Dura ≈ ${seg} s: demasiado largo (60-90 s)`); else if (seg < 60) bad(`Dura ≈ ${seg} s: demasiado corto (60-90 s)`);
+  const largas = words.map((w, i) => w > 11 ? i + 1 : 0).filter(Boolean); if (largas.length) bad('Escenas de más de 11 palabras', largas);
+  if (sfx < 8 || sfx > 10) bad(`Sonidos: ${sfx} (lo ideal son 8-10)`);
+  if (cerca < 3 || cerca > 5) bad(`Primeros planos: ${cerca} (lo ideal son 3-5)`);
+  if (tacos.length < 4 || tacos.length > 6) bad(`Palabrotas: ${tacos.length} (lo ideal son 4-6)`, tacos);
+  if (tacos.some(i => i <= 2)) bad('Hay palabrotas en las escenas 1-2', tacos.filter(i => i <= 2));
+  if (tacos.some((x, k) => k && x - tacos[k - 1] === 1)) bad('Palabrotas en escenas seguidas', tacos);
+  if (tacos.length >= 4) { const g = tacos.slice(1).map((x, k) => x - tacos[k]); if (Math.max(...g) - Math.min(...g) <= 1) bad('Las palabrotas caen a intervalos regulares, como un reloj', tacos); }
+  if (!/gilipollas|imb[eé]cil|idiota|tonto/i.test(es.map(e => plain(e.texto)).join(' '))) bad('Falta el «seré gilipollas» (insulto a sí mismo) en algún golpe');
+  if (voz < 3) bad(`Solo ${voz} frases del narrador en voz alta (mínimo 3)`);
+  const w1 = words[0]; if (w1 > 10) bad(`La escena 1 tiene ${w1} palabras (máximo 10)`, [1]);
+  const tercera = es.map((e, i) => e.habla && !/^\s*«[\s\S]*»\s*[.!?]?\s*$/.test(plain(e.texto)) ? i + 1 : 0).filter(Boolean);
+  if (tercera.length) bad('Escenas con «habla» que llevan narración en vez de lo que dice el personaje', tercera);
+  const sinNombre = es.map((e, i) => { const o = pl(e).objeto; if (!o || !o[0] || !PISO_OBJ_RE[o[0]]) return 0; return PISO_OBJ_RE[o[0]].test(plain(e.texto) + ' ' + (o[1] || '')) ? 0 : i + 1; }).filter(Boolean);
+  if (sinNombre.length) bad('Objeto que el texto no nombra (la app lo cambia o lo quita)', sinNombre);
+  const estancias = [...new Set(es.map(e => pl(e).set).filter(Boolean))]; if (estancias.length > 3) bad(`${estancias.length} decorados distintos (máximo 3)`);
+  const hablan = [...new Set(es.map(e => e.habla).filter(Boolean))]; if (hablan.length > 3) bad(`Hablan ${hablan.length} personajes distintos (máximo 3)`);
+  if (hablan.includes('novia') && !/no pasa nada|haz lo que quieras|t[uú] sabr[aá]s|si t[uú] lo ves bien/i.test(es.filter(e => e.habla === 'novia').map(e => plain(e.texto)).join(' '))) bad('Lucía no dice ninguna de sus frases (No pasa nada / Haz lo que quieras / Tú sabrás)');
+  const risa = es.map((e, i) => e.voz === 'risa' || (pl(e).pers || []).some(p => p.mood === 'risa') || /jaja|jeje/i.test(e.texto || '') ? i + 1 : 0).filter(Boolean); if (risa.length) bad('Hay risas (voz/mood «risa» o «jaja»)', risa);
+  const wa = es.map((e, i) => { const w = pl(e).whatsapp; return w && Array.isArray(w.msgs) && w.msgs.length > 4 ? i + 1 : 0; }).filter(Boolean); if (wa.length) bad('Chat con más de 4 mensajes', wa);
+  const c = raw.puntuacion && raw.puntuacion.conteo;
+  if (c && typeof c === 'object') {
+    const dif = []; [['palabras', tot], ['sfx', sfx], ['primeros_planos', cerca], ['palabrotas', tacos.length], ['frases_voz_alta', voz], ['escenas', n], ['max_palabras_escena', maxW]].forEach(([k, v]) => { if (c[k] != null && +c[k] !== v) dif.push(`${k.replace(/_/g, ' ')}: dijo ${c[k]}, hay ${v}`); });
+    if (dif.length) bad('El recuento que declara ChatGPT es falso → ' + dif.join('; '));
+  }
+  const p = raw.puntuacion; if (p && typeof p === 'object') { const bajas = Object.keys(p).filter(k => typeof p[k] === 'number' && !/media|vueltas/.test(k) && p[k] < 8); if (bajas.length) bad('Se puso menos de 8 en: ' + bajas.join(', ')); }
+  return out;
+}
 function pacingReport(script){
   const es = (script && script.escenas) || [], out = [];
   es.forEach((e, i) => { const d = estSceneDur(e), w = String(e.texto || '').split(/\s+/).filter(Boolean).length; if (d > 8) out.push(`Escena ${i + 1}: ~${d.toFixed(0)} s (${w} palabras) es larga; divídela o recórtala`); else if (w < 2) out.push(`Escena ${i + 1}: solo ${w} palabra, quedará muy corta`); });
@@ -3310,6 +3354,7 @@ function renderSimple(){
       <details style="margin-top:8px"><summary>Cambiar el capítulo pegado</summary><label class="f">Pegar otro capítulo<textarea id="simPaste" placeholder="Pega aquí el JSON…">${esc(simpleText)}</textarea></label><div class="row"><button id="simGo">Cargar y grabar este</button></div></details>`;
     }
   }
+  if (sc && sc.revision && sc.revision.length && !s.url && !busy) { const rv = sc.revision, fallos = rv.filter(x => !x.ok); h += `<details open style="margin-top:8px"><summary><b>Revisión automática</b> · ${fallos.length ? fallos.length + ' aviso' + (fallos.length > 1 ? 's' : '') : 'todo en orden'}</summary>${rv.map(x => `<p class="meta" style="color:${x.ok ? 'var(--green,#4cd07d)' : 'var(--amber,#ffc533)'}">${x.ok ? '✓' : '⚠'} ${esc(x.txt)}</p>`).join('')}${fallos.length ? '<p class="meta">Si hay avisos, pídele a ChatGPT que lo corrija antes de encargar las voces.</p>' : ''}</details>`; }
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
   if (s.err) h += `<p class="meta" style="color:var(--red)">${esc(s.err)}</p>`;
