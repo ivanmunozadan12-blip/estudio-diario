@@ -3032,7 +3032,7 @@ async function copyText(t, btn){
 }
 async function shareVideo(i){
   const s = slots[i]; if (!s.blob) return;
-  const file = new File([s.blob], fileName(i), { type: s.blob.type || (s.ext === 'mp4' ? 'video/mp4' : 'video/webm') });
+  const file = new File([s.blob], fileName(i), { type: (s.blob.type || '').split(';')[0] || (s.ext === 'mp4' ? 'video/mp4' : 'video/webm') });
   const intentos = [{ files: [file] }, { files: [file], title: s.script ? s.script.titulo : '', text: s.script ? captions(s.script, 'tt') : '' }];
   if (navigator.share) for (const d of intentos) {
     try { if (navigator.canShare && !navigator.canShare(d)) continue; await navigator.share(d); return; } catch (e) { if (e && e.name === 'AbortError') return; }
@@ -3173,7 +3173,7 @@ async function coverBlob(i){
   return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', .9));
 }
 async function saveOrShare(blob, name){
-  const f = new File([blob], name, { type: blob.type || 'image/jpeg' });
+  const f = new File([blob], name, { type: (blob.type || 'image/jpeg').split(';')[0] });
   try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
 }
