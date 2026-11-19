@@ -2837,7 +2837,7 @@ async function prepare(script, S, progress){
     sc.t0 = t; sc.dur = dur; sc.audio = audio; sc.groups = groups; scenes.push(sc); t += dur;
   }
   if (S.voice && nw > 20 && t > 10) { try { const k = 'wps:' + S.engine, old = +store.get(k, 0) || 0, cur = nw / (t - .1); store.set(k, +clamp(old ? old * .5 + cur * .5 : cur, 1.6, 3.4).toFixed(3)); } catch (e) {} }
-  return { scenes, total: t + .5, voice: S.voice, music: S.music, sfx: S.sfx !== false, musica: script.musica, subs: S.subs };
+  return { scenes, total: t + .5, titulo: script.titulo || '', voice: S.voice, music: S.music, sfx: S.sfx !== false, musica: script.musica, subs: S.subs };
 }
 
 /* --- reproductor y grabadora --- */
@@ -2862,8 +2862,21 @@ function drawFrame(proj, t){
   c.globalAlpha = 1;
   c.drawImage(vigCanvas,0,0);
   drawOverlays(c, sc, local / sc.dur, local);
+  drawRotuloSerie(c, proj.titulo, t);
   if (proj.subs) drawSubs(c, sc.groups.find(g => local >= g.t0 && local < g.t1), local);
   return i;
+}
+/* Rótulo de la serie al principio de cada vídeo: «PISO 3ºB» y debajo el título del episodio (unos 2,6 s) */
+function drawRotuloSerie(c, titulo, t){
+  const D = 2.6; if (t < 0 || t > D) return; const a = clamp(t < .25 ? t / .25 : t > D - .4 ? (D - t) / .4 : 1, 0, 1); if (a <= 0) return;
+  const sub = String(titulo || '').replace(/^\s*piso\s*3\s*[ºo°]?\s*b\s*[:\-–—]\s*/i, '').trim();
+  c.save(); c.globalAlpha = a; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const k = 1 + (1 - ease(clamp(t / .3, 0, 1))) * .12; c.translate(W / 2, H * .2); c.scale(k, k); c.translate(-W / 2, -H * .2);
+  c.font = '900 40px Poppins, sans-serif'; const lines = sub ? wrapText(c, sub, W * .8).slice(0, 3) : [];
+  const bh = 120 + lines.length * 46; R(c, 0, H * .2 - 62, W, bh, 'rgba(0,0,0,.62)'); R(c, 0, H * .2 - 62, W, 5, '#ffc533'); R(c, 0, H * .2 - 62 + bh - 5, W, 5, '#ffc533');
+  c.font = '900 76px Poppins, sans-serif'; c.lineJoin = 'round'; c.lineWidth = 12; c.strokeStyle = '#1a1208'; c.strokeText('PISO 3ºB', W / 2, H * .2 - 8); c.fillStyle = '#ffc533'; c.fillText('PISO 3ºB', W / 2, H * .2 - 8);
+  c.font = '800 38px Poppins, sans-serif'; c.lineWidth = 8; lines.forEach((ln, i) => { const y = H * .2 + 52 + i * 46; c.strokeText(ln, W / 2, y); c.fillStyle = '#fff'; c.fillText(ln, W / 2, y); });
+  c.restore();
 }
 function idleFrame(msg){ const c = sctx; c.setTransform(Q, 0, 0, Q, 0, 0); c.fillStyle = lg(c,0,0,0,H,[[0,'#14201b'],[1,'#07100c']]); c.fillRect(0,0,W,H); c.fillStyle = 'rgba(255,197,51,.9)'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '800 70px Poppins, sans-serif'; c.fillText('PISO',W/2,H*.44); c.fillText('3ºB',W/2,H*.44 + 84); c.fillStyle = 'rgba(255,255,255,.6)'; c.font = '600 30px Poppins, sans-serif'; c.fillText(msg || 'Piso 3ºB · 9:16',W/2,H*.62); }
 idleFrame();
