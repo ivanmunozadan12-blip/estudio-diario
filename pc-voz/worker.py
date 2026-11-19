@@ -67,7 +67,7 @@ PERSONAJES = {
   'amiga':  'Young woman about 22 (Marta), clear mid-high voice, fast and precise, sharp and sarcastic, confident, falsely sweet when she is bossy.',
   'jefe':   'Spanish man about 55, the grumpy landlord: gruff gravelly low voice with a smoker rasp, impatient, stubborn, speaks in a short blunt way.',
   'madre':  'Spanish woman about 52, a worried and nagging mother: warm mid voice, talks fast, slightly dramatic and reproachful, loving but overbearing.',
-  'abuela': 'Elderly Spanish woman about 78, the nosy neighbour: thin cracked slightly trembling high voice, slow and grumpy, mutters and complains.',
+  'abuela': 'Spanish woman about 70, the nosy grumpy neighbour: harsh raspy shrill voice, fast and bossy, shouts complaints and insults everyone.',
 }
 EMO = {
   'harto': 'exhausted and fed up, flat deadpan monotone, resigned, a small sigh before the line',
