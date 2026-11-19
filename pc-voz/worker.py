@@ -135,7 +135,7 @@ SECA = {'abuela': (1.0, 0.03, 0.08)}   # eco muy reducido (elegido por el usuari
 SECA_PRUEBAS = {'abuela_orig': None, 'abuela_fuerte': (1.0, 0.03, 0.08)}
 # variantes de la referencia de Dani (recortada antes de la palabra «modelo» del final): nombre -> (base, segundo de corte, texto)
 _DANI = 'Créditos por cada intento, usando modelos locales. ¡Mira cómo! Descargas el instalador desde GitHub, abres la aplicación y eliges un modelo.'
-REF_CORTE = {'amigo_B': ('amigo', 8.96, _DANI + ' Es el motor que crea el'), 'amigo_D': ('amigo', 7.91, _DANI)}
+REF_CORTE = {'amigo': ('amigo', 7.91, _DANI)}   # corte elegido: sin la ultima frase, que hacia decir «modelo» al empezar cada frase
 
 def a_wav(a, sr):
     a = np.asarray(a, dtype=np.float32); pk = float(np.max(np.abs(a))) if a.size else 0
@@ -202,20 +202,12 @@ PRUEBAS = [
   ('madre', 'madre', 'nervioso', 'Pero hijo, ¿tú comes bien? Te noto muy delgado.', False),
   ('madre', 'madre', 'falso_dulce', 'Esa casa tiene que estar hecha un desastre, seguro.', False),
 ]
-PRUEBAS_DANI = [
-  ('amigo', 'dani_actual', '', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
-  ('amigo', 'dani_actual', '', 'No te rayes, que luego te invito a algo.', False),
-  ('amigo_B', 'dani_B', '', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
-  ('amigo_B', 'dani_B', '', 'No te rayes, que luego te invito a algo.', False),
-  ('amigo_D', 'dani_D', '', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
-  ('amigo_D', 'dani_D', '', 'No te rayes, que luego te invito a algo.', False),
-]
 def hacer_pruebas():
     log('MODO PRUEBA: frases de la serie con la voz de cada personaje (no toca la cola)')
-    for i, (who, nombre, mood, txt, alto) in enumerate(PRUEBAS_DANI):
+    for i, (who, nombre, mood, txt, alto) in enumerate(PRUEBAS):
         t = time.time(); wav, dur = generar({'who': who, 'mood': mood, 'text': txt, 'alto': alto})
-        api('POST', '/storage/v1/object/voz/prueba_%02d_%s.wav' % (i + 20, nombre), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
-        log('   prueba %d/%d %s: %.1f s de audio en %.0f s' % (i + 1, len(PRUEBAS_DANI), nombre, dur, time.time() - t))
+        api('POST', '/storage/v1/object/voz/prueba_%02d_%s.wav' % (i + 1, nombre), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
+        log('   prueba %d/%d %s: %.1f s de audio en %.0f s' % (i + 1, len(PRUEBAS), nombre, dur, time.time() - t))
     avisar_pruebas()
 
 def avisar_pruebas():

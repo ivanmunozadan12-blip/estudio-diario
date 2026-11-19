@@ -4249,7 +4249,7 @@ Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, p
     store.set('set:sbUrl', u.value.trim()); store.set('set:sbKey', k.value.trim());
     const base = u.value.trim().replace(/\/+$/, '') + '/storage/v1/object/public/voz/';
     if (!/^https?:/.test(base)) { lp.textContent = 'Primero pega la URL de Supabase.'; return; }
-    const N = [['Narrador (mente)','01_narrador','02_narrador','03_narrador'],['Dani','04_dani','05_dani'],['Marta','06_marta','07_marta'],['Casero','08_casero','09_casero'],['Vecina','10_vecina','11_vecina','12_vecina_nada','13_vecina_fuerte'],['Madre','14_madre','15_madre'],['Dani · referencia actual','20_dani_actual','21_dani_actual'],['Dani · corte B','22_dani_B','23_dani_B'],['Dani · corte D','24_dani_D','25_dani_D']];
+    const N = [['Narrador (mente)','01_narrador','02_narrador','03_narrador'],['Dani','04_dani','05_dani'],['Marta','06_marta','07_marta'],['Casero','08_casero','09_casero'],['Vecina','10_vecina','11_vecina','12_vecina_nada','13_vecina_fuerte'],['Madre','14_madre','15_madre']];
     const L = N.map(g => [g[0], g.slice(1).map((f, i) => [/_nada$/.test(f) ? 'eco original' : /_fuerte$/.test(f) ? 'eco muy reducido' : 'frase ' + (i + 1), 'prueba_' + f + '.wav'])]);
     lp.innerHTML = L.map(g => '<p><b>' + g[0] + '</b></p>' + g[1].map(x => '<div style="margin:4px 0">' + x[0] + '<br><audio controls preload="none" src="' + base + x[1] + '?t=' + Date.now() + '" style="width:100%"></audio></div>').join('')).join('');
   });
