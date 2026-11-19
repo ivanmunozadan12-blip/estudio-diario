@@ -4206,6 +4206,8 @@ Object.assign(window.__studio, { colabLoad, colabAudio, getColab: () => COLAB, p
     if (!/^https?:/.test(base)) { lp.textContent = 'Primero pega la URL de Supabase.'; return; }
     const L = [['Voz fija de cada personaje (la referencia)', ['yo', 'yo_alto', 'amigo', 'amiga', 'jefe', 'madre', 'abuela'].map(n => ['ancla ' + n, 'prueba_00_ancla_' + n + '.wav'])],
       ['Frases de ejemplo', [['yo 1','prueba_01_yo_mente.wav'],['yo 2','prueba_02_yo_mente2.wav'],['yo en voz alta','prueba_03_yo_alto.wav'],['yo asombro','prueba_04_yo_asombro.wav'],['Marta 1','prueba_05_amiga_a.wav'],['Marta 2','prueba_06_amiga_b.wav'],['Dani 1','prueba_07_amigo_a.wav'],['Dani 2','prueba_08_amigo_b.wav'],['casero 1','prueba_09_jefe_a.wav'],['casero 2','prueba_10_jefe_b.wav'],['vecina 1','prueba_11_abuela_a.wav'],['vecina 2','prueba_12_abuela_b.wav'],['madre 1','prueba_13_madre_a.wav'],['madre 2','prueba_14_madre_b.wav']]]];
+    const CB = [['yo 1','01_yo_mente'],['yo en voz alta','03_yo_alto'],['yo asombro','04_yo_asombro'],['Marta 1','05_amiga_a'],['Dani 1','07_amigo_a'],['Dani 2','08_amigo_b'],['casero 1','09_jefe_a'],['vecina 1','11_abuela_a'],['madre 1','13_madre_a']];
+    L.push(['Motor alternativo Chatterbox · emoción normal (e5) y fuerte (e9)', CB.reduce((r, x) => r.concat([[x[0] + ' · e5', 'prueba_cb_' + x[1] + '_e5.wav'], [x[0] + ' · e9', 'prueba_cb_' + x[1] + '_e9.wav']]), [])]);
     lp.innerHTML = L.map(g => '<p><b>' + g[0] + '</b></p>' + g[1].map(x => '<div style="margin:4px 0">' + x[0] + '<br><audio controls preload="none" src="' + base + x[1] + '?t=' + Date.now() + '" style="width:100%"></audio></div>').join('')).join('');
   });
 })();
