@@ -820,7 +820,7 @@ function drawSceneTpl(c, sc, idx, u, tm){
 const OBJ_REG = {};
 (function(){
   const r = (x, y, w, h, c, k) => ['r', x, y, w, h, c, k || 0], e = (x, y, a, b, c) => ['e', x, y, a, b, c], p = (pts, c) => ['p', pts, c], l = (x1, y1, x2, y2, c, w) => ['l', x1, y1, x2, y2, c, w || .03], a = (x, y, rr, a0, a1, c, w) => ['a', x, y, rr, a0, a1, c, w || .03], tx = (x, y, sz, c, s) => ['t', x, y, sz, c, s], st = (x, y) => ['st', x, y], bl = (x, y, rr, c) => ['bl', x, y, rr, c], w = (x, y, len, n, c, sp) => ['w', x, y, len, n, c, sp || 6];
-  const D = (name, kw, shapes) => { OBJ_REG[name] = { kw: new RegExp(kw, 'i'), s: shapes }; };
+  const D = (name, kw, shapes) => { OBJ_REG[name] = { kw: new RegExp('\\b(?:' + kw + ')', 'i'), s: shapes }; };
   const HL = 'rgba(255,255,255,.35)', SH = 'rgba(0,0,0,.18)';
   const botella = (body, cap, lab) => [r(-.07, -.46, .14, .22, body, .03), r(-.085, -.5, .17, .07, cap, .02), r(-.17, -.3, .34, .74, body, .08), r(-.17, -.02, .34, .26, lab), r(-.12, -.24, .04, .6, HL, .02)];
   const bote = (col, band, lid) => [r(-.18, -.3, .36, .62, col, .04), e(0, -.3, .18, .045, lid || '#cfd3dc'), r(-.18, -.06, .36, .22, band), r(-.13, -.24, .035, .5, HL, .02)];
