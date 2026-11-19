@@ -108,6 +108,32 @@ def limpiar_audio(a, sr):
     if f > 1: out[:f] *= np.linspace(0, 1, f); out[-f:] *= np.linspace(1, 0, f)
     return out
 
+def seca(a, sr, rt60=0.7, td=0.05, floor=0.12):
+    """Reduce la cola de reverberacion (resta espectral de la reverberacion tardia, metodo de Lebart)."""
+    a = np.asarray(a, dtype=np.float32); n_fft = 1024; hop = 256
+    w = np.sqrt(np.hanning(n_fft + 1)[:-1]).astype(np.float32)
+    pad = np.concatenate([np.zeros(n_fft, np.float32), a, np.zeros(n_fft * 2, np.float32)])
+    nf = 1 + (len(pad) - n_fft) // hop
+    X = np.stack([np.fft.rfft(pad[i*hop:i*hop+n_fft] * w) for i in range(nf)])
+    P = np.abs(X) ** 2; D = max(1, int(round(td * sr / hop)))
+    decay = np.exp(-2 * (3 * np.log(10) / rt60) * (D * hop / sr))
+    L = np.zeros_like(P); L[D:] = decay * P[:-D]
+    G = np.sqrt(np.maximum(1 - L / (P + 1e-12), floor ** 2))
+    for t in range(1, nf): G[t] = np.maximum(G[t], 0.6 * G[t-1])  # suaviza para no "gorgotear"
+    Y = X * G; out = np.zeros(len(pad), np.float32)
+    for i in range(nf): out[i*hop:i*hop+n_fft] += np.fft.irfft(Y[i]).astype(np.float32) * w
+    out = out[n_fft:n_fft + len(a)]
+    return out * (np.sqrt(np.mean(a**2) / (np.mean(out**2) + 1e-12)))
+def con_cola(a, sr, seg=0.6):
+    """Termina la referencia con un fundido corto y silencio, para que el modelo no 'complete' la ultima palabra al empezar."""
+    a = np.asarray(a, dtype=np.float32).copy(); f = int(sr * 0.04)
+    a[-f:] *= np.linspace(1, 0, f)
+    return np.concatenate([np.zeros(int(sr * 0.15), np.float32), a, np.zeros(int(sr * seg), np.float32)])
+
+# eco de la sala de cada referencia: 'suave' o 'fuerte' (resta de la reverberacion). Cambia aqui si hace falta
+SECA = {'abuela': (0.7, 0.05, 0.12)}
+SECA_PRUEBAS = {'abuela_orig': None, 'abuela_fuerte': (1.0, 0.03, 0.08)}
+
 def a_wav(a, sr):
     a = np.asarray(a, dtype=np.float32); pk = float(np.max(np.abs(a))) if a.size else 0
     if pk > 0: a = a * (0.89 / pk)
@@ -125,12 +151,17 @@ def ref(nombre):
     REFS[nombre] = (os.path.join(d, nombre + '.wav'), open(os.path.join(d, nombre + '.txt'), encoding='utf-8').read().strip()); return REFS[nombre]
 
 def nombre_ref(who):
+    if who in SECA_PRUEBAS: return who
     return who if who in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'yo'   # el narrador en voz alta usa la misma voz que su mente
 
 def prompt_de(nombre):
     if nombre not in PROMPTS:
-        p, t = ref(nombre); a, sr = sf.read(p, dtype='float32')
+        base = nombre if nombre in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'abuela'
+        p, t = ref(base); a, sr = sf.read(p, dtype='float32')
         if a.ndim > 1: a = a.mean(axis=1)
+        cfg = SECA_PRUEBAS[nombre] if nombre in SECA_PRUEBAS else SECA.get(nombre)
+        if cfg: a = seca(a, sr, *cfg)
+        a = con_cola(a, sr)      # fundido + silencio al final: sin esto el modelo "termina" la ultima palabra de la referencia al empezar cada frase
         PROMPTS[nombre] = modelo().create_voice_clone_prompt(ref_audio=(a, sr), ref_text=t)
     return PROMPTS[nombre]
 
@@ -162,6 +193,8 @@ PRUEBAS = [
   ('jefe', 'casero', 'nervioso', 'Esto lo arreglo yo en dos minutos, que lo he hecho mil veces.', False),
   ('abuela', 'vecina', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
   ('abuela', 'vecina', 'enfado', 'Menuda gentuza, hijo, menuda gentuza. Voy a llamar a la comunidad.', False),
+  ('abuela_orig', 'vecina_nada', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
+  ('abuela_fuerte', 'vecina_fuerte', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
   ('madre', 'madre', 'nervioso', 'Pero hijo, ¿tú comes bien? Te noto muy delgado.', False),
   ('madre', 'madre', 'falso_dulce', 'Esa casa tiene que estar hecha un desastre, seguro.', False),
 ]
