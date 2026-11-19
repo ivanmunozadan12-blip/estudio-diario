@@ -820,7 +820,7 @@ function drawSceneTpl(c, sc, idx, u, tm){
 const OBJ_REG = {};
 (function(){
   const r = (x, y, w, h, c, k) => ['r', x, y, w, h, c, k || 0], e = (x, y, a, b, c) => ['e', x, y, a, b, c], p = (pts, c) => ['p', pts, c], l = (x1, y1, x2, y2, c, w) => ['l', x1, y1, x2, y2, c, w || .03], a = (x, y, rr, a0, a1, c, w) => ['a', x, y, rr, a0, a1, c, w || .03], tx = (x, y, sz, c, s) => ['t', x, y, sz, c, s], st = (x, y) => ['st', x, y], bl = (x, y, rr, c) => ['bl', x, y, rr, c], w = (x, y, len, n, c, sp) => ['w', x, y, len, n, c, sp || 6];
-  const D = (name, kw, shapes) => { OBJ_REG[name] = { kw: new RegExp('\\b(?:' + kw + ')', 'i'), s: shapes }; };
+  const D = (name, kw, shapes) => { const AZ = 'a-záéíóúüñ'; OBJ_REG[name] = { kw: new RegExp('(?<![' + AZ + '])(?:' + kw.replace(/\\b/g, '(?![' + AZ + '])') + ')', 'i'), s: shapes }; };
   const HL = 'rgba(255,255,255,.35)', SH = 'rgba(0,0,0,.18)';
   const botella = (body, cap, lab) => [r(-.07, -.46, .14, .22, body, .03), r(-.085, -.5, .17, .07, cap, .02), r(-.17, -.3, .34, .74, body, .08), r(-.17, -.02, .34, .26, lab), r(-.12, -.24, .04, .6, HL, .02)];
   const bote = (col, band, lid) => [r(-.18, -.3, .36, .62, col, .04), e(0, -.3, .18, .045, lid || '#cfd3dc'), r(-.18, -.06, .36, .22, band), r(-.13, -.24, .035, .5, HL, .02)];
@@ -914,7 +914,8 @@ const OBJ_REG = {};
   D('linterna', 'linterna|oscuro|apagado', [r(-.12, -.04, .24, .5, '#2a2e38', .05), p([[-.12, -.04], [.12, -.04], [.22, -.28], [-.22, -.28]], '#6a6e78'), p([[-.22, -.28], [.22, -.28], [.42, -.5], [-.42, -.5]], 'rgba(255,240,150,.4)')]);
   D('calculadora', 'calculadora|cuentas|dividir|cu[aá]nto toca|reparto', [r(-.24, -.4, .48, .8, '#2a2e38', .05), r(-.19, -.34, .38, .18, '#9ae0a0', .02)].concat([0, 1, 2].flatMap(i => [0, 1, 2, 3].map(j => r(-.19 + i * .135, -.1 + j * .115, .105, .085, j === 3 && i === 2 ? '#e0453f' : '#8a8f9a', .02)))));
   D('consola', 'consola|videojuego|play\\b|mando de|fifa|jugar', [r(-.4, -.12, .8, .26, '#e8e8ee', .05), r(-.4, -.12, .8, .06, '#2a2e38'), bl(-.3, .06, .025, '#4a90d8'), r(.1, .02, .24, .04, '#9aa0ac')]);
-  D('camara', 'c[aá]mara|foto\\b|fotograf', [r(-.4, -.18, .8, .46, '#2a2e38', .06), r(-.3, -.28, .22, .12, '#2a2e38', .03), e(0, .05, .2, .2, '#8a8f9a'), e(0, .05, .14, .14, '#14161c'), e(-.04, .0, .04, .04, 'rgba(120,180,255,.7)'), bl(.3, -.1, .03, '#e0453f')]);
+  D('marco', 'marco|cuadro|portarretrato|retrato|foto\\b|fotograf', [r(-.4, -.34, .8, .68, '#7a4a24', .03), r(-.33, -.27, .66, .54, '#f2e8d0', .02), e(.14, -.12, .06, .06, '#f2c230'), p([[-.3, .24], [-.1, -.08], [.02, .1], [.14, -.02], [.3, .24]], '#5b9a5e')]);
+  D('camara', 'c[aá]mara', [r(-.4, -.18, .8, .46, '#2a2e38', .06), r(-.3, -.28, .22, .12, '#2a2e38', .03), e(0, .05, .2, .2, '#8a8f9a'), e(0, .05, .14, .14, '#14161c'), e(-.04, .0, .04, .04, 'rgba(120,180,255,.7)'), bl(.3, -.1, .03, '#e0453f')]);
   D('tablet', 'tablet|ipad|pantalla grande', [r(-.34, -.42, .68, .84, '#14161c', .05), r(-.29, -.36, .58, .7, '#6ac0d8', .02), e(0, .39, .025, .025, '#9aa0ac')]);
   D('reloj', 'reloj\\b|hora\\b|las \\d|minutos|tarde\\b|llegas tarde', [e(0, 0, .38, .38, '#f6f3ea'), e(0, 0, .38, .38, 'rgba(0,0,0,.0)'), l(0, 0, 0, -.24, '#14161c', .03), l(0, 0, .16, .08, '#14161c', .03), e(0, 0, .03, .03, '#d3122e'), a(0, 0, .38, 0, 6.3, '#2a2e38', .04)]);
   D('secador', 'secador|pelo\\b|peinar|peluquer', [r(-.38, -.18, .56, .3, '#e0457a', .1), r(-.06, .08, .16, .42, '#c0305e', .04), r(.16, -.14, .22, .22, '#2a2e38', .04)]);
