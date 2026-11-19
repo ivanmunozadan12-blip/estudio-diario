@@ -94,3 +94,27 @@ jobs:
           pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           pip install --quiet chatterbox-tts soundfile
           python pc-voz/prueba_motores.py
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.motor == 'ref'
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.motor == 'ref'
+        with:
+          python-version: '3.11'
+      - name: Probar con la voz de referencia (Qwen y Chatterbox)
+        if: steps.check.outputs.motor == 'ref'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PYTHONUNBUFFERED: '1'
+        run: |
+          sudo apt-get install -y sox libsox-fmt-all >/dev/null 2>&1 || true
+          python -m venv /tmp/q && . /tmp/q/bin/activate
+          pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet qwen-tts soundfile
+          python -c "import torch, torchaudio" || pip install --quiet --force-reinstall --no-deps torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python pc-voz/prueba_ref.py qwen
+          deactivate
+          python -m venv /tmp/cb && . /tmp/cb/bin/activate
+          pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet chatterbox-tts soundfile
+          python pc-voz/prueba_ref.py chatterbox
