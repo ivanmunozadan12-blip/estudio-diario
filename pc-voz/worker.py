@@ -108,6 +108,35 @@ def limpiar_audio(a, sr):
     if f > 1: out[:f] *= np.linspace(0, 1, f); out[-f:] *= np.linspace(1, 0, f)
     return out
 
+def seca(a, sr, rt60=0.7, td=0.05, floor=0.12):
+    """Reduce la cola de reverberacion (resta espectral de la reverberacion tardia, metodo de Lebart)."""
+    a = np.asarray(a, dtype=np.float32); n_fft = 1024; hop = 256
+    w = np.sqrt(np.hanning(n_fft + 1)[:-1]).astype(np.float32)
+    pad = np.concatenate([np.zeros(n_fft, np.float32), a, np.zeros(n_fft * 2, np.float32)])
+    nf = 1 + (len(pad) - n_fft) // hop
+    X = np.stack([np.fft.rfft(pad[i*hop:i*hop+n_fft] * w) for i in range(nf)])
+    P = np.abs(X) ** 2; D = max(1, int(round(td * sr / hop)))
+    decay = np.exp(-2 * (3 * np.log(10) / rt60) * (D * hop / sr))
+    L = np.zeros_like(P); L[D:] = decay * P[:-D]
+    G = np.sqrt(np.maximum(1 - L / (P + 1e-12), floor ** 2))
+    for t in range(1, nf): G[t] = np.maximum(G[t], 0.6 * G[t-1])  # suaviza para no "gorgotear"
+    Y = X * G; out = np.zeros(len(pad), np.float32)
+    for i in range(nf): out[i*hop:i*hop+n_fft] += np.fft.irfft(Y[i]).astype(np.float32) * w
+    out = out[n_fft:n_fft + len(a)]
+    return out * (np.sqrt(np.mean(a**2) / (np.mean(out**2) + 1e-12)))
+def con_cola(a, sr, seg=0.6):
+    """Termina la referencia con un fundido corto y silencio, para que el modelo no 'complete' la ultima palabra al empezar."""
+    a = np.asarray(a, dtype=np.float32).copy(); f = int(sr * 0.04)
+    a[-f:] *= np.linspace(1, 0, f)
+    return np.concatenate([np.zeros(int(sr * 0.15), np.float32), a, np.zeros(int(sr * seg), np.float32)])
+
+# eco de la sala de cada referencia: 'suave' o 'fuerte' (resta de la reverberacion). Cambia aqui si hace falta
+SECA = {'abuela': (1.0, 0.03, 0.08)}   # eco muy reducido (elegido por el usuario)
+SECA_PRUEBAS = {'abuela_orig': None, 'abuela_fuerte': (1.0, 0.03, 0.08)}
+# variantes de la referencia de Dani (recortada antes de la palabra «modelo» del final): nombre -> (base, segundo de corte, texto)
+_DANI = 'Créditos por cada intento, usando modelos locales. ¡Mira cómo! Descargas el instalador desde GitHub, abres la aplicación y eliges un modelo.'
+REF_CORTE = {'amigo_B': ('amigo', 8.96, _DANI + ' Es el motor que crea el'), 'amigo_D': ('amigo', 7.91, _DANI)}
+
 def a_wav(a, sr):
     a = np.asarray(a, dtype=np.float32); pk = float(np.max(np.abs(a))) if a.size else 0
     if pk > 0: a = a * (0.89 / pk)
@@ -125,12 +154,18 @@ def ref(nombre):
     REFS[nombre] = (os.path.join(d, nombre + '.wav'), open(os.path.join(d, nombre + '.txt'), encoding='utf-8').read().strip()); return REFS[nombre]
 
 def nombre_ref(who):
+    if who in SECA_PRUEBAS or who in REF_CORTE: return who
     return who if who in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'yo'   # el narrador en voz alta usa la misma voz que su mente
 
 def prompt_de(nombre):
     if nombre not in PROMPTS:
-        p, t = ref(nombre); a, sr = sf.read(p, dtype='float32')
+        base = REF_CORTE[nombre][0] if nombre in REF_CORTE else nombre if nombre in ('yo', 'amigo', 'amiga', 'jefe', 'madre', 'abuela') else 'abuela'
+        p, t = ref(base); a, sr = sf.read(p, dtype='float32')
         if a.ndim > 1: a = a.mean(axis=1)
+        if nombre in REF_CORTE: a = a[:int(REF_CORTE[nombre][1] * sr)]; t = REF_CORTE[nombre][2]
+        cfg = SECA_PRUEBAS[nombre] if nombre in SECA_PRUEBAS else SECA.get(nombre)
+        if cfg: a = seca(a, sr, *cfg)
+        a = con_cola(a, sr)      # fundido + silencio al final: sin esto el modelo "termina" la ultima palabra de la referencia al empezar cada frase
         PROMPTS[nombre] = modelo().create_voice_clone_prompt(ref_audio=(a, sr), ref_text=t)
     return PROMPTS[nombre]
 
@@ -162,15 +197,25 @@ PRUEBAS = [
   ('jefe', 'casero', 'nervioso', 'Esto lo arreglo yo en dos minutos, que lo he hecho mil veces.', False),
   ('abuela', 'vecina', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
   ('abuela', 'vecina', 'enfado', 'Menuda gentuza, hijo, menuda gentuza. Voy a llamar a la comunidad.', False),
+  ('abuela_orig', 'vecina_nada', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
+  ('abuela_fuerte', 'vecina_fuerte', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
   ('madre', 'madre', 'nervioso', 'Pero hijo, ¿tú comes bien? Te noto muy delgado.', False),
   ('madre', 'madre', 'falso_dulce', 'Esa casa tiene que estar hecha un desastre, seguro.', False),
 ]
+PRUEBAS_DANI = [
+  ('amigo', 'dani_actual', '', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
+  ('amigo', 'dani_actual', '', 'No te rayes, que luego te invito a algo.', False),
+  ('amigo_B', 'dani_B', '', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
+  ('amigo_B', 'dani_B', '', 'No te rayes, que luego te invito a algo.', False),
+  ('amigo_D', 'dani_D', '', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
+  ('amigo_D', 'dani_D', '', 'No te rayes, que luego te invito a algo.', False),
+]
 def hacer_pruebas():
     log('MODO PRUEBA: frases de la serie con la voz de cada personaje (no toca la cola)')
-    for i, (who, nombre, mood, txt, alto) in enumerate(PRUEBAS):
+    for i, (who, nombre, mood, txt, alto) in enumerate(PRUEBAS_DANI):
         t = time.time(); wav, dur = generar({'who': who, 'mood': mood, 'text': txt, 'alto': alto})
-        api('POST', '/storage/v1/object/voz/prueba_%02d_%s.wav' % (i + 1, nombre), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
-        log('   prueba %d/%d %s: %.1f s de audio en %.0f s' % (i + 1, len(PRUEBAS), nombre, dur, time.time() - t))
+        api('POST', '/storage/v1/object/voz/prueba_%02d_%s.wav' % (i + 20, nombre), wav, {'Content-Type': 'audio/wav', 'x-upsert': 'true'})
+        log('   prueba %d/%d %s: %.1f s de audio en %.0f s' % (i + 1, len(PRUEBAS_DANI), nombre, dur, time.time() - t))
     avisar_pruebas()
 
 def avisar_pruebas():
