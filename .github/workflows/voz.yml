@@ -121,5 +121,5 @@ jobs:
         run: |
           python -m venv /tmp/q && . /tmp/q/bin/activate
           pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install --quiet qwen-tts soundfile faster-whisper
+          pip install --quiet qwen-tts soundfile
           python pc-voz/prueba_acento.py qwen2

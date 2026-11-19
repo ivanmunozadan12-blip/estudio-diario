@@ -21,11 +21,7 @@ if ENGINE == 'cb':
             t0 = time.time(); a = m.generate(FRASE, language_id='es', audio_prompt_path=REF(w), exaggeration=0.5, cfg_weight=cfg).squeeze().cpu().numpy()
             subir('prueba_a_%s_cb%d.wav' % (nombre, int(cfg * 10)), norm(a), m.sr); log('cb', nombre, cfg, 'en %.0f s' % (time.time() - t0))
 elif ENGINE == 'qwen2':
-    from faster_whisper import WhisperModel
-    asr = WhisperModel('medium', device='cpu', compute_type='int8'); TXT = {}
-    for w, nombre in VOCES:
-        seg, _ = asr.transcribe(REF(w), language='es', beam_size=5); TXT[w] = ' '.join(x.text.strip() for x in seg).strip(); log('TRANSCRIPCION', nombre, '=>', TXT[w])
-    del asr
+    TXT = {w: open(os.path.join(HERE, '..', 'voz-ref', w + '.txt'), encoding='utf-8').read().strip() for w, _ in VOCES}
     import torch
     from qwen_tts import Qwen3TTSModel
     m = Qwen3TTSModel.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base', device_map='cpu', dtype=torch.float32)
@@ -34,7 +30,7 @@ elif ENGINE == 'qwen2':
             a, sr = sf.read(REF(w), dtype='float32')
             if a.ndim > 1: a = a.mean(axis=1)
             p = m.create_voice_clone_prompt(ref_audio=(a, sr), ref_text=TXT[w])
-            t0 = time.time(); wv, s = m.generate_voice_clone(text=FRASE, language='Spanish', voice_clone_prompt=p)
+            t0 = time.time(); wv, s = m.generate_voice_clone(text=FRASE, language='Spanish', voice_clone_prompt=p, max_new_tokens=500)
             subir('prueba_a_%s_qwenicl.wav' % nombre, norm(wv[0]), s); log('qwenicl', nombre, 'en %.0f s' % (time.time() - t0))
         except Exception as e: log('ERROR qwenicl', nombre, repr(e)[:300])
 else:
