@@ -2525,7 +2525,7 @@ Comprueba y corrige hasta que TODO se cumpla:
 - ENCUADRE: al menos 3 escenas con plano "cerca" (primer plano del narrador o de quien habla, en los momentos de más emoción) y el resto "general"; en las escenas donde el narrador habla en voz alta a alguien, ese alguien sale en "pers" (si habla con Dani, Dani está en la escena).
 - ESCENAS VISIBLES: si el texto dice que alguien hace algo, ese personaje sale en "pers" de esa escena; «objeto» solo se usa con plano "objeto" y con un nombre de la lista (no inventes «sudadera» ni similares; si el objeto no está en la lista, cuéntalo con el texto, la etiqueta o el hud).
 - DECORADO = DONDE OCURRE: la acción pasa en el sitio donde está la cosa (la puerta de entrada → pasillo o portal; el grifo → bano; la comida → cocina). No pongas «dormitorio» o «terraza» a una escena que habla de la puerta, el jabón o el microondas solo por variar: varía poniendo a los personajes en los sitios donde ese objeto tiene sentido.
-- DURACIÓN: 100 a 120 s = como MÁXIMO 280 palabras en total (unas 9 por escena). Si pasas, recorta frases largas y quita escenas de relleno; nunca dos frases seguidas en el mismo texto de escena.
+- DURACIÓN: el vídeo real dura más de lo que parece (pausas entre frases): 319 palabras salieron en 174 s. Para 120 s escribe como MÁXIMO 220 palabras en total (unas 7 por escena y 28-30 escenas). Si pasas, recorta frases largas y quita escenas de relleno; nunca dos frases seguidas en el mismo texto de escena.
 - NADA DE TACOS DENTRO DE «…» DEL NARRADOR: lo que dice en voz alta es siempre educado; las palabrotas van en su pensamiento, fuera de las comillas.
 - CONTEO FINAL: cuenta palabrotas (de 3 a 5; si hay 2, añade una justificada), sfx (de 8 a 10; si hay más, quita), escenas con «…» del narrador (3 o más) y primeros planos (3 o más) antes de entregar.
 - UNA SOLA CAUSA: el misterio o problema tiene UNA causa física concreta (un aparato, una persona, una norma) y el giro la revela sin cambiarla por otra. Si el problema es el microondas, la explicación no puede ser «eran alarmas del móvil»; si empieza con una cosa, el giro la explica con esa misma cosa.
@@ -4020,7 +4020,7 @@ const Voice = {
     if (/«/.test(text)) text.replace(/«([^»]*)»|([^«»]+)/g, (m, q, n) => { if (q !== undefined) { if (q.trim()) parts.push(habla && habla !== 'yo' ? { t: q.trim(), who: habla } : { t: q.trim(), who: 'yo', alto: true }); } else if (/[\p{L}\p{N}]/u.test(n)) parts.push({ t: n.replace(/^[\s.,;:!?]+/, '').trim(), who: 'yo' }); return m; });
     if (!parts.length) parts.push({ t: text, who: 'yo' });
     return parts.map(pt => {
-      let t = pt.t.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim(); if (!/[.!?…]$/.test(t)) t += '.';
+      let t = pt.t.replace(/[*_#]/g, '').replace(/\s+/g, ' ').trim(); t = t.replace(/[\s:;,]+$/, ''); if (!/[.!?…]$/.test(t)) t += '.';
       const mood = pt.who === 'yo' ? (pt.alto ? '' : (moods.yo || 'harto')) : (moods[pt.who] || '');
       const alto = !!pt.alto, key = 'j' + this.pcHash([this.PC_V, pt.who, mood, alto ? 1 : 0, t].join('|'));
       return { key, who: pt.who, mood, alto, text: t };
