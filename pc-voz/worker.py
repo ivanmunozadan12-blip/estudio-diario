@@ -65,7 +65,7 @@ import gc, threading, numpy as np, soundfile as sf, torch
 torch.set_num_threads(os.cpu_count() or 4)
 PRUEBA = os.environ.get('PRUEBA') == '1'
 RAW = 'https://raw.githubusercontent.com/ivanmunozadan12-blip/estudio-diario/main/voz-ref/'
-EXA = {'enfado': .8, 'panico': .85, 'asombro': .7, 'risa': .7, 'sonrisa': .55, 'nervioso': .65, 'sarcastico': .6, 'burlon': .6}   # 0.5 = emocion normal (el narrador siempre 0.5)
+EXA = {'enfado': .8, 'panico': .85, 'asombro': .75, 'risa': .7, 'sonrisa': .55, 'nervioso': .65, 'sarcastico': .6, 'burlon': .6, 'triste': .7, 'falso_dulce': .6}   # 0.5 = emocion normal (el narrador siempre 0.5)
 _modelo = None; REFS = {}
 
 def hilo_latido():
@@ -132,7 +132,7 @@ def preparar():
 
 def generar(j):
     who = j.get('who') or 'yo'; txt = ' '.join(str(j.get('text') or '').split()); sembrar(who)
-    m = modelo(); exa = 0.5 if who == 'yo' else EXA.get(j.get('mood') or '', 0.5)
+    m = modelo(); exa = 0.5 if who == 'yo' else EXA.get(j.get('mood') or '', 0.65 if who == 'amiga' else 0.5)   # Marta, la dramatica, nunca por debajo de 0.65 si no hay emocion indicada
     w = m.generate(txt, language_id='es', audio_prompt_path=ref(nombre_ref(who)), exaggeration=exa, cfg_weight=0.4)
     return a_wav(limpiar_audio(w.squeeze().cpu().numpy(), m.sr), m.sr)
 
@@ -143,8 +143,8 @@ PRUEBAS = [
   ('yo', 'narrador', '', 'Por supuesto, Marta. Ningún problema.', True),
   ('amigo', 'dani', 'tranquilo', 'Tranquilo, tío, es lo que hay. Yo solo como proteína.', False),
   ('amigo', 'dani', 'burlon', 'No te rayes, que luego te invito a algo.', False),
-  ('amiga', 'marta', 'falso_dulce', 'No pasa nada. Norma número once: prohibido el yogur ajeno.', False),
-  ('amiga', 'marta', 'sarcastico', 'Literal, lo dije en el grupo. Tres veces.', False),
+  ('amiga', 'marta', 'asombro', 'Estoy en shock. Literal, esto es una traición.', False),
+  ('amiga', 'marta', 'falso_dulce', 'Chicos, esto va a mis stories. Con hashtag.', False),
   ('jefe', 'casero', 'falso_dulce', 'Eso es humedad. Voy a echar un vistazo, no se preocupe.', False),
   ('jefe', 'casero', 'nervioso', 'Esto lo arreglo yo en dos minutos, que lo he hecho mil veces.', False),
   ('abuela', 'vecina', 'enfado', '¡Sinvergüenzas! ¡Otra vez la música a estas horas, desgraciados!', False),
