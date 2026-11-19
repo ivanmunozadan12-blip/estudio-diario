@@ -2616,15 +2616,11 @@ Cada escena: {"texto":"…","habla":"…","voz":"…","sfx":"…","plano":{…},
   · "whatsapp": {"nombre":"…","msgs":[{"txt":"…","yo":false}],"escribiendo":true} solo con plano "objeto"; máximo 4 mensajes de 30 caracteres; "yo":true solo para mensajes del narrador y los demás con "yo":false (con varios remitentes empiezan por su nombre: «Marta: …»); con "estilo":"correo" sale una pantalla de correo o recibo (cabecera azul, en "nombre" el remitente). El texto de la escena resume el chat; los chistes van en los mensajes.
 - Cabecera: "titulo", "descripcion", "hashtags" (pisocompartido, humor, vidareal, companerosdepiso, comedia), "musica":"alegre", "concepto" (la trampa en UNA frase), "protagonista":null.
 
-════ 8. EJEMPLO DE FORMA Y RITMO (solo la forma; ese tema ya está usado: NO copies su contenido) ════
-{"titulo":"Piso 3ºB: el audio que nunca debiste escuchar","descripcion":"Capítulo 1. Lucía necesita elegir un audio de disculpa. Tú solo tenías que opinar.","hashtags":["pisocompartido","humor","vidareal","companerosdepiso","comedia"],"musica":"alegre","concepto":"Lucía graba dos disculpas para su madre y en ambas se oye al narrador criticando las croquetas de la suegra.","protagonista":null,"escenas":[
-{"texto":"«Cariño, ¿cuál de los dos audios le mando a mi madre?»","habla":"novia","voz":"falso_dulce","sfx":"notif","plano":{"set":"salon","plano":"dos","extras":["movil"],"pers":[{"quien":"yo","mood":"duda","look":1},{"quien":"novia","mood":"hablar","look":-1}]},"camara":"zoomin"},
-{"texto":"Lucía grabó dos disculpas para su madre. Tú estabas en el *sofá*.","voz":"seco","plano":{"set":"salon","plano":"general","extras":["movil","mando","cojin"],"pers":[{"quien":"yo","mood":"resignado"},{"quien":"novia","mood":"neutro"}]},"camara":"fija"},
-{"texto":"En ambos, al fondo, se oye tu *voz*.","voz":"serio","sfx":"fallo","plano":{"set":"salon","plano":"objeto","objeto":["movil","Audio 1 y 2"],"pers":[{"quien":"yo","mood":"asombro"}]},"camara":"zoomin"},
-{"texto":"«Las croquetas de tu madre saben a *jabón*.»","voz":"panico","plano":{"set":"salon","plano":"cerca","pers":[{"quien":"yo","mood":"panico","arms":"cabeza"}]},"camara":"zoomin"},
-{"texto":"Joder. Y no lo dices como un *cumplido*.","voz":"harto","plano":{"set":"salon","plano":"cerca","pers":[{"quien":"yo","mood":"resignado"}]},"camara":"zoomout"},
-{"texto":"«¿Y bien? ¿Cuál suena más *natural*?»","habla":"novia","voz":"falso_dulce","plano":{"set":"salon","plano":"medio","pers":[{"quien":"novia","mood":"hablar"},{"quien":"yo","mood":"duda"}]},"camara":"fija"},
-{"texto":"«El primero. Tiene mejor *entonación*.»","voz":"educado","plano":{"set":"salon","plano":"medio","extras":["libro","vaso"],"pers":[{"quien":"yo","mood":"hablar"},{"quien":"novia","mood":"duda"}]},"camara":"fija"}
+════ 8. EJEMPLO DE FORMA (solo la estructura de los campos; su tema, su título, su gancho y su remate NO se copian ni se imitan: inventa los tuyos, con otro tipo de arranque cada día) ════
+{"titulo":"Piso 3ºB: el paquete que no era tuyo","descripcion":"Capítulo 1. El portero te entrega un paquete. Está abierto.","hashtags":["pisocompartido","humor","vidareal","companerosdepiso","comedia"],"musica":"alegre","concepto":"El portero entrega al narrador un paquete abierto que resulta ser de Dani.","protagonista":null,"escenas":[
+{"texto":"«Tu paquete. Ya lo he abierto, por *seguridad*.»","habla":"jefe","voz":"seco","sfx":"timbre","plano":{"set":"portal","plano":"dos","extras":["buzon"],"pers":[{"quien":"yo","mood":"asombro","look":1},{"quien":"jefe","mood":"hablar","look":-1}]},"camara":"zoomin"},
+{"texto":"Es el tercero esta semana que llega *abierto*.","voz":"harto","plano":{"set":"portal","plano":"objeto","objeto":["paquete","ABIERTO"],"pers":[{"quien":"yo","mood":"resignado"}],"hud":["Paquetes abiertos","3","rojo"]},"camara":"fija"},
+{"texto":"«Muchas gracias, qué *detalle*.»","voz":"educado","plano":{"set":"portal","plano":"medio","extras":["escoba","paraguas"],"pers":[{"quien":"yo","mood":"hablar"},{"quien":"jefe","mood":"sonrisa"}]},"camara":"fija"}
 …(así hasta 19-23 escenas; el último cierra con un remate seco que usa el objeto del capítulo)
 ]}
 
