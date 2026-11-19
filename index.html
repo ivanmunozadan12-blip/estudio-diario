@@ -2987,6 +2987,7 @@ async function genScript(i, S){
 
 /* --- interfaz --- */
 const msg = t => { $('#msg').textContent = t || ''; };
+const aviso = t => { msg(t); try { let d = document.getElementById('toastAviso'); if (!d) { d = document.createElement('div'); d.id = 'toastAviso'; d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:18px;z-index:99999;background:#14161c;color:#fff;padding:14px 16px;border-radius:12px;font:600 15px Poppins,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.45)'; document.body.appendChild(d); } d.textContent = t; d.hidden = false; clearTimeout(d._t); d._t = setTimeout(() => { d.hidden = true; }, 9000); } catch (e) {} };
 function estDur(sc){ return Math.round(sc.escenas.reduce((a, e) => a + e.texto.split(/\s+/).length / 2.5 + .6, 0)); }
 function slotHTML(i){
   const s = slots[i], busy = !!s.busy, done = doneToday()[i];
@@ -3031,9 +3032,14 @@ async function copyText(t, btn){
   const o = btn.textContent; btn.textContent = 'Copiado'; setTimeout(() => btn.textContent = o, 1200);
 }
 async function shareVideo(i){
-  const s = slots[i]; if (!s.blob) return; const file = new File([s.blob], 'video-' + (i + 1) + '.' + s.ext, { type: s.blob.type });
-  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: s.script ? s.script.titulo : '', text: s.script ? captions(s.script, 'tt') : '' }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
-  msg('Tu navegador no permite compartir archivos. Usa «Descargar» (o «Abrir» y mantén pulsado el vídeo).');
+  const s = slots[i]; if (!s.blob) return;
+  const file = new File([s.blob], fileName(i), { type: (s.blob.type || '').split(';')[0] || (s.ext === 'mp4' ? 'video/mp4' : 'video/webm') });
+  const intentos = [{ files: [file] }, { files: [file], title: s.script ? s.script.titulo : '', text: s.script ? captions(s.script, 'tt') : '' }];
+  if (navigator.share) for (const d of intentos) {
+    try { if (navigator.canShare && !navigator.canShare(d)) continue; await navigator.share(d); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try { const u = URL.createObjectURL(s.blob), a = document.createElement('a'); a.href = u; a.download = fileName(i); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); aviso('Este navegador no deja abrir «Compartir»: he descargado el vídeo (mira en Descargas o Archivos).'); }
+  catch (e) { aviso('No se puede compartir desde aquí. Usa «Descargar» o «Abrir» y mantén pulsado el vídeo.'); }
 }
 function fileName(i){ const s = slots[i]; return (s.script ? s.script.titulo : 'video-' + (i+1)).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50) + '.' + s.ext; }
 async function saveVideo(i){
@@ -3168,7 +3174,7 @@ async function coverBlob(i){
   return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', .9));
 }
 async function saveOrShare(blob, name){
-  const f = new File([blob], name, { type: blob.type || 'image/jpeg' });
+  const f = new File([blob], name, { type: (blob.type || 'image/jpeg').split(';')[0] });
   try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
 }
@@ -3357,7 +3363,7 @@ function slotHours(){ return slotCfg().slice(0, DAILY).map(c => { const m = /^(\
 const queueMem = []; let queueDB = null, queueSeq = 1;
 function qOpen(){ return new Promise(res => { if (queueDB !== null) return res(queueDB); try { const r = indexedDB.open('estudio-cola', 1); r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id' }); r.onsuccess = () => { queueDB = r.result; res(queueDB); }; r.onerror = () => { queueDB = false; res(false); }; } catch (e) { queueDB = false; res(false); } }); }
 async function qAll(){ const db = await qOpen(); if (!db) return queueMem.slice(); return new Promise(res => { try { const rq = db.transaction('q').objectStore('q').getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => res([]); } catch (e) { res([]); } }); }
-async function qPut(it){ const db = await qOpen(); if (!db) { const k = queueMem.findIndex(x => x.id === it.id); if (k >= 0) queueMem[k] = it; else queueMem.push(it); return; } return new Promise(res => { try { const tx = db.transaction('q', 'readwrite'); tx.objectStore('q').put(it); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch (e) { res(); } }); }
+async function qPut(it){ const db = await qOpen(); if (!db) { const k = queueMem.findIndex(x => x.id === it.id); if (k >= 0) queueMem[k] = it; else queueMem.push(it); return false; } return new Promise(res => { try { const tx = db.transaction('q', 'readwrite'); tx.objectStore('q').put(it); tx.oncomplete = () => res(true); tx.onerror = () => res(false); tx.onabort = () => res(false); } catch (e) { res(false); } }); }
 async function qDel(id){ const db = await qOpen(); if (!db) { const k = queueMem.findIndex(x => x.id === id); if (k >= 0) queueMem.splice(k, 1); return; } return new Promise(res => { try { const tx = db.transaction('q', 'readwrite'); tx.objectStore('q').delete(id); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch (e) { res(); } }); }
 function qSlots(items, n){ const used = new Set(items.filter(x => !x.done).map(x => x.when)), out = [], now = Date.now() + 10 * 60000, d = new Date(); d.setHours(0, 0, 0, 0);
   for (let k = 0; k < 30 && out.length < n; k++) for (const [h, m] of slotHours().slice().sort((a, b) => a[0] * 60 + a[1] - b[0] * 60 - b[1])) { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, h, m).getTime(); if (t > now && !used.has(t)) out.push(t); if (out.length >= n) break; }
@@ -3370,8 +3376,9 @@ async function queueAdd(sl){
   if (sl.slotIdx >= 0) { const [h, m] = slotHours()[sl.slotIdx] || [12, 0], used = new Set(items.filter(x => !x.done).map(x => x.when)), d = new Date(); d.setHours(0, 0, 0, 0); for (let k = 0; k < 30 && !when; k++) { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, h, m).getTime(); if (t > Date.now() + 10 * 60000 && !used.has(t)) when = t; } }
   when = when || qSlots(items, 1)[0] || Date.now();
   const slug = String(sl.script.titulo || 'video').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'video';
-  await qPut({ id: Date.now() * 10 + (queueSeq++ % 10), title: sl.script.titulo, slug, ext: sl.ext || 'webm', blob: sl.blob, yt: captions(sl.script, 'yt'), tt: captions(sl.script, 'tt'), when, done: false, created: Date.now() });
-  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+  const guardado = await qPut({ id: Date.now() * 10 + (queueSeq++ % 10), title: sl.script.titulo, slug, ext: sl.ext || 'webm', blob: sl.blob, yt: captions(sl.script, 'yt'), tt: captions(sl.script, 'tt'), when, done: false, created: Date.now() });
+  if (!guardado) aviso('⚠️ No he podido guardar el vídeo en la cola del móvil (el navegador no deja). Descárgalo ahora con «Descargar» o «Compartir» antes de cerrar la web.');
   renderQueue();
 }
 async function renderQueue(){
