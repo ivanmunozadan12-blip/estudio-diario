@@ -9,6 +9,10 @@ on:
         description: 'Solo generar muestras de voz de prueba'
         type: boolean
         default: false
+      acento:
+        description: 'Prueba de acento (Chatterbox y Qwen)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -25,9 +29,11 @@ jobs:
           URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_KEY }}
           PRUEBA: ${{ inputs.prueba }}
+          ACENTO: ${{ inputs.acento }}
         run: |
           echo "run=no" >> "$GITHUB_OUTPUT"
           if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "Faltan los secretos SUPABASE_URL y SUPABASE_KEY"; exit 0; fi
+          if [ "$ACENTO" = "true" ]; then echo "acento=yes" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$PRUEBA" = "true" ]; then echo "run=yes" >> "$GITHUB_OUTPUT"; echo 'modo prueba'; exit 0; fi
           URL="${URL%/}"
           H=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY")
@@ -72,3 +78,25 @@ jobs:
         run: |
           . /tmp/cb/bin/activate
           python pc-voz/worker.py
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.acento == 'yes'
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.acento == 'yes'
+        with:
+          python-version: '3.11'
+      - name: Prueba de acento
+        if: steps.check.outputs.acento == 'yes'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PYTHONUNBUFFERED: '1'
+        run: |
+          python -m venv /tmp/cb && . /tmp/cb/bin/activate
+          pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet chatterbox-tts soundfile
+          python pc-voz/prueba_acento.py cb
+          deactivate
+          python -m venv /tmp/q && . /tmp/q/bin/activate
+          pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet qwen-tts soundfile
+          python pc-voz/prueba_acento.py qwen
