@@ -2748,7 +2748,7 @@ function importPackage(text, i){
   const raw = parseJSON(head), old = sl.script, keep = !!(old && at < 0 && Array.isArray(raw.escenas) && raw.escenas.length === old.escenas.length);
   const dir = keep ? old.direccion : (pendingDir[i] || pickDirection(sl.topic || raw.titulo || '', store.get('sigs', []), comediaOn(settings(), sl.topic || raw.titulo || '')));
   const script = sanitizeScript(raw, sl.topic || raw.titulo || 'Vídeo', dir);
-  try { script.revision = validarCapitulo(raw); } catch (e) { script.revision = []; }
+  try { script.revision = validarCapitulo(raw); script.rawTxt = JSON.stringify(raw); } catch (e) { script.revision = []; }
   const progs = parsePrograms(at < 0 ? '' : text.slice(at)), errs = []; let ok = 0;
   script.escenas.forEach((e, k) => {
     if (e.tipo && e.tipo !== 'normal') return;
@@ -3321,6 +3321,22 @@ function validarCapitulo(raw){
   const p = raw.puntuacion; if (p && typeof p === 'object') { const bajas = Object.keys(p).filter(k => typeof p[k] === 'number' && !/media|vueltas/.test(k) && p[k] < 8); if (bajas.length) bad('Se puso menos de 8 en: ' + bajas.join(', ')); }
   return out;
 }
+function promptCorreccion(script){
+  const fallos = ((script && script.revision) || []).filter(x => !x.ok).map((x, i) => `${i + 1}. ${x.txt}`).join('\n') || '(sin avisos automáticos: revisa tú los 12 aspectos del apartado 9 del prompt y sube lo que esté por debajo de 8)';
+  return `Corrige el capítulo de «Piso 3ºB» que te paso abajo. Mi aplicación lo ha revisado CONTANDO de verdad (no es una opinión) y ha encontrado estos problemas:
+
+${fallos}
+
+INSTRUCCIONES:
+- Arregla SOLO lo necesario para resolver esos problemas y cualquier aspecto tuyo que esté por debajo de 8, y mantén la historia, la trampa y los chistes que ya funcionan. Si un problema sale de que la trampa no se entiende o se rompe a mitad, reescribe las escenas afectadas con una prueba concreta que se vea.
+- Cuando quites o añadas escenas, vuelve a CONTAR palabra a palabra: 19-23 escenas, 120-150 palabras, ninguna escena con más de 11 palabras, de 8 a 10 "sfx", de 3 a 5 primeros planos "cerca", de 4 a 6 palabrotas repartidas sin ritmo fijo (con un «seré gilipollas» donde pega). Quita primero los sonidos de las escenas más flojas.
+- Todo texto con "habla" es exactamente lo que dice ese personaje, entre «…», en primera persona. Todo "objeto" lleva su nombre escrito en el texto de la escena. La novia usa sus frases («No pasa nada.», «Haz lo que quieras.», «Tú sabrás.»).
+- Actualiza "guion" y "puntuacion" (con el "conteo" real, la lista de escenas de palabrotas y las notas honestas) para que reflejen la versión corregida.
+- Entrega SOLO un bloque de código json con el objeto completo y todas las escenas, sin abreviar y sin texto fuera del bloque.
+
+CAPÍTULO A CORREGIR:
+${(script && script.rawTxt) || ''}`;
+}
 function pacingReport(script){
   const es = (script && script.escenas) || [], out = [];
   es.forEach((e, i) => { const d = estSceneDur(e), w = String(e.texto || '').split(/\s+/).filter(Boolean).length; if (d > 8) out.push(`Escena ${i + 1}: ~${d.toFixed(0)} s (${w} palabras) es larga; divídela o recórtala`); else if (w < 2) out.push(`Escena ${i + 1}: solo ${w} palabra, quedará muy corta`); });
@@ -3354,7 +3370,7 @@ function renderSimple(){
       <details style="margin-top:8px"><summary>Cambiar el capítulo pegado</summary><label class="f">Pegar otro capítulo<textarea id="simPaste" placeholder="Pega aquí el JSON…">${esc(simpleText)}</textarea></label><div class="row"><button id="simGo">Cargar y grabar este</button></div></details>`;
     }
   }
-  if (sc && sc.revision && sc.revision.length && !s.url && !busy) { const rv = sc.revision, fallos = rv.filter(x => !x.ok); h += `<details open style="margin-top:8px"><summary><b>Revisión automática</b> · ${fallos.length ? fallos.length + ' aviso' + (fallos.length > 1 ? 's' : '') : 'todo en orden'}</summary>${rv.map(x => `<p class="meta" style="color:${x.ok ? 'var(--green,#4cd07d)' : 'var(--amber,#ffc533)'}">${x.ok ? '✓' : '⚠'} ${esc(x.txt)}</p>`).join('')}${fallos.length ? '<p class="meta">Si hay avisos, pídele a ChatGPT que lo corrija antes de encargar las voces.</p>' : ''}</details>`; }
+  if (sc && sc.revision && sc.revision.length && !s.url && !busy) { const rv = sc.revision, fallos = rv.filter(x => !x.ok); h += `<details open style="margin-top:8px"><summary><b>Revisión automática</b> · ${fallos.length ? fallos.length + ' aviso' + (fallos.length > 1 ? 's' : '') : 'todo en orden'}</summary>${rv.map(x => `<p class="meta" style="color:${x.ok ? 'var(--green,#4cd07d)' : 'var(--amber,#ffc533)'}">${x.ok ? '✓' : '⚠'} ${esc(x.txt)}</p>`).join('')}${fallos.length ? '<div class="row"><button class="pri" id="simFix">📋 Copiar prompt para corregir</button></div><p class="meta">Pégalo en ChatGPT (lleva el capítulo y los fallos), copia el JSON corregido y pégalo aquí en «Cambiar el capítulo pegado».</p>' : ''}</details>`; }
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
   if (s.err) h += `<p class="meta" style="color:var(--red)">${esc(s.err)}</p>`;
@@ -3404,6 +3420,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'simPiper') { Voice.failed = false; Voice.forcePiper = true; s.err = ''; try { return await simpleRecord(); } finally { Voice.forcePiper = false; } }
   if (b.id === 'simRobot') { const en = $('#voiceEngine'); if (en) { en.value = 'robot'; en.dispatchEvent(new Event('change')); } Voice.failed = false; s.err = ''; return simpleRecord(); }
   if (b.id === 'simCopyDia') return copyText(pisoDiarioPrompt(), b);
+  if (b.id === 'simFix') return copyText(promptCorreccion(slots[0].script), b);
   if (b.id === 'simImp' || b.id === 'simGo' || b.id === 'simEnc') {
     simpleNote = ''; const t = simpleText || ($('#simPaste') || {}).value || '';
     if (t.trim().length < 50) { simpleNote = 'Pega primero el capítulo de ChatGPT.'; renderSimple(); return; }
