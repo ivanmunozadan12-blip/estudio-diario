@@ -68,19 +68,21 @@ label.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px
 .note{font-size:12px;color:var(--muted);margin:0 0 12px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 #slot1,#slot2{display:none!important}
-body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.simple #simQueue,body.simple #counter,body.simple .dock .in,body.simple #auto,body.simple label.chk:has(#auto),body.simple #autoHint{display:none!important}
+body.simple .dock,body.simple #slots,body.simple #ia,body.simple #slotsCfg,body.simple #counter,body.simple .dock .in,body.simple #auto,body.simple label.chk:has(#auto),body.simple #autoHint{display:none!important}
+body.simple:not(.admin) #ajustes{display:none!important}
+body.simple.admin #ajustes,body.simple.admin #ia,body.simple.admin #slotsCfg{display:block!important}
 </style>
 </head>
 <body class="simple">
 
 <header>
-  <div><h1>Piso 3ºB</h1><small>Pega el capítulo de ChatGPT y crea el vídeo 9:16</small></div>
+  <div><h1>Piso 3ºB</h1><small>Capítulo diario</small></div>
   <span class="pill" id="counter">Hoy 0/3</span>
 </header>
 
 <section id="stageWrap" aria-label="Pantalla de vista previa">
   <canvas id="stage" width="720" height="1280"></canvas>
-  <div id="stageInfo">Pega el capítulo de ChatGPT y pulsa «Crear vídeo»</div>
+  <div id="stageInfo">Aquí verás el vídeo mientras se graba</div>
   <button id="stopBtn" hidden>Detener</button>
 </section>
 
@@ -3217,8 +3219,8 @@ let simpleText = '', simpleNote = '', simpleSheetUrl = '', simpleSheetBlob = nul
 const simpleOn = () => document.body.classList.contains('simple');
 function pacingReport(script){
   const es = (script && script.escenas) || [], out = [];
-  es.forEach((e, i) => { const d = estSceneDur(e), w = String(e.texto || '').split(/\s+/).filter(Boolean).length; if (d > 8) out.push(`Escena ${i + 1}: ~${d.toFixed(0)} s (${w} palabras) es larga; divídela o recórtala`); else if (w < 4) out.push(`Escena ${i + 1}: solo ${w} palabras, quedará muy corta`); });
-  const tot = es.reduce((a, e) => a + estSceneDur(e), 0); if (tot > 150) out.push(`Duración total ~${tot.toFixed(0)} s: es larga, recorta escenas`); else if (es.length && tot < 90) out.push(`Duración total ~${tot.toFixed(0)} s: menos de 90 s, pide más escenas`);
+  es.forEach((e, i) => { const d = estSceneDur(e), w = String(e.texto || '').split(/\s+/).filter(Boolean).length; if (d > 8) out.push(`Escena ${i + 1}: ~${d.toFixed(0)} s (${w} palabras) es larga; divídela o recórtala`); else if (w < 2) out.push(`Escena ${i + 1}: solo ${w} palabra, quedará muy corta`); });
+  const tot = es.reduce((a, e) => a + estSceneDur(e), 0); if (tot > 105) out.push(`Duración total ~${tot.toFixed(0)} s: es larga, recorta escenas (ideal 60–90 s)`); else if (es.length && tot < 55) out.push(`Duración total ~${tot.toFixed(0)} s: menos de 55 s, pide más escenas`);
   return out;
 }
 function renderSimple(){
@@ -3236,14 +3238,17 @@ function renderSimple(){
   } else if (busy) {
     h += `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px"><b style="font-size:1.6em" id="simPct">${s.pct} %</b><span class="meta">${esc(s.busy)}</span></div><div class="bar" style="height:14px"><i data-bar="0" style="width:${s.pct}%"></i></div><p class="meta">Preparar voces ≈ 30 % · grabar ≈ 70 %. Te aviso al llegar al 95 %. Mejor no cierres la app ni apagues la pantalla; si cambias de app puede pausarse la grabación (depende del móvil).</p>`;
   } else {
+    h += `<div class="row" style="margin-top:0"><button class="pri" id="simCopyDia">📋 Copiar el prompt del día</button></div><p class="meta">Pégalo en ChatGPT y copia el JSON que te devuelva.</p>`;
     if (!sc) {
-      h += `<p class="meta">Pega aquí el capítulo que te dio ChatGPT (el bloque JSON) y pulsa «Crear vídeo»: se carga y se graba solo, con las voces de cada personaje.</p>`;
+      h += `<label class="f">Capítulo de ChatGPT<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
+      <div class="row"><button class="pri" id="simEnc">🎙 1 · Encargar voces</button><button id="simGo">🎬 Grabar ya (sin esperar)</button></div>
+      <p class="meta">Paso 1: pega el capítulo y pulsa «Encargar voces». Cuando te llegue el aviso, vuelve aquí y pulsa «Grabar el vídeo».</p>`;
     } else {
-      h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>`;
+      h += `<p class="meta"><b>${esc(sc.titulo)}</b> · ${sc.escenas.length} escenas · ≈ ${estDur(sc)} s</p>
+      <div class="row"><button class="pri" id="simRec">● 2 · Grabar el vídeo</button><button id="simProg">📊 Ver progreso de voces</button></div>
+      <div class="row"><button id="simSheet">🖼 Revisar imagen</button><button id="simReset">🗑 Otro capítulo</button></div>
+      <details style="margin-top:8px"><summary>Cambiar el capítulo pegado</summary><label class="f">Pegar otro capítulo<textarea id="simPaste" placeholder="Pega aquí el JSON…">${esc(simpleText)}</textarea></label><div class="row"><button id="simGo">Cargar y grabar este</button></div></details>`;
     }
-    h += `<label class="f">${sc ? 'Pegar otro capítulo' : 'Capítulo de ChatGPT'}<textarea id="simPaste" placeholder="Pega aquí el JSON que te devuelva ChatGPT…">${esc(simpleText)}</textarea></label>
-    <div class="row"><button class="pri" id="simGo">🎬 Crear vídeo</button><button id="simEnc">🎙 Encargar voces</button>${sc ? `<button id="simRec">● Grabar el cargado</button><button id="simSheet">🖼 Imagen para revisar</button><button id="simReset">Empezar de nuevo</button>` : ''}</div>
-    <details style="margin-top:8px"><summary>Prompt para ChatGPT</summary><div class="row"><button id="simCopyDia">Copiar prompt diario</button></div><p class="meta">Pégalo en ChatGPT: te devuelve el capítulo del día en JSON.</p></details>`;
   }
   if (sc && !s.url && !busy) { const pr = pacingReport(sc); if (pr.length) h += `<p class="meta" style="color:var(--amber,#ffc533)">Ritmo: ${pr.map(esc).join(' · ')}</p>`; }
   if (simpleNote) h += `<p class="meta" style="color:var(--red)">${esc(simpleNote)}</p>`;
@@ -3302,19 +3307,19 @@ document.addEventListener('click', async ev => {
     const normal = s.script.escenas.filter(e => (e.tipo || 'normal') === 'normal'), faltan = normal.filter(e => !e.codigo).length;
     if (r.errs && r.errs.length) simpleNote = 'Algunas escenas no pasaron la prueba y usarán plantilla: ' + r.errs.slice(0, 3).join(' · ');
     { const h0 = String((s.script.escenas[0] || {}).texto || '').replace(/\*/g, '').trim(), nw0 = h0.split(/\s+/).filter(Boolean).length; if (!simpleNote && (nw0 < 5 || nw0 > 18 || /^(hoy|imagina|¿?sab[ií]as|bienvenid|hola|en este v[ií]deo)/i.test(h0))) simpleNote = `Ojo: el gancho («${h0}») parece flojo (${nw0 < 5 ? 'muy corto' : nw0 > 18 ? 'demasiado largo' : 'empieza como un saludo o una presentación'}). Pide a ChatGPT otra primera frase con el prompt de corrección de texto, indicando la escena 1.`; }
-    if (!simpleNote && b.id !== 'simGo') simpleNote = 'Capítulo cargado. Pulsa «Grabar el cargado» para crear el vídeo.';
+    if (!simpleNote && b.id !== 'simGo') simpleNote = 'Capítulo cargado. Pulsa «Grabar el vídeo» para crear el vídeo.';
     renderSimple(); if (b.id === 'simGo' && s.script && s.script.escenas.length < 12) { simpleNote = `Eso no parece un capítulo: solo ha salido ${s.script.escenas.length} escena(s). Pega el bloque JSON completo que te da ChatGPT (empieza por { y tiene unas 30 escenas).`; s.script = null; renderSimple(); return; }
     if (b.id === 'simEnc') {
       if (!s.script || !s.script.escenas.length) { renderSimple(); return; }
       if (!Voice.pcOn()) { simpleNote = 'Para encargar voces configura antes «Voz del PC» en Ajustes (URL y clave de Supabase).'; renderSimple(); return; }
-      try { Voice.informeReset(); const n = await Voice.pcPlan(s.script, null, true); const hechas = Voice.pcDone0 || 0; simpleNote = hechas >= n ? '✅ Las ' + n + ' frases ya están listas (' + hechas + ' de ' + n + '). Pulsa «Grabar el cargado» para montar el vídeo.' : 'Voces encargadas: ' + hechas + ' de ' + n + ' frases ya hechas, el resto se hace solo en el PC o en GitHub; cuando estén listas te llegará el aviso. Entonces abre la web y pulsa «Grabar el cargado».'; }
+      try { Voice.informeReset(); const n = await Voice.pcPlan(s.script, null, true); const hechas = Voice.pcDone0 || 0; simpleNote = hechas >= n ? '✅ Las ' + n + ' frases ya están listas (' + hechas + ' de ' + n + '). Pulsa «Grabar el vídeo» para montar el vídeo.' : 'Voces encargadas: ' + hechas + ' de ' + n + ' frases ya hechas, el resto se hace solo en el PC o en GitHub; cuando estén listas te llegará el aviso. Entonces abre la web y pulsa «Grabar el vídeo».'; }
       catch (e) { simpleNote = 'No pude encargar las voces: ' + (e && e.message || e); }
       renderSimple(); return;
     }
     if (b.id === 'simGo' && s.script && s.script.escenas.length) { try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} return simpleRecord(); } return;
   }
 });
-(function(){ document.body.classList.add('simple'); })();
+(function(){ document.body.classList.add('simple'); try { if (/[?&]ajustes\b/.test(location.search)) document.body.classList.add('admin'); } catch (e) {} })();
 /* --- horarios y temáticas por hora + registro de vídeos (no repetir nunca) --- */
 var SLOT_TYPES = {
   curiosidades: { n: 'Curiosidades', desc: 'cómo funcionan las cosas y por qué pasan (¿Por qué…? / ¿Cómo funciona…?)', ej: '¿Por qué los gatos ronronean?' },
@@ -3397,8 +3402,8 @@ async function renderQueue(){
   const row = x => { const opts = [x.when, ...free.filter(t => t !== x.when)].sort((a, b) => a - b).map(t => `<option value="${t}"${t === x.when ? ' selected' : ''}>${esc(qLabel(t))}</option>`).join('');
     return `<div class="qi"${x.done ? ' style="opacity:.55"' : ''}><p class="meta"><b>${esc(x.title)}</b><br>${x.done ? 'Subido · ' + esc(qLabel(x.when)) : `Programar para: <select data-qsel="${x.id}">${opts}</select>`}</p>
     <div class="row"><button class="pri" data-q="share" data-id="${x.id}">Compartir / guardar</button><button data-q="yt" data-id="${x.id}">Texto YouTube</button><button data-q="tt" data-id="${x.id}">Texto TikTok</button><button data-q="done" data-id="${x.id}">${x.done ? 'Desmarcar' : 'Marcar como subido'}</button><button data-q="del" data-id="${x.id}">Quitar</button></div></div>`; };
-  el.innerHTML = `<div class="top"><h2>📅 Cola de hoy</h2><span class="pill">${pend.length} pendiente${pend.length === 1 ? '' : 's'}</span></div>
-  <p class="meta">Cada vídeo grabado se guarda aquí con su hora. Súbelo a YouTube y elige «Programar» con esa hora: se publica solo. Las horas salen de «Horarios y temáticas».</p>${pend.map(row).join('')}${done.length ? '<p class="meta"><b>Ya subidos</b></p>' + done.map(row).join('') : ''}`;
+  el.innerHTML = `<div class="top"><h2>📅 Vídeos guardados</h2><span class="pill">${pend.length} pendiente${pend.length === 1 ? '' : 's'}</span></div>
+  <p class="meta">Cada vídeo grabado se guarda aquí en tu móvil, aunque cierres la web. Pulsa «Compartir / guardar» para subirlo.</p>${pend.map(row).join('')}${done.length ? '<p class="meta"><b>Ya subidos</b></p>' + done.map(row).join('') : ''}`;
 }
 document.addEventListener('click', async ev => {
   const b = ev.target.closest('button[data-q]'); if (!b) return; const id = +b.dataset.id, items = await qAll(), it = items.find(x => x.id === id); if (!it) return;
