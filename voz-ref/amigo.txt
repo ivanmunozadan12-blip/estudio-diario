@@ -1,0 +1,1 @@
+Créditos por cada intento, usando modelos locales. ¡Mira cómo! Descargas el instalador desde GitHub, abres la aplicación y eliges un modelo. Es el motor que crea el modelo.
