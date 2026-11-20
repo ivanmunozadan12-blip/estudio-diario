@@ -3323,6 +3323,8 @@ function validarCapitulo(raw){
   if (objDes.length) bad('Objeto que NO existe en la lista de la app (no se dibuja; elige uno de la lista o quita el plano objeto): escena ' + objDes.join(', '), null, 'Objetos', 2);
   const sinNombre = es.map((e, i) => { const o = pl(e).objeto, k = o && o[0] && objKw(o[0]); if (!k) return 0; return k.test(plain(e.texto) + ' ' + (o[1] || '')) ? 0 : i + 1; }).filter(Boolean);
   if (sinNombre.length) bad('Objeto que el texto no nombra (la app lo cambia o lo quita)', sinNombre, 'Objetos', 1.5);
+  const vacias = es.map((e, i) => { const q = pl(e); return q.plano === 'objeto' && !q.objeto && !q.whatsapp ? i + 1 : 0; }).filter(Boolean);
+  if (vacias.length) bad('Plano «objeto» sin objeto ni chat: sale la habitación VACÍA, sin personajes (pon "objeto":[nombre,texto] o cambia a plano medio/cerca)', vacias, 'Objetos', 2);
   const cuentaObj = {}; es.forEach(e => { const o = pl(e).objeto; if (o && o[0]) cuentaObj[o[0]] = (cuentaObj[o[0]] || 0) + 1; });
   const repe = Object.keys(cuentaObj).filter(k => cuentaObj[k] > 2); if (repe.length) bad('Objeto repetido en más de 2 escenas: ' + repe.join(', '), null, 'Objetos');
   const estancias = [...new Set(es.map(e => pl(e).set).filter(Boolean))]; if (estancias.length > 3) bad(`${estancias.length} decorados distintos (máximo 3)`, null, 'Estancia', 1.5);
