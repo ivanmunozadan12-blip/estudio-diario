@@ -2892,11 +2892,36 @@ function colabLoad(j){
   const sc = j.escenas.map(b => { const bin = atob(b), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); const i16 = new Int16Array(u.buffer, 0, u.length >> 1), f = new Float32Array(i16.length); for (let k = 0; k < i16.length; k++) f[k] = i16[k] / 32768; return f; });
   COLAB = { fs: j.fs, sc }; return COLAB.sc.length;
 }
+/* Alinea las palabras con la voz REAL: mide la energía del audio, quita el silencio del principio/final y de las pausas, y reparte las palabras solo por el tiempo en que se oye voz (así los subtítulos no se adelantan ni se retrasan). */
+function alignWordsByEnergy(f, fs, toks){
+  const dur = f.length / fs, hop = Math.max(1, Math.round(fs * .01)), n = Math.floor(f.length / hop);
+  const wts = toks.map(w => Math.max(2, w.replace(/[^\p{L}\p{N}]/gu, '').length)), tot = wts.reduce((a, b) => a + b, 0) || 1;
+  const prop = () => { let acc = 0; return toks.map((w, k) => { const s0 = acc / tot * dur; acc += wts[k]; return { raw: w.replace(/[*_«»]/g, ''), s: s0, e: acc / tot * dur }; }); };
+  if (n < 30) return prop();
+  const rms = new Float32Array(n); let peak = 0;
+  for (let i = 0; i < n; i++) { let a = 0; const o = i * hop; for (let k = 0; k < hop; k++) { const v = f[o + k] || 0; a += v * v; } rms[i] = Math.sqrt(a / hop); if (rms[i] > peak) peak = rms[i]; }
+  if (peak < .002) return prop();
+  const thr = Math.max(peak * .05, .0015), vo = new Uint8Array(n);
+  for (let i = 0; i < n; i++) vo[i] = rms[i] > thr ? 1 : 0;
+  for (let i = 0; i < n;) { if (vo[i]) { i++; continue; } let j = i; while (j < n && !vo[j]) j++; if (i > 0 && j < n && j - i < 8) for (let k = i; k < j; k++) vo[k] = 1; i = j; }
+  for (let i = 0; i < n;) { if (!vo[i]) { i++; continue; } let j = i; while (j < n && vo[j]) j++; if (j - i < 3) for (let k = i; k < j; k++) vo[k] = 0; i = j; }
+  const cum = new Int32Array(n + 1); for (let i = 0; i < n; i++) cum[i + 1] = cum[i] + vo[i];
+  const V = cum[n]; if (V < 20) return prop();
+  const startAt = v => { let lo = 0, hi = n - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] >= v) hi = m; else lo = m + 1; } let i = lo; while (i < n - 1 && !vo[i]) i++; return i * hop / fs; };
+  const endAt = v => { let i = 0, lo = 0, hi = n; while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] >= v) hi = m; else lo = m + 1; } i = Math.max(0, lo - 1); return (i + 1) * hop / fs; };
+  /* pausas largas de la voz ↔ signos de puntuación del texto: cada pausa se casa con el signo que cae en el mismo punto del discurso */
+  const gaps = []; for (let i = 0; i < n;) { if (vo[i]) { i++; continue; } let j = i; while (j < n && !vo[j]) j++; if (i > 0 && j < n && j - i >= 15) gaps.push(cum[i] / V); i = j; }
+  const cw = []; let a0 = 0; const brk = []; toks.forEach((w, k) => { a0 += wts[k]; if (k < toks.length - 1 && /[.,;:!?…]["»”)]?$/.test(w)) brk.push({ k, f: a0 / tot }); });
+  const seg = [{ t0: 0, v0: 0 }]; let bi = 0;
+  gaps.forEach(g => { let best = -1, bd = .25; for (let q = bi; q < brk.length; q++) { const d = Math.abs(brk[q].f - g); if (d < bd) { bd = d; best = q; } } if (best >= 0) { seg.push({ t0: brk[best].k + 1, v0: g * V }); bi = best + 1; } });
+  seg.forEach((x, q) => { x.t1 = q + 1 < seg.length ? seg[q + 1].t0 : toks.length; x.v1 = q + 1 < seg.length ? seg[q + 1].v0 : V; });
+  const out = [];
+  seg.forEach(x => { const ws = wts.slice(x.t0, x.t1), tt = ws.reduce((m, y) => m + y, 0) || 1; let acc = 0; for (let k = x.t0; k < x.t1; k++) { const a = x.v0 + acc / tt * (x.v1 - x.v0); acc += wts[k]; const b = x.v0 + acc / tt * (x.v1 - x.v0); const s0 = startAt(a); out.push({ raw: toks[k].replace(/[*_«»]/g, ''), s: s0, e: Math.max(s0 + .05, endAt(b)) }); } });
+  return out;
+}
 function colabAudio(i, clean){
   const f = COLAB.sc[i], fs = COLAB.fs, dur = f.length / fs, toks = clean.split(' ').filter(x => /[\p{L}\p{N}]/u.test(x));
-  const wts = toks.map(w => Math.max(2, w.replace(/[^\p{L}\p{N}]/gu, '').length) + (/[.!?…]["»”)]?$/.test(w) ? 5 : /[,;:]$/.test(w) ? 2.5 : 0)), tot = wts.reduce((a, b) => a + b, 0) || 1; let acc = 0;
-  const words = toks.map((w, k) => { const s0 = acc / tot * dur; acc += wts[k]; return { raw: w.replace(/[*_«»]/g, ''), s: s0, e: acc / tot * dur }; });
-  return { samples: f, fs, dur, words };
+  return { samples: f, fs, dur, words: alignWordsByEnergy(f, fs, toks) };
 }
 /* --- preparar proyecto (voz, tiempos, subtítulos) --- */
 async function prepare(script, S, progress){
