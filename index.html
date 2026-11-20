@@ -78,6 +78,7 @@ body.simple.admin #ajustes,body.simple.admin #ia,body.simple.admin #slotsCfg{dis
 <header>
   <div><h1>Piso 3ºB</h1><small>Capítulo diario</small></div>
   <span class="pill" id="counter">Hoy 0/3</span>
+  <span class="pill" id="capPill" role="button" tabindex="0" style="cursor:pointer" title="Número del último capítulo hecho. Toca para cambiarlo.">Cap. 1</span>
 </header>
 
 <section id="stageWrap" aria-label="Pantalla de vista previa">
@@ -2089,6 +2090,9 @@ const slots = (store.get('slots', null) || [{},{},{}]).map(s => ({ topic: s.topi
 const doneMap = store.get('done', {});
 let aborter = null, current = null, running = false;
 const persist = () => store.set('slots', slots.map(s => ({ topic: s.topic, own: s.own, script: s.script })));
+/* Corrección única de la numeración: el capítulo de hoy pasa a ser el 2 (sin borrar nada) y el siguiente será el 3. */
+if (!store.get('capFix2', false)) { try { store.set('capN', 2); const s0 = slots[0] && slots[0].script; if (s0 && s0.cap > 2) { s0.cap = 2; persist(); } store.set('capFix2', true); } catch (e) {} }
+document.addEventListener('click', ev => { const t = ev.target.closest && ev.target.closest('#capPill'); if (!t) return; const v = prompt('Último capítulo hecho (el siguiente será el número +1):', String(store.get('capN', 1))), n = parseInt(v, 10); if (v != null && n >= 0 && n < 10000) { store.set('capN', n); const s0 = slots[0] && slots[0].script; if (s0 && s0.cap && confirm('¿Cambiar también el número del capítulo de hoy a ' + n + '?')) { s0.cap = n; persist(); } refreshUI(); } });
 const DAILY = 1; /* vídeos al día: 1 (capítulo de Piso 3ºB a las 21:00) */
 const doneToday = () => (doneMap[dayKey()] || [false,false,false]);
 const setDone = (i) => { const d = doneToday().slice(); d[i] = true; doneMap[dayKey()] = d; store.set('done', doneMap); };
@@ -3112,7 +3116,7 @@ function renderSlot(i){
 }
 function paintStatus(i){ const p = document.querySelector(`[data-st="${i}"]`); if (p) p.textContent = slots[i].busy; const b = document.querySelector(`[data-bar="${i}"]`); if (b) b.style.width = slots[i].pct + '%'; if (i === 0) { const q = document.getElementById('simStatus'); if (q) q.textContent = slots[0].busy; const pc = document.getElementById('simPct'); if (pc) pc.textContent = slots[0].pct + ' %'; } }
 function refreshUI(){
-  const d = doneToday().slice(0, DAILY).filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/${DAILY}`; $('#counter').classList.toggle('ok', d >= DAILY);
+  const d = doneToday().slice(0, DAILY).filter(Boolean).length; $('#counter').textContent = `Hoy ${d}/${DAILY}`; $('#counter').classList.toggle('ok', d >= DAILY); try { $('#capPill').textContent = 'Cap. ' + store.get('capN', 1); } catch (e) {}
   [0,1,2].forEach(renderSlot); renderSimple(); $('#allBtn').disabled = running; $('#stopBtn').hidden = !running && !current;
 }
 function toMarkdownScript(s){ return s.escenas.map(e => e.texto.replace(/\*/g,'')).join('\n'); }
