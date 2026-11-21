@@ -2548,12 +2548,12 @@ const PISO_EJEMPLOS = [{"guion": {"trampa": "Lucía se ha cortado un flequillo e
 function pisoEjemplo(ej){ const {escenas, ...head} = ej; const h = JSON.stringify(head); return h.slice(0, -1) + ',"escenas":[\n' + escenas.map(e => JSON.stringify(e)).join(',\n') + '\n]}'; }
 function pisoDiarioPrompt(){ return pisoV2(''); }
 function pisoV2(topic){
-  const banco = PISO_TOPICS.map(t => '- ' + t.replace(/^PISO 3ºB:\s*/, '')).join('\n');
+  const banco = PISO_TOPICS.slice().sort(() => Math.random() - 0.5).slice(0, 14).map(t => '- ' + t.replace(/^PISO 3ºB:\s*/, '')).join('\n');
   const objs = Object.keys(OBJ_REG).join(', ');
   const hoy = topic
     ? `TEMA DE HOY (obligatorio): «${topic.replace(/^PISO 3ºB:\s*/, '')}». No pongas número de capítulo en ningún campo: la app lo añade sola.`
     : `1. No numeres el capítulo (ni en título ni en descripción): la app lo numera sola. Mira los capítulos que ya has entregado en ESTA conversación para no repetir incidente.
-2. Elige UN incidente cotidiano de piso que no se parezca a ninguno anterior (ni en objeto, ni en estancia, ni en giro). Puedes usar una idea del banco o inventar otra con la misma forma (premisa → escalada → remate):
+2. Elige UN incidente cotidiano de piso que no se parezca a ninguno anterior (ni en objeto, ni en estancia, ni en giro). Puedes usar una de estas ideas o inventar otra con la misma forma (premisa → escalada → remate):
 ${banco}
 3. Alterna quién provoca el problema: la novia (la que más, 1 de cada 2), Dani, Marta, el portero, la vecina, la madre, un objeto o el propio narrador.`;
   return `ROL: eres el guionista de «Piso 3ºB», comedia vertical de 60 a 90 segundos (TikTok, Shorts) en español de España. Cada día escribes UN capítulo nuevo como JSON; mi aplicación dibuja los decorados y personajes y pone las voces. Tú NO escribes código ni describes imágenes: solo rellenas el JSON.
@@ -2613,7 +2613,7 @@ Una buena trampa tiene SIEMPRE estas tres piezas: (1) una pregunta o situación 
 NO funcionan: trampas que dependen de reglas inventadas y enrevesadas (reservas, turnos, mesas con dos extremos, «dos promesas» que en realidad no obligan a nada), averías o aparatos que aparecen a mitad, un malentendido que el narrador podría aclarar con una frase, y giros que necesitan explicación. Si no puedes contar la trampa en una frase a un amigo y que se ría, no sirve: cámbiala.
 
 ════ 2C2. NO CALQUES LOS MODELOS ════
-Los cuatro modelos usan estos mecanismos: una captura o chat del pasado con fecha y hora (modelos 1 y 3), el portero que cuenta lo que ha visto (2) y un objeto destrozado por un cariño (4). Hoy está PROHIBIDO repetir el mecanismo, la prueba, el objeto estrella y la frase de la trampa de un modelo (nada de «captura de un mensaje tuyo», «no pasa nada» como prueba, cronómetros ni contadores de minutos). Elige otra fuente de prueba: un testigo que habla, una foto, un vídeo que Marta ha subido, un recibo, una nota pegada en la nevera, un audio de la madre, una cuenta que alguien lleva, un objeto que no estaba, una norma escrita en un papel. En el campo "guion" añade "mecanismo": una frase con la fuente de la prueba y por qué NO se parece a ninguno de los modelos.
+Los dos modelos usan: una captura o chat del pasado con fecha y hora (modelos 1 y 2). Hoy está PROHIBIDO repetir el mecanismo, la prueba, el objeto estrella y la frase de la trampa de un modelo (nada de «captura de un mensaje tuyo», «no pasa nada» como prueba, cronómetros ni contadores de minutos). Elige otra fuente de prueba: un testigo que habla, una foto, un vídeo que Marta ha subido, un recibo, una nota pegada en la nevera, un audio de la madre, una cuenta que alguien lleva, un objeto que no estaba, una norma escrita en un papel. En el campo "guion" añade "mecanismo": una frase con la fuente de la prueba y por qué NO se parece a ninguno de los modelos.
 
 ════ 2C3. MECANISMOS DE PRUEBA YA USADOS (PROHIBIDOS HOY) ════
 Ya se han hecho y NO se repiten: la nota/tarjeta/papel firmado en una reunión o comida (plantas, cena); la story o el vídeo grabado con contador de visualizaciones que sube (tarta, visitas); Dani que monta un negocio con cifras (visitas, cena); el chat con fechas e idéntica foto; el portero como testigo; el objeto roto; el cartel con tu nombre.
@@ -2698,20 +2698,15 @@ Cada escena: {"texto":"…","habla":"…","voz":"…","sfx":"…","plano":{…},
   · "whatsapp": {"nombre":"…","msgs":[{"txt":"…","yo":false}],"escribiendo":true} solo con plano "objeto"; máximo 4 mensajes de 30 caracteres; "yo":true solo para mensajes del narrador y los demás con "yo":false (con varios remitentes empiezan por su nombre: «Marta: …»); con "estilo":"correo" sale una pantalla de correo o recibo (cabecera azul, en "nombre" el remitente). El texto de la escena resume el chat; los chistes van en los mensajes.
 - Cabecera: "guion" (primero, ver apartado 2B), "puntuacion" (al final del objeto, ver apartado 9), "titulo", "descripcion", "hashtags" (pisocompartido, humor, vidareal, companerosdepiso, comedia), "musica":"alegre", "concepto" (la trampa en UNA frase), "protagonista":null.
 
-════ 8. CUATRO CAPÍTULOS MODELO (referencia de CALIDAD, TONO y FORMA; su tema, sus frases, su gancho y su remate ya están usados: NO los copies ni los imites) ════
-OJO: los modelos son más largos (19-23 escenas) y abren con una pregunta; TÚ no: tu capítulo tiene 16-20 escenas y abre en frío (apartado 4). Fíjate en cómo cada uno: planta la trampa en las 2 primeras escenas, apoya cada golpe en una prueba concreta (fecha, hora, cifra, etiqueta), deja que lo absurdo CREZCA (cuatro mil calcetines, una manga quemada), reparte las palabrotas sin ritmo fijo, cierra con un remate que se entiende a la primera y respeta todos los números del apartado 3. Los cuatro cumplen: 20 escenas, 139-149 palabras, 10 sonidos, 4-5 primeros planos, 4 palabrotas, 3 frases educadas, una sola estancia. Fíjate también en que el "guion" va primero y las escenas lo siguen golpe a golpe, y en el campo "conteo" de la "puntuacion": son recuentos REALES.
+════ 8. DOS CAPÍTULOS MODELO (referencia de CALIDAD, TONO y FORMA; su tema, sus frases, su gancho y su remate ya están usados: NO los copies ni los imites) ════
+OJO: los modelos son más largos (19-23 escenas) y abren con una pregunta; TÚ no: tu capítulo tiene 16-20 escenas y abre en frío (apartado 4). Fíjate en cómo cada uno: planta la trampa en las 2 primeras escenas, apoya cada golpe en una prueba concreta (fecha, hora, cifra, etiqueta), deja que lo absurdo CREZCA (cuatro mil calcetines, una manga quemada), reparte las palabrotas sin ritmo fijo, cierra con un remate que se entiende a la primera y respeta todos los números del apartado 3. Los dos cumplen: 20 escenas, 139-149 palabras, 10 sonidos, 4-5 primeros planos, 4 palabrotas, 3 frases educadas, una sola estancia. Fíjate también en que el "guion" va primero y las escenas lo siguen golpe a golpe, y en el campo "conteo" de la "puntuacion": son recuentos REALES.
 
 MODELO 1 (novia + Marta):
 ${pisoEjemplo(PISO_EJEMPLOS[0])}
 
-MODELO 2 (portero + novia + vecina):
-${pisoEjemplo(PISO_EJEMPLOS[1])}
-
-MODELO 3 (Dani + vecina):
+MODELO 2 (Dani + vecina):
 ${pisoEjemplo(PISO_EJEMPLOS[2])}
 
-MODELO 4 (madre + Dani):
-${pisoEjemplo(PISO_EJEMPLOS[3])}
 
 ════ 8B. LA PREGUNTA DE ARRIBA SE RESPONDE ════
 Si la escena 1 es una pregunta o una elección («¿mi madre viene o vas tú?», «¿te queda bien?»), el protagonista RESPONDE en voz alta antes de la escena 8 y esa respuesta concreta es la que se vuelve en su contra (no vale «cualquiera me parece bien» si nadie la usa después). El negocio, la prueba o el testigo salen de ESA respuesta, no de otra historia pegada. Antes de entregar, comprueba con el dedo: pregunta (escena 1) → respuesta (escena ≤ 4) → consecuencia que usa esa respuesta → remate. Cualquier cosa que el protagonista «hizo antes» (mandar unas fotos, firmar, prometer) se ve o se dice en las escenas 1-8: lo que aparece por primera vez en la escena 9 o después no cuenta como sembrado.
@@ -3353,7 +3348,7 @@ let simpleText = '', simpleNote = '', simpleSheetUrl = '', simpleSheetBlob = nul
 const simpleOn = () => document.body.classList.contains('simple');
 /* Revisión automática del capítulo pegado: cuenta de verdad (los modelos cuentan mal) y avisa de lo que incumple las reglas del prompt. */
 const VAL_ASP = ['Hilo claro', 'Lógica y prueba', 'Gancho', 'Humor', 'Remate', 'Palabrotas', 'Personajes y muletillas', 'Voz y habla', 'Objetos', 'Números', 'Estancia', 'Originalidad'];
-const VAL_ASP_JUICIO = { 'Humor': 'lo juzga quien lo lee: ¿te ríes cada 5-8 s por lo que le pasa y por sus tacos?', 'Remate': 'lo juzga quien lo lee: ¿el último golpe sale de la causa sembrada y deja al narrador sin salida?', 'Originalidad': 'lo juzga quien lo lee: ¿la prueba y el objeto estrella NO se parecen a los cuatro modelos?' };
+const VAL_ASP_JUICIO = { 'Humor': 'lo juzga quien lo lee: ¿te ríes cada 5-8 s por lo que le pasa y por sus tacos?', 'Remate': 'lo juzga quien lo lee: ¿el último golpe sale de la causa sembrada y deja al narrador sin salida?', 'Originalidad': 'lo juzga quien lo lee: ¿la prueba y el objeto estrella NO se parecen a los dos modelos?' };
 function validarCapitulo(raw){
   const es = Array.isArray(raw && raw.escenas) ? raw.escenas : [], out = [];
   if (!es.length) return out;
