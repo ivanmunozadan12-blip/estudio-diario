@@ -2560,7 +2560,7 @@ ${banco}
 
 ════ 1. QUÉ CAPÍTULO ════
 ${hoy}
-Título «Piso 3ºB: …». La descripción empieza por «Capítulo N.».
+Título «Piso 3ºB: …». La descripción NO lleva número de capítulo (la app lo añade sola): empieza directamente por la frase que engancha.
 
 ════ 2. LA FÓRMULA: LA TRAMPA SIN SALIDA ════
 Todo capítulo es UNA trampa cotidiana en la que el narrador pierde conteste lo que conteste. Se explica en una sola frase («Lucía quiere elegir cuál de dos audios mandar a su madre y en los dos se te oye hablar mal de sus croquetas»).
@@ -3128,8 +3128,8 @@ function refreshUI(){
 function toMarkdownScript(s){ return s.escenas.map(e => e.texto.replace(/\*/g,'')).join('\n'); }
 function capNum(s){ return (s && s.cap) || (store.get('capN', 1) + 1); }
 function captions(s, k){
-  const tags = s.hashtags.map(h => '#' + h), n = capNum(s), titulo = String(s.titulo || '').replace(/\s*[·\-–:]?\s*cap[ií]tulo\s*\d+\.?\s*$/i, '').trim(),
-    desc = String(s.descripcion || '').replace(/^\s*cap[ií]tulo\s*\d+\.?\s*/i, ''), conCap = `Capítulo ${n}. ${desc}`.trim();
+  const tags = s.hashtags.map(h => '#' + h), n = capNum(s), titulo = String(s.titulo || '').replace(/\s*[·\-–:]?\s*cap[ií]tulo\s*(?:\d+|n|x)\.?\s*$/i, '').trim(),
+    desc = String(s.descripcion || '').replace(/^\s*cap[ií]tulo\s*(?:\d+|n|x)\b\.?\s*/i, ''), conCap = `Capítulo ${n}. ${desc}`.trim();
   if (k === 'guion') return toMarkdownScript(s);
   if (k === 'yt') return `${titulo.slice(0, 90)} #Shorts\n\n${conCap}\n\n${tags.concat(['#Shorts']).join(' ')}`;
   if (k === 'tt') return `${titulo.slice(0, 100)}. Capítulo ${n} ${tags.slice(0, 4).join(' ')} #fyp`;
